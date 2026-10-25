@@ -29,14 +29,17 @@ class LoadResult:
     total_rows: int
 
 
-def read_raw_rows(path: str | Path, settings: dict) -> tuple[list[dict], list[dict]]:
+def read_raw_rows(path: str | Path, settings: dict,
+                  require_categories: bool = True) -> tuple[list[dict], list[dict]]:
     """Lit le CSV ligne à ligne en conservant le numéro de ligne du fichier.
 
     Renvoie (lignes valides structurellement, lignes mal formées). Une ligne est mal formée
     si son nombre de champs diffère de celui de l'en-tête (par exemple un ';' non protégé).
+    Avec require_categories=False (nouveaux ETF à prédire), la colonne Category est facultative.
     """
     csv_cfg = settings["csv"]
-    expected = list(csv_cfg["columns"].values())
+    expected = [column for key, column in csv_cfg["columns"].items()
+                if require_categories or key != "category"]
     rows: list[dict] = []
     bad_lines: list[dict] = []
     with Path(path).open(encoding=csv_cfg["encoding"], newline="") as handle:
@@ -64,16 +67,17 @@ def read_raw_rows(path: str | Path, settings: dict) -> tuple[list[dict], list[di
     return rows, bad_lines
 
 
-def load_dataset(path: str | Path, settings: dict | None = None) -> LoadResult:
+def load_dataset(path: str | Path, settings: dict | None = None, require_categories: bool = True) -> LoadResult:
     """Charge, contrôle et normalise le CSV d'ETF.
 
     Colonnes du jeu exploitable : row_id, line, name, description, composition_raw,
     composition (tickers normalisés), categories, coverage, n_holdings.
     Les lignes exclues et les avertissements sont dans LoadResult.log.
+    require_categories=False sert à charger de nouveaux ETF à prédire : catégorie facultative.
     """
     settings = settings or load_settings()
-    rows, bad_lines = read_raw_rows(path, settings)
-    data, log = validate_rows(rows, bad_lines, settings)
+    rows, bad_lines = read_raw_rows(path, settings, require_categories)
+    data, log = validate_rows(rows, bad_lines, settings, require_categories)
     aliases = load_aliases(settings)
     data = normalize_dataset(data, aliases, settings["normalize"]["strip_exchange_suffix"])
     return LoadResult(data=data, log=log, total_rows=len(rows) + len(bad_lines))

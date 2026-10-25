@@ -15,7 +15,7 @@ chacune mesurée par rapport à une référence simple.
 | `data` | Chargement, contrôle qualité, normalisation, quasi-doublons, découpage | ✅ Fait |
 | `costs` | Estimation et suivi des coûts Azure OpenAI (USD) | ✅ Fait |
 | `features` | Vectorisation du texte, de la composition et embeddings Azure | ✅ Fait |
-| `model` | Classifieur multi-étiquettes et évaluation | — |
+| `model` | Classifieur multi-étiquettes, évaluation, versionnement | ✅ Fait |
 | `similarity` | ETF les plus proches | — |
 | `feedback` | Enregistrement des validations dans le CSV | — |
 | `app` | Interface Streamlit | — |
@@ -104,10 +104,25 @@ Le comptage des tokens utilise `tiktoken`, qui télécharge ses tables au premie
 le bloque, l'estimation passe en mode approximatif (signalé) ; le coût réel renvoyé par Azure fait
 toujours foi. Pour un poste hors ligne, pré-télécharger les tables et définir `TIKTOKEN_CACHE_DIR`.
 
+## Entraîner et utiliser le modèle
+
+```bash
+python -m etf_classifier.model.train --csv data/raw/etfs.csv --no-azure          # référence sans Azure
+python -m etf_classifier.model.train --csv data/raw/etfs.csv --yes --promote     # avec embeddings, promu
+python -m etf_classifier.model.compare --csv data/raw/etfs.csv --experiments local,local+embeddings
+python -m etf_classifier.model.predict --csv nouveaux_etfs.csv                   # CSV sans colonne Category
+```
+
+- Le réglage (régularisation et seuil par catégorie) se fait sur une validation interne ; le jeu de test ne sert qu'à l'évaluation finale.
+- Chaque modèle est comparé à une référence triviale (catégories les plus fréquentes). Métrique principale : F1 macro.
+- Chaque modèle est sauvegardé dans `artifacts/models/<version>/` avec son pipeline de variables, ses métriques et une fiche (`MODEL_CARD.md`) ; `registry.json` indique le modèle courant. Le premier modèle devient courant, les suivants avec `--promote`.
+- Rapports dans `reports/` : `model_<version>.md` (métriques, détail par catégorie, variables les plus influentes), `model_comparison.md`.
+- `predict` écrit pour chaque ETF les catégories retenues (au moins 1, au plus 5), les scores et un indicateur « incertain ».
+
 ## Tests
 
 ```bash
-pytest -v                 # suite complète (≈ 20 s, aucun appel réseau)
+pytest -v                 # suite complète (≈ 30 s, aucun appel réseau)
 pytest -m "not slow"      # sans le test de performance
 ```
 
@@ -126,6 +141,7 @@ reports/                 rapports générés (non versionnés)
 src/etf_classifier/data/      module data
 src/etf_classifier/costs/     module costs
 src/etf_classifier/features/  module features
+src/etf_classifier/model/     module model
 logs/ cache/ artifacts/       journaux, cache et pipelines (non versionnés)
 tests/data/              tests et CSV fictif
 tasks/                   plan et tâches

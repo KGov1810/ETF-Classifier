@@ -13,7 +13,7 @@ from typing import Callable
 
 from etf_classifier.config import load_settings
 from etf_classifier.data.loader import prepare_dataset
-from etf_classifier.features.embeddings import EmbeddingsBlock, create_embedder
+from etf_classifier.features.embeddings import EmbeddingPlan, EmbeddingsBlock, create_embedder
 from etf_classifier.features.pipeline import FeaturePipeline
 
 EXIT_OK, EXIT_CANCELLED = 0, 1
@@ -22,6 +22,30 @@ EXIT_OK, EXIT_CANCELLED = 0, 1
 def _density(matrix) -> float:
     cells = matrix.shape[0] * matrix.shape[1]
     return matrix.nnz / cells if cells else 0.0
+
+
+def announce_embedding_plan(settings: dict, data, embedder) -> tuple[EmbeddingPlan, str]:
+    """Affiche ce que coûterait le calcul des embeddings (cache déduit), sans appeler Azure."""
+    texts = EmbeddingsBlock(None, embedder.dimensions,
+                            settings["features"]["embeddings"]["include_top_tickers"]).texts(data)
+    plan = embedder.plan(texts)
+    cost = f"{plan.estimate.cost_usd:.4f} $" if plan.estimate else "inconnu (déploiement absent de la grille)"
+    approx = " (approximatif)" if plan.estimate and plan.estimate.approximate else ""
+    tokens = plan.estimate.input_tokens if plan.estimate else "?"
+    print(f"Embeddings : {plan.n_to_compute} texte(s) à calculer, {plan.n_cached} déjà en cache · "
+          f"{tokens} tokens · coût estimé {cost}{approx}")
+    return plan, cost
+
+
+def confirm_spending(plan: EmbeddingPlan, cost: str, assume_yes: bool, input_fn: Callable[[str], str]) -> bool:
+    """Demande confirmation avant une dépense Azure (sauf si rien à calculer ou assume_yes)."""
+    if not plan.n_to_compute or assume_yes:
+        return True
+    answer = input_fn(f"Confirmer la dépense estimée de {cost} ? [o/N] ").strip().lower()
+    if answer in {"o", "oui", "y", "yes"}:
+        return True
+    print("Annulé : aucun appel Azure effectué.")
+    return False
 
 
 def main(argv: list[str] | None = None, client=None, input_fn: Callable[[str], str] = input) -> int:
@@ -44,21 +68,11 @@ def main(argv: list[str] | None = None, client=None, input_fn: Callable[[str], s
     if embedder is None:
         print("Embeddings : bloc inactif (Azure non configuré ou désactivé).")
     else:
-        texts = EmbeddingsBlock(None, embedder.dimensions,
-                                settings["features"]["embeddings"]["include_top_tickers"]).texts(prepared.data)
-        plan = embedder.plan(texts)
-        cost = f"{plan.estimate.cost_usd:.4f} $" if plan.estimate else "inconnu (déploiement absent de la grille)"
-        approx = " (approximatif)" if plan.estimate and plan.estimate.approximate else ""
-        tokens = plan.estimate.input_tokens if plan.estimate else "?"
-        print(f"Embeddings : {plan.n_to_compute} texte(s) à calculer, {plan.n_cached} déjà en cache · "
-              f"{tokens} tokens · coût estimé {cost}{approx}")
+        plan, cost = announce_embedding_plan(settings, prepared.data, embedder)
         if args.estimate_only:
             return EXIT_OK
-        if plan.n_to_compute and not args.yes:
-            answer = input_fn(f"Confirmer la dépense estimée de {cost} ? [o/N] ").strip().lower()
-            if answer not in {"o", "oui", "y", "yes"}:
-                print("Annulé : aucun appel Azure effectué.")
-                return EXIT_CANCELLED
+        if not confirm_spending(plan, cost, args.yes, input_fn):
+            return EXIT_CANCELLED
     if args.estimate_only:
         return EXIT_OK
 

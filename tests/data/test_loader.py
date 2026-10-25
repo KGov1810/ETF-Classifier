@@ -42,3 +42,25 @@ def test_load_dataset_returns_parsed_columns(sample_csv, settings):
     assert first["composition"] == {"AAPL": 5.0, "MSFT": 4.5, "NVDA": 4.0, "AMZN": 3.0, "GOOGL": 2.5}
     assert first["categories"] == ["Actions Monde"]
     assert first["row_id"] == 0
+
+
+def test_csv_without_category_column_loads_when_categories_are_not_required(tmp_path, settings):
+    path = tmp_path / "new.csv"
+    path.write_text("Name;Description;Composition\nNew ETF;Clean energy;\"[{'ENPH': 5.0}]\"\n", encoding="utf-8")
+    result = load_dataset(path, settings, require_categories=False)
+    assert len(result.data) == 1
+    assert result.data.iloc[0]["categories"] == []
+
+
+def test_empty_category_is_kept_when_categories_are_not_required(tmp_path, settings):
+    path = tmp_path / "new.csv"
+    path.write_text("Name;Description;Composition;Category\nNew ETF;Desc;[];\n", encoding="utf-8")
+    result = load_dataset(path, settings, require_categories=False)
+    assert len(result.data) == 1 and not result.log.exclusions()
+
+
+def test_category_column_is_still_required_by_default(tmp_path, settings):
+    path = tmp_path / "new.csv"
+    path.write_text("Name;Description;Composition\nNew ETF;Desc;[]\n", encoding="utf-8")
+    with pytest.raises(MissingColumnsError):
+        load_dataset(path, settings)

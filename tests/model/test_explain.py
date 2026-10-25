@@ -1,0 +1,26 @@
+from etf_classifier.data.split import make_split
+from etf_classifier.model.classifier import tune
+from etf_classifier.model.explain import top_features
+
+
+def test_influential_features_are_the_category_signatures(synthetic_data, model_settings):
+    split = make_split(synthetic_data, test_size=0.2, seed=1)
+    result = tune(split.train, model_settings)
+    names = result.pipeline.transform(split.train.head(1)).feature_names
+    top = top_features(result.model, names, k=10)
+    gold_signature = {"text:gold", "text:bullion", "text:miners", "holding:NEM", "holding:GOLD",
+                      "holding:AEM", "holding:KGC"}
+    found = {name for name, _ in top["Or"]}
+    assert len(found & gold_signature) >= 4
+    assert all(weight > 0 for _, weight in top["Or"])
+
+
+def test_constant_category_has_no_influential_feature():
+    class Constant:  # imite le prédicteur constant de scikit-learn (pas de coefficients)
+        pass
+
+    class FakeModel:
+        classes = ["Toujours"]
+        estimators = [Constant()]
+
+    assert top_features(FakeModel(), ["a"], k=10) == {"Toujours": []}

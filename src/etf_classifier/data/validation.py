@@ -73,11 +73,12 @@ class QualityLog:
                             columns=["row_id", "line", "rule", "severity", "message", "extract"])
 
 
-def _validate_row(row: dict, row_id: int, line: int, settings: dict, log: QualityLog) -> dict | None:
+def _validate_row(row: dict, row_id: int, line: int, settings: dict, log: QualityLog,
+                  require_categories: bool = True) -> dict | None:
     """Contrôle une ligne ; renvoie l'enregistrement exploitable ou None si elle est exclue."""
     cols = settings["csv"]["columns"]
     raw_composition = row[cols["composition"]]
-    raw_categories = row[cols["category"]]
+    raw_categories = row.get(cols["category"], "")
 
     try:
         items = parse_composition_items(raw_composition)
@@ -90,7 +91,7 @@ def _validate_row(row: dict, row_id: int, line: int, settings: dict, log: Qualit
     except ParsingError as exc:
         log.add(row_id, line, "categories_illisibles", EXCLUSION, str(exc), raw_categories)
         return None
-    if not categories:
+    if not categories and require_categories:
         log.add(row_id, line, "aucune_categorie", EXCLUSION, extract=raw_categories)
         return None
 
@@ -130,7 +131,8 @@ def _validate_row(row: dict, row_id: int, line: int, settings: dict, log: Qualit
     }
 
 
-def validate_rows(rows: list[dict], bad_lines: list[dict], settings: dict) -> tuple[pd.DataFrame, QualityLog]:
+def validate_rows(rows: list[dict], bad_lines: list[dict], settings: dict,
+                  require_categories: bool = True) -> tuple[pd.DataFrame, QualityLog]:
     """Applique toutes les règles ; renvoie (jeu exploitable, journal de qualité)."""
     log = QualityLog()
     for bad in bad_lines:
@@ -139,7 +141,7 @@ def validate_rows(rows: list[dict], bad_lines: list[dict], settings: dict) -> tu
     records = []
     for position, row in enumerate(rows):
         row_id = row.get("__record__", position)
-        record = _validate_row(row, row_id, row.get("__line__"), settings, log)
+        record = _validate_row(row, row_id, row.get("__line__"), settings, log, require_categories)
         if record is not None:
             records.append(record)
 

@@ -114,11 +114,19 @@ class FeaturePipeline:
         (path / METADATA_FILE).write_text(json.dumps(self.metadata, ensure_ascii=False, indent=2), encoding="utf-8")
         return path
 
+    @property
+    def uses_embeddings(self) -> bool:
+        return any(isinstance(block, EmbeddingsBlock) for block in self.blocks)
+
+    def attach_embedder(self, embedder) -> None:
+        """Rebranche le calculateur d'embeddings après un rechargement (il n'est jamais sauvegardé)."""
+        for block in self.blocks:
+            if isinstance(block, EmbeddingsBlock):
+                block.embedder = embedder
+
     @classmethod
     def load(cls, path: str | Path, embedder=None) -> "FeaturePipeline":
         """Recharge un pipeline ; fournir un embedder s'il contient le bloc embeddings."""
         pipeline: FeaturePipeline = joblib.load(Path(path) / PIPELINE_FILE)
-        for block in pipeline.blocks:
-            if isinstance(block, EmbeddingsBlock):
-                block.embedder = embedder
+        pipeline.attach_embedder(embedder)
         return pipeline

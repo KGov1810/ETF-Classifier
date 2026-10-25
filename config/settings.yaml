@@ -57,3 +57,21 @@ features:
     include_top_tickers: false # expérimentation : ajouter les 10 premiers tickers au texte
     cache_path: "cache/embeddings.sqlite"
   artifacts_dir: "artifacts/features"
+
+model:
+  c_grid: [0.1, 1.0, 10.0]     # force de régularisation testée (petite valeur = plus de régularisation)
+  validation_size: 0.20        # part de l'entraînement mise de côté pour le réglage
+  min_positives_for_threshold: 3   # en dessous (en validation), seuil par défaut
+  default_threshold: 0.5
+  uncertain_threshold: 0.5     # meilleur score en dessous : ETF signalé « incertain »
+  max_categories: 5            # catégories proposées au maximum par ETF
+  seed: 42
+  max_iter: 2000
+  artifacts_dir: "artifacts/models"
+  reports_dir: "reports"
+  experiments:                 # blocs actifs de chaque expérience comparable
+    local: {text_tfidf: true, holdings: true, composition_stats: true, embeddings: false}
+    local+embeddings: {text_tfidf: true, holdings: true, composition_stats: true, embeddings: true}
+    text_only: {text_tfidf: true, holdings: false, composition_stats: false, embeddings: false}
+    holdings_only: {text_tfidf: false, holdings: true, composition_stats: true, embeddings: false}
+    embeddings_only: {text_tfidf: false, holdings: false, composition_stats: false, embeddings: true}
