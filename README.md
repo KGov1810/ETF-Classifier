@@ -18,7 +18,7 @@ measured against a simple baseline.
 | `model` | Multi-label classifier, evaluation, versioning | ✅ Done |
 | `similarity` | Closest ETFs, near-duplicate alert, neighbour vote | ✅ Done |
 | `feedback` | Validation journal, category registry, import and monitoring | ✅ Done |
-| `app` | Streamlit interface | — |
+| `app` | Streamlit interface | ✅ Done |
 | `llm-justify` | LLM justification (Azure OpenAI) | — |
 | `retraining` | Daily retraining | — |
 
@@ -147,6 +147,28 @@ python -m etf_classifier.feedback.report                       # acceptance rate
 - **Keep `data/` on a local disk of the server**: a file lock is not reliable on a network drive.
 - Do not open the journal in Excel during validations (Windows then locks the file).
 
+## Using the interface
+
+```bash
+streamlit run src/etf_classifier/app/Home.py      # opens http://localhost:8501
+```
+
+Start it from the project root (the theme lives in `.streamlit/config.toml`). A current model is needed
+(`model.train`). Choose your name in the sidebar: the list of validators is `app.validators` in
+`config/settings.yaml` (placeholder names to replace with the team's).
+
+- **Single ETF**: enter the name, the description and the composition (editable table; two columns can be
+  pasted from Excel), then *Propose categories*. You see the proposed categories (pre-ticked), the scores,
+  the closest ETFs and any near-duplicate alert; adjust the categories and *Validate*.
+- **Batch**: upload a CSV `Name;Description;Composition` (UTF-8, `;`). Refused rows are listed with their
+  reason; the others are validated one by one (*Next ETF*, *Skip*), uncertain ones first if you wish.
+- **History**: recent validations, filters, and cancellation of a mistake (with a mandatory comment).
+- **Monitoring**: acceptance rates and bias alerts, current model, Azure costs.
+
+If the model uses Azure embeddings, the estimated cost is shown and must be confirmed before any call.
+After the daily retraining, the new current model is picked up automatically (or use *Reload the model*).
+v1 runs locally; sharing it on the team's network will be documented later.
+
 ## Tests
 
 ```bash
@@ -173,6 +195,7 @@ src/etf_classifier/features/  features module
 src/etf_classifier/model/     model module
 src/etf_classifier/similarity/ similarity module
 src/etf_classifier/feedback/  feedback module
+src/etf_classifier/app/       Streamlit interface
 logs/ cache/ artifacts/       logs, cache and pipelines (not committed)
 tests/                        tests and fictitious CSV
 tasks/                        plans and tasks

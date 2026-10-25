@@ -42,10 +42,10 @@ as today; the 92 `data` tests and the whole suite (291 tests) must stay green.
 - [x] A typed ETF and the same ETF read from a CSV give the same proposal
 
 ### Phase B: pages
-- [ ] P4: home page, sidebar and "Single ETF" screen
-- [ ] P5: "Batch" screen (CSV upload and queue)
-- [ ] P6: "History" screen (filters and cancellation)
-- [ ] P7: "Monitoring" screen and README
+- [x] P4: home page, sidebar and "Single ETF" screen
+- [x] P5: "Batch" screen (CSV upload and queue)
+- [x] P6: "History" screen (filters and cancellation)
+- [x] P7: "Monitoring" screen and README
 
 ### Final checkpoint
 - [ ] The 5 success criteria of `SPEC-app.md`
@@ -64,13 +64,21 @@ as today; the 92 `data` tests and the whole suite (291 tests) must stay green.
 
 ## Status (2026-10-25)
 
-Phase A (P1 to P3) coded and tested: 323 green tests across the project (32 for the app services).
+Phases A and B (P1 to P7) coded and tested: 345 green tests across the project (54 for the app:
+services with pytest, pages with `AppTest`). The four screens were also checked in a real browser (headless Chromium).
+Remaining: your manual run on `localhost:8501`, in particular pasting two columns from Excel into the
+composition table (cannot be checked reliably in a headless browser).
 
 Adjustments made during phase A:
 - `features.build.plan_embeddings()` extracted from `announce_embedding_plan()` (cost without printing, reused by the app);
 - `FeedbackStore.record_validation(..., category_descriptions=...)` to store the description of a created category,
   and `FeedbackStore.known_categories()`;
 - weights pasted as text in the editable table ("4.5", "4,5") are converted to numbers; the CSV rules stay unchanged.
+
+Additions during phase B:
+- `.streamlit/config.toml`: light theme (bottle-green actions) and "Deploy" button hidden; `.streamlit/secrets.toml` ignored by git;
+- `ETF_CLASSIFIER_CONFIG` environment variable: optional path to another settings file (used by the page tests);
+- the composition table starts with 5 empty rows, so that a cell can be selected and a block pasted from Excel.
 
 ## Open questions
 

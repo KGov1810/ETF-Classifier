@@ -74,9 +74,9 @@ modules, no network call in the tests, no commit without your approval.
 **Description:** `Home.py` (model status, validator choice, "Reload the model"); `components.py` (composition editor with live weight total, result panel, validation form); `pages/1_Single_ETF.py` wiring the flow input → cost confirmation if needed → proposal → validation.
 
 **Acceptance criteria:**
-- [ ] Every page renders without error, with and without a current model (`AppTest`)
-- [ ] From the "Single ETF" screen, proposing then validating writes exactly one journal line
-- [ ] No validation possible without a validator; the "Validate" button is disabled once the ETF is validated
+- [x] Every page renders without error, with and without a current model (`AppTest`)
+- [x] From the "Single ETF" screen, proposing then validating writes exactly one journal line
+- [x] No validation possible without a validator; the "Validate" button is disabled once the ETF is validated
 
 **Verification:** `pytest tests/app -v`; manual run `streamlit run src/etf_classifier/app/Home.py`
 
@@ -93,9 +93,9 @@ modules, no network call in the tests, no commit without your approval.
 **Description:** `pages/2_Batch.py`: CSV upload, excluded rows with their reason, cost confirmation, proposals for the batch, queue (validate / skip / progress, "uncertain first" filter, composition correctable before validating).
 
 **Acceptance criteria:**
-- [ ] A batch of the fixture produces a queue with the right count and the number of uncertain ETFs
-- [ ] Validating then moving on writes one line per validated ETF; "Skip" writes nothing
-- [ ] Excluded rows are listed with their reason; an ETF already validated is refused with the existing record
+- [x] A batch of the fixture produces a queue with the right count and the number of uncertain ETFs
+- [x] Validating then moving on writes one line per validated ETF; "Skip" writes nothing
+- [x] Excluded rows are listed with their reason; an ETF already validated is refused with the existing record
 
 **Verification:** `pytest tests/app -v`; manual run with `tests/data/fixtures/sample.csv` without the Category column
 
@@ -112,9 +112,9 @@ modules, no network call in the tests, no commit without your approval.
 **Description:** `pages/3_History.py`: latest validations (7 days by default), filters (validator, decision, name), cancellation with confirmation and mandatory comment.
 
 **Acceptance criteria:**
-- [ ] The table shows the journal's validations with the filters applied
-- [ ] Cancelling with a comment adds a `cancellation` line; the validation is then shown as cancelled
-- [ ] Empty journal: clear message
+- [x] The table shows the journal's validations with the filters applied
+- [x] Cancelling with a comment adds a `cancellation` line; the validation is then shown as cancelled
+- [x] Empty journal: clear message
 
 **Verification:** `pytest tests/app -v`
 
@@ -131,9 +131,9 @@ modules, no network call in the tests, no commit without your approval.
 **Description:** `pages/4_Monitoring.py`: feedback report (acceptance rates, bias alerts, categories added/removed, created categories), Azure costs over a chosen period, current model (version, macro F1 vs trivial baseline, model card); README section "Using the interface".
 
 **Acceptance criteria:**
-- [ ] The figures shown are those of `build_feedback_report` and `build_cost_report` on a fictitious journal
-- [ ] Missing journal or cost log: clear messages, no error
-- [ ] The README explains how to start the app locally and the 4 screens
+- [x] The figures shown are those of `build_feedback_report` and `build_cost_report` on a fictitious journal
+- [x] Missing journal or cost log: clear messages, no error
+- [x] The README explains how to start the app locally and the 4 screens
 
 **Verification:** `pytest tests/app -v`; full suite `pytest -v`
 

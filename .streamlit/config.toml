@@ -1,0 +1,10 @@
+# Interface theme (Streamlit reads this file when started from the project root)
+[theme]
+base = "light"
+primaryColor = "#2E5E4E"            # bottle green: actions (Propose, Validate) and score bars
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#EEF2EF"
+textColor = "#1E2A26"
+
+[client]
+toolbarMode = "minimal"             # hides the "Deploy" button: the app runs locally for the team

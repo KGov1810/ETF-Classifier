@@ -1,3 +1,4 @@
+import pytest
 import pandas as pd
 
 from etf_classifier.app import services
@@ -77,3 +78,37 @@ def test_validators_are_read_from_the_configuration(app_settings):
 def test_weights_pasted_as_text_with_a_comma_are_converted(app_settings):
     checked = services.etf_from_inputs("Pasted", "desc", _table([["AAPL", "4,5"]]), app_settings)
     assert checked.data.loc[0, "composition"] == {"AAPL": 4.5}
+
+
+def _batch_csv(sample_csv) -> bytes:
+    """The fixture without its Category column, as a team member would upload it."""
+    frame = pd.read_csv(sample_csv, sep=";", dtype=str, keep_default_na=False)
+    return frame.drop(columns=["Category"]).to_csv(sep=";", index=False).encode("utf-8")
+
+
+def test_batch_upload_lists_usable_etfs_and_excluded_rows(app_settings, sample_csv):
+    batch = services.load_batch(_batch_csv(sample_csv), app_settings)
+    assert "Gold Miners" in set(batch.data["name"])
+    reasons = {item["name"]: item["reason"] for item in batch.exclusions}
+    assert "Negative weight" in reasons["Negative Weight"]
+    assert "Unreadable composition" in reasons["Broken Composition"]
+    assert "Text Weight" not in set(batch.data["name"])
+
+
+def test_batch_upload_with_missing_columns_gives_a_clear_error(app_settings):
+    with pytest.raises(services.AppError, match="Composition"):
+        services.load_batch(b"Name;Description\nA;B\n", app_settings)
+
+
+def test_batch_upload_accepts_a_category_column(app_settings, sample_csv):
+    batch = services.load_batch(sample_csv.read_bytes(), app_settings)
+    assert "Gold Miners" in set(batch.data["name"])
+
+
+def test_queue_order_puts_uncertain_etfs_first():
+    class P:  # minimal stand-in for a Proposal
+        def __init__(self, uncertain):
+            self.uncertain = uncertain
+    proposals = [P(False), P(True), P(False), P(True)]
+    assert services.queue_order(proposals, uncertain_first=True) == [1, 3, 0, 2]
+    assert services.queue_order(proposals, uncertain_first=False) == [0, 1, 2, 3]

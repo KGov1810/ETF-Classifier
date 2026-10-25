@@ -118,3 +118,24 @@ def test_history_filters(trained_settings):
 
 def test_history_of_an_empty_journal_is_empty(app_settings):
     assert services.history(app_settings).empty
+
+
+def test_monitoring_reports_match_the_cli_reports(trained_settings):
+    from etf_classifier.costs.report import build_cost_report
+    from etf_classifier.costs.pricing import load_pricing
+    from etf_classifier.config import resolve_path
+    from etf_classifier.feedback.report import build_feedback_report
+
+    services.validate(_proposal(trained_settings, "Gold A"), ["Gold"], "Alice Martin", trained_settings)
+    feedback, costs = services.monitoring(trained_settings)
+    assert feedback.stats == build_feedback_report(trained_settings).stats
+    cfg = trained_settings["costs"]
+    expected = build_cost_report(resolve_path(cfg["usage_log_path"]), load_pricing(resolve_path(cfg["pricing_path"])),
+                                 stale_after_days=cfg["stale_after_days"])
+    assert costs.stats == expected.stats
+
+
+def test_monitoring_without_journal_or_cost_log(app_settings):
+    feedback, costs = services.monitoring(app_settings)
+    assert feedback.stats["n_validations"] == 0
+    assert "No Azure call" in costs.markdown

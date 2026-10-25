@@ -266,3 +266,76 @@ def history(settings: dict, since=None, validator: str | None = None, decision: 
         result = result[result["Name"].str.contains(name, case=False, regex=False)]
     result = result.iloc[::-1]  # the journal is in chronological order
     return result[HISTORY_COLUMNS].reset_index(drop=True)
+
+
+# --- Batch ---------------------------------------------------------------------------------------
+
+
+@dataclass
+class BatchLoad:
+    """Usable ETFs of an uploaded CSV, and the rows that were refused (with their reason)."""
+
+    data: pd.DataFrame
+    exclusions: list[dict]
+    warnings: list[dict]
+
+
+def load_batch(content: bytes, settings: dict) -> BatchLoad:
+    """Reads an uploaded CSV of new ETFs (Name;Description;Composition, Category optional)."""
+    import tempfile
+    from pathlib import Path
+
+    from etf_classifier.data.loader import MissingColumnsError, read_raw_rows
+
+    with tempfile.TemporaryDirectory() as folder:
+        path = Path(folder) / "batch.csv"
+        path.write_bytes(content)
+        try:
+            rows, bad_lines = read_raw_rows(path, settings, require_categories=False)
+        except MissingColumnsError as exc:
+            raise AppError(f"{exc}. Expected: Name;Description;Composition (Category optional).") from exc
+        except UnicodeDecodeError as exc:
+            raise AppError("The file is not UTF-8 text: save it as 'CSV UTF-8' and upload it again.") from exc
+    loaded = load_records(rows, settings, require_categories=False, bad_lines=bad_lines)
+    names = {row["__record__"]: row.get(settings["csv"]["columns"]["name"], "") for row in rows}
+
+    def describe(issue) -> dict:
+        return {"line": issue.line, "name": names.get(issue.row_id, ""), "reason": _describe(issue)}
+
+    return BatchLoad(loaded.data.reset_index(drop=True),
+                     [describe(issue) for issue in loaded.log.exclusions()],
+                     [describe(issue) for issue in loaded.log.warnings()])
+
+
+def queue_order(proposals: list, uncertain_first: bool) -> list[int]:
+    """Order in which the queue shows the proposals (positions in the batch)."""
+    positions = list(range(len(proposals)))
+    if uncertain_first:
+        positions.sort(key=lambda i: not proposals[i].uncertain)  # stable: keeps the file order otherwise
+    return positions
+
+
+# --- Monitoring ----------------------------------------------------------------------------------
+
+
+def monitoring(settings: dict, since=None):
+    """(feedback report, Azure cost report) over the period: the same reports as the commands."""
+    from etf_classifier.config import resolve_path
+    from etf_classifier.costs.pricing import load_pricing
+    from etf_classifier.costs.report import build_cost_report
+    from etf_classifier.feedback.report import build_feedback_report
+
+    feedback = _feedback_call(lambda: build_feedback_report(settings, since))
+    cfg = settings["costs"]
+    costs = build_cost_report(resolve_path(cfg["usage_log_path"]), load_pricing(resolve_path(cfg["pricing_path"])),
+                              since=since, stale_after_days=cfg["stale_after_days"])
+    return feedback, costs
+
+
+def without_title(markdown: str) -> str:
+    """Report body for a page: first-level title removed, section titles made smaller."""
+    lines = markdown.splitlines()
+    if lines and lines[0].startswith("# "):
+        lines = lines[1:]
+    lines = ["#### " + line[3:] if line.startswith("## ") else line for line in lines]
+    return "\n".join(lines).strip()

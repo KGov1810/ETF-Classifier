@@ -25,3 +25,6 @@ dist/
 
 # Secrets (Azure keys)
 .env
+
+# Streamlit secrets (never committed)
+.streamlit/secrets.toml
