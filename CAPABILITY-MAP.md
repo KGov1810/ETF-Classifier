@@ -27,7 +27,9 @@ measured steps.
 
 ## Build order
 
-`data` → `costs` → `features` → `model` + `similarity` → `feedback` → `app` (v1, without LLM) → `llm-justify` → `retraining`
+`data` → `costs` → `features` → `model` + `similarity` → `feedback` → `app` (v1, without LLM) → `retraining` → `llm-justify`
+
+(2026-10-25: `retraining` moved before `llm-justify`, at your request.)
 
 ## Decisions
 
