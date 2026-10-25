@@ -43,6 +43,18 @@ def training_fingerprint(data: pd.DataFrame) -> str:
     return hashlib.sha256(content.encode("utf-8")).hexdigest()[:16]
 
 
+def dataset_fingerprint(data: pd.DataFrame) -> str:
+    """Fingerprint of a whole prepared dataset (names, descriptions, compositions, categories), order-independent.
+
+    Used by the daily retraining to detect whether anything changed since the last model.
+    """
+    rows = sorted(
+        f"{n}|{d}|{sorted(c.items())}|{sorted(k)}"
+        for n, d, c, k in zip(data["name"], data["description"], data["composition"], data["categories"])
+    )
+    return hashlib.sha256("\n".join(rows).encode("utf-8")).hexdigest()[:16]
+
+
 class FeaturePipeline:
     def __init__(self, settings: dict, embedder=None):
         self.settings = settings

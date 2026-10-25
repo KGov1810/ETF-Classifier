@@ -7,17 +7,19 @@ Usage:
 
 import argparse
 import copy
+import json
 import logging
 import sys
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Callable
 
 from etf_classifier.config import load_settings, resolve_path
 from etf_classifier.data.loader import PreparedDataset, prepare_dataset
 from etf_classifier.features.build import announce_embedding_plan, confirm_spending
 from etf_classifier.features.embeddings import create_embedder
-from etf_classifier.features.pipeline import training_fingerprint
+from etf_classifier.features.pipeline import dataset_fingerprint, training_fingerprint
 from etf_classifier.model.baseline import FrequencyBaseline
 from etf_classifier.model.classifier import TuningResult, tune
 from etf_classifier.model.evaluate import Metrics, evaluate, render_report
@@ -26,6 +28,7 @@ from etf_classifier.model.registry import current_version, promote, save_bundle
 from etf_classifier.similarity.index import SimilarityIndex
 
 EXIT_OK, EXIT_CANCELLED = 0, 1
+TRAIN_NAMES_FILE = "train_names.json"
 
 
 @dataclass
@@ -77,6 +80,62 @@ def _model_card(version: str, outcome: TrainingOutcome, info: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
+@dataclass
+class TrainedModel:
+    version: str
+    path: Path
+    outcome: TrainingOutcome
+    report_path: Path
+
+
+def train_and_save(prepared: PreparedDataset, settings: dict, embedder=None, promote_model: bool = False,
+                   make_current_if_first: bool = True) -> TrainedModel:
+    """Trains, evaluates once, saves the model folder (model, pipeline, index, training names, card) and the report.
+
+    Shared by the `model.train` command and the daily retraining. The very first model becomes current
+    (unless make_current_if_first=False); later ones only with promote_model=True.
+    """
+    outcome = train_and_evaluate(prepared, settings, embedder)
+    result = outcome.result
+    first_model = current_version(settings) is None
+    fingerprint = dataset_fingerprint(prepared.data)
+    info = {
+        "Training / test ETFs": f"{len(prepared.split.train)} / {len(prepared.split.test)}",
+        "Training set fingerprint": training_fingerprint(prepared.split.train),
+        "Dataset fingerprint": fingerprint,
+        "Feature blocks": ", ".join(result.pipeline.active_blocks),
+        "Selected C (validation)": result.best_c,
+        "Validation macro F1 per C": ", ".join(f"{c} → {s:.3f}" for c, s in result.validation_scores.items()),
+        "Learned categories": len(result.model.classes),
+        "Training time": f"{outcome.seconds:.1f} s",
+        "Azure cost of training": f"${outcome.azure_cost_usd:.4f}",
+    }
+    thresholds = dict(zip(result.model.classes, result.model.thresholds.tolist()))
+    metrics = {**outcome.metrics.to_dict(), "baseline": outcome.baseline.to_dict(), "best_c": result.best_c,
+               "validation_scores": result.validation_scores, "thresholds": thresholds,
+               "blocks": result.pipeline.active_blocks, "unknown_categories": outcome.unknown_categories,
+               "n_train": len(prepared.split.train), "n_test": len(prepared.split.test),
+               "azure_cost_usd": outcome.azure_cost_usd, "dataset_fingerprint": fingerprint}
+    # similarity index over all usable rows, stored with the model (always consistent)
+    similarity = SimilarityIndex.build(prepared.data, result.pipeline, settings)
+    info["Similarity index"] = f"{len(prepared.data)} ETFs, {similarity.size_mb:.1f} MB"
+    path = save_bundle(result.model, result.pipeline, metrics, settings, "", similarity=similarity,
+                       make_current_if_first=make_current_if_first)
+    version = path.name
+    # names of the training ETFs: the retraining compares models on ETFs the current model never saw
+    (path / TRAIN_NAMES_FILE).write_text(json.dumps(sorted(prepared.split.train["name"]), ensure_ascii=False),
+                                         encoding="utf-8")
+    (path / "MODEL_CARD.md").write_text(_model_card(version, outcome, info), encoding="utf-8")
+    report = render_report(version, outcome.metrics, outcome.baseline, outcome.top, thresholds,
+                           outcome.unknown_categories, info)
+    report_path = resolve_path(settings["model"]["reports_dir"]) / f"model_{version}.md"
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.write_text(report, encoding="utf-8")
+    if promote_model and not first_model:
+        promote(version, settings)
+    return TrainedModel(version, path, outcome, report_path)
+
+
 def main(argv: list[str] | None = None, client=None, input_fn: Callable[[str], str] = input) -> int:
     parser = argparse.ArgumentParser(description="Train the multi-label classifier")
     parser.add_argument("--csv", required=True, help="Path to the categorised ETF CSV")
@@ -100,38 +159,9 @@ def main(argv: list[str] | None = None, client=None, input_fn: Callable[[str], s
             if not confirm_spending(plan, cost, args.yes, input_fn):
                 return EXIT_CANCELLED
 
-    outcome = train_and_evaluate(prepared, settings, embedder)
+    trained = train_and_save(prepared, settings, embedder, promote_model=args.promote)
+    outcome, version, report_path = trained.outcome, trained.version, trained.report_path
     result = outcome.result
-    first_model = current_version(settings) is None
-    info = {
-        "Training / test ETFs": f"{len(prepared.split.train)} / {len(prepared.split.test)}",
-        "Training set fingerprint": training_fingerprint(prepared.split.train),
-        "Feature blocks": ", ".join(result.pipeline.active_blocks),
-        "Selected C (validation)": result.best_c,
-        "Validation macro F1 per C": ", ".join(f"{c} → {s:.3f}" for c, s in result.validation_scores.items()),
-        "Learned categories": len(result.model.classes),
-        "Training time": f"{outcome.seconds:.1f} s",
-        "Azure cost of training": f"${outcome.azure_cost_usd:.4f}",
-    }
-    thresholds = dict(zip(result.model.classes, result.model.thresholds.tolist()))
-    metrics = {**outcome.metrics.to_dict(), "baseline": outcome.baseline.to_dict(), "best_c": result.best_c,
-               "validation_scores": result.validation_scores, "thresholds": thresholds,
-               "blocks": result.pipeline.active_blocks, "unknown_categories": outcome.unknown_categories,
-               "n_train": len(prepared.split.train), "n_test": len(prepared.split.test),
-               "azure_cost_usd": outcome.azure_cost_usd}
-    # similarity index over all usable rows, stored with the model (always consistent)
-    similarity = SimilarityIndex.build(prepared.data, result.pipeline, settings)
-    info["Similarity index"] = f"{len(prepared.data)} ETFs, {similarity.size_mb:.1f} MB"
-    path = save_bundle(result.model, result.pipeline, metrics, settings, "", similarity=similarity)
-    version = path.name
-    (path / "MODEL_CARD.md").write_text(_model_card(version, outcome, info), encoding="utf-8")
-    report = render_report(version, outcome.metrics, outcome.baseline, outcome.top, thresholds,
-                           outcome.unknown_categories, info)
-    report_path = resolve_path(settings["model"]["reports_dir"]) / f"model_{version}.md"
-    report_path.parent.mkdir(parents=True, exist_ok=True)
-    report_path.write_text(report, encoding="utf-8")
-    if args.promote and not first_model:
-        promote(version, settings)
 
     m, b = outcome.metrics, outcome.baseline
     print(f"\nModel {version} · blocks: {', '.join(result.pipeline.active_blocks)} · C = {result.best_c}")

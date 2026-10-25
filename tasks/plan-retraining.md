@@ -35,19 +35,19 @@ Reference: `SPEC-retraining.md` (approved on 2026-10-25) · Detailed tasks: `tas
 ## Task list
 
 ### Phase A: foundations
-- [ ] R1: reusable training, saved training names and dataset fingerprint, `retraining` settings
-- [ ] R2: comparison set, scores on common categories, promotion rule
-- [ ] R3: run history and job lock
+- [x] R1: reusable training, saved training names and dataset fingerprint, `retraining` settings
+- [x] R2: comparison set, scores on common categories, promotion rule
+- [x] R3: run history and job lock
 
 ### Checkpoint A
-- [ ] Tests green, `model` command unchanged
-- [ ] Promotion rule checked on hand-built cases
+- [x] Tests green, `model` command unchanged
+- [x] Promotion rule checked on hand-built cases
 
 ### Phase B: the daily job
-- [ ] R4: `retraining.run` (detection, training, comparison, promotion, report, history, exit codes)
+- [x] R4: `retraining.run` (detection, training, comparison, promotion, report, history, exit codes)
 
 ### Checkpoint B
-- [ ] End to end on the fixture: first run promoted, second run skipped, run after a validation compared, `--dry-run` never promotes
+- [x] End to end on the fixture: first run promoted, second run skipped, run after a validation compared, `--dry-run` never promotes
 
 ### Phase C: around the job
 - [ ] R5: Windows scripts and README
@@ -68,6 +68,18 @@ Reference: `SPEC-retraining.md` (approved on 2026-10-25) · Detailed tasks: `tas
 | PowerShell scripts cannot be run in the test environment (no Windows) | Medium | Scripts kept short and standard (`Register-ScheduledTask`), reviewed by reading; you run them once and check the task |
 | Execution policy blocks the scripts on your machine | Low | Commands documented with `-ExecutionPolicy Bypass` for these scripts only |
 | Disk usage grows (every version kept, ~120 MB each with embeddings) | Low | Size shown in the history; deletion stays a manual decision (approved) |
+
+## Status (2026-10-25)
+
+Phases A and B (R1 to R4) coded and tested.
+
+Correction found during the end-to-end run: change detection compared the dataset only with the *current* model.
+After a refused candidate, the job would have retrained (and stored a new version) every day without any change.
+It now also compares with the last trained candidate (fingerprint stored in the history); a dedicated test covers it.
+
+Known limitation: a current model trained before this module has no `train_names.json`, so it is compared on the whole
+test set, which it may partly have seen; candidates can then stay refused. Retraining it once with
+`python -m etf_classifier.model.train --promote` removes the limitation.
 
 ## Open questions
 

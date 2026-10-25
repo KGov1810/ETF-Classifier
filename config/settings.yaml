@@ -101,3 +101,11 @@ app:
     - Chloe Dubois
   n_scores_shown: 10           # category scores shown per ETF
   history_days: 7              # default period of the history screen
+
+retraining:
+  f1_tolerance: 0.01             # candidate macro F1 >= current macro F1 - tolerance
+  category_drop_max: 0.20        # maximum F1 drop allowed for a category ...
+  category_min_support: 5        # ... with at least this many test examples
+  min_comparison_etfs: 20        # below this, no automatic promotion
+  history_path: "artifacts/models/retraining_history.csv"
+  log_path: "logs/retraining.log"

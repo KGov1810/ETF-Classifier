@@ -10,9 +10,9 @@ modules, no network call in the tests, no commit without your approval.
 **Description:** extract `train_and_save(prepared, settings, embedder, promote=False, make_current_if_first=True)` from `model.train.main()`; save `train_names.json` (training ETF names) and `dataset_fingerprint` (whole prepared dataset) with every model; `save_bundle(..., make_current_if_first=True)`; `retraining` section in `settings.yaml`.
 
 **Acceptance criteria:**
-- [ ] The `model` tests pass unchanged; `python -m etf_classifier.model.train` behaves as before
-- [ ] A trained model folder contains `train_names.json` with exactly the training ETF names, and `metrics.json` contains `dataset_fingerprint`
-- [ ] The same data gives the same fingerprint; adding or cancelling a validation changes it
+- [x] The `model` tests pass unchanged; `python -m etf_classifier.model.train` behaves as before
+- [x] A trained model folder contains `train_names.json` with exactly the training ETF names, and `metrics.json` contains `dataset_fingerprint`
+- [x] The same data gives the same fingerprint; adding or cancelling a validation changes it
 
 **Verification:** `pytest tests/model tests/retraining/test_fingerprint.py -v`
 
@@ -29,9 +29,9 @@ modules, no network call in the tests, no commit without your approval.
 **Description:** `compare.py`: `comparison_set(candidate_test, current_bundle)`; `score(bundle, data, categories)` (macro F1 and per-category F1 on the given categories); `decide(current, candidate, baseline, n_etfs, cfg) -> Decision(promote, reasons)`.
 
 **Acceptance criteria:**
-- [ ] ETFs in the current model's training names are excluded; without `train_names.json`, the whole test set is used and flagged
-- [ ] Categories unknown to one of the two models are excluded from the macro F1 and listed as new categories
-- [ ] `decide` covers: within tolerance → promote; macro F1 too low, a category collapsing (named), below the trivial baseline, comparison set too small → refused with the reason
+- [x] ETFs in the current model's training names are excluded; without `train_names.json`, the whole test set is used and flagged
+- [x] Categories unknown to one of the two models are excluded from the macro F1 and listed as new categories
+- [x] `decide` covers: within tolerance → promote; macro F1 too low, a category collapsing (named), below the trivial baseline, comparison set too small → refused with the reason
 
 **Verification:** `pytest tests/retraining/test_compare.py -v`
 
@@ -48,9 +48,9 @@ modules, no network call in the tests, no commit without your approval.
 **Description:** `history.py`: `job_lock(settings)` (context manager, clear error if a run is in progress); `append_run(settings, record)`; `read_history(settings)`.
 
 **Acceptance criteria:**
-- [ ] A second lock attempt while the first is held fails immediately with a clear message
-- [ ] Every appended run reads back identically; the header is written once
-- [ ] Missing history: empty table, no error
+- [x] A second lock attempt while the first is held fails immediately with a clear message
+- [x] Every appended run reads back identically; the header is written once
+- [x] Missing history: empty table, no error
 
 **Verification:** `pytest tests/retraining/test_history.py -v`
 
@@ -63,8 +63,8 @@ modules, no network call in the tests, no commit without your approval.
 ---
 
 ## Checkpoint A
-- [ ] Tests green, `model` command unchanged
-- [ ] Promotion rule checked on hand-built cases
+- [x] Tests green, `model` command unchanged
+- [x] Promotion rule checked on hand-built cases
 
 ---
 
@@ -73,9 +73,9 @@ modules, no network call in the tests, no commit without your approval.
 **Description:** CLI `python -m etf_classifier.retraining.run [--force] [--dry-run] [--config …]`: job lock → change detection → candidate training (embeddings paid without confirmation) → comparison → promotion or not → report `reports/retraining_<version>.md` → history line → exit code (0 normal outcomes, 1 failure).
 
 **Acceptance criteria:**
-- [ ] First run without a current model → promoted; second run without change → `skipped`, nothing trained
-- [ ] After a new validation → candidate trained, compared, promoted or not according to the rule; the report explains the decision
-- [ ] `--dry-run` never promotes (not even a first model); a failure (unreadable CSV) writes a `failed` history line and returns 1
+- [x] First run without a current model → promoted; second run without change → `skipped`, nothing trained
+- [x] After a new validation → candidate trained, compared, promoted or not according to the rule; the report explains the decision
+- [x] `--dry-run` never promotes (not even a first model); a failure (unreadable CSV) writes a `failed` history line and returns 1
 
 **Verification:** `pytest tests/retraining/test_run.py -v`
 
@@ -88,7 +88,7 @@ modules, no network call in the tests, no commit without your approval.
 ---
 
 ## Checkpoint B
-- [ ] End to end on the fixture: promoted, skipped, compared, dry run
+- [x] End to end on the fixture: promoted, skipped, compared, dry run
 - [ ] Review with you of a retraining report
 
 ---

@@ -67,8 +67,9 @@ def current_version(settings: dict) -> str | None:
 
 
 def save_bundle(model, pipeline, metrics: dict, settings: dict, model_card: str,
-                version: str | None = None, similarity=None) -> Path:
-    """Writes model + pipeline + metrics.json + MODEL_CARD.md; the first model becomes current."""
+                version: str | None = None, similarity=None, make_current_if_first: bool = True) -> Path:
+    """Writes model + pipeline + metrics.json + MODEL_CARD.md; the first model becomes current
+    (unless make_current_if_first=False, used by the retraining dry run)."""
     version = version or _new_version(settings)
     path = _root(settings) / version
     path.mkdir(parents=True, exist_ok=False)
@@ -85,7 +86,7 @@ def save_bundle(model, pipeline, metrics: dict, settings: dict, model_card: str,
         "f1_macro": metrics.get("f1_macro"),
         "f1_micro": metrics.get("f1_micro"),
     })
-    if registry["current"] is None:
+    if registry["current"] is None and make_current_if_first:
         registry["current"] = version
     _write_registry(settings, registry)
     return path
