@@ -98,9 +98,9 @@ modules, no network call in the tests, no commit without your approval.
 **Description:** `scripts/run_daily_retraining.ps1` (project folder, `.venv`, job, log), `scripts/register_daily_retraining.ps1 [-Time 10:00]` (task for the current user, only when logged on, start when available, no parallel run), `scripts/unregister_daily_retraining.ps1`; README section "Daily retraining".
 
 **Acceptance criteria:**
-- [ ] The scripts contain no secret and no absolute path specific to this environment
-- [ ] The task is created for the current user, daily at the chosen time, with "start when available" and "do not start a new instance"
-- [ ] The README explains how to register, check and remove the task, and where to read the history
+- [x] The scripts contain no secret and no absolute path specific to this environment
+- [x] The task is created for the current user, daily at the chosen time, with "start when available" and "do not start a new instance"
+- [x] The README explains how to register, check and remove the task, and where to read the history
 
 **Verification:** review of the scripts; `pytest -v` (no regression); your run on Windows at the final checkpoint
 
@@ -117,9 +117,9 @@ modules, no network call in the tests, no commit without your approval.
 **Description:** *Current model* tab of the Monitoring page: last runs (date, outcome, versions, scores, reasons, cost) from the history.
 
 **Acceptance criteria:**
-- [ ] The last runs appear, newest first
-- [ ] No history yet: clear message
-- [ ] The other tabs are unchanged (existing page tests green)
+- [x] The last runs appear, newest first
+- [x] No history yet: clear message
+- [x] The other tabs are unchanged (existing page tests green)
 
 **Verification:** `pytest tests/app -v`
 

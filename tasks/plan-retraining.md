@@ -50,8 +50,8 @@ Reference: `SPEC-retraining.md` (approved on 2026-10-25) · Detailed tasks: `tas
 - [x] End to end on the fixture: first run promoted, second run skipped, run after a validation compared, `--dry-run` never promotes
 
 ### Phase C: around the job
-- [ ] R5: Windows scripts and README
-- [ ] R6: run history in the Monitoring page
+- [x] R5: Windows scripts and README
+- [x] R6: run history in the Monitoring page
 
 ### Final checkpoint
 - [ ] The 5 success criteria of `SPEC-retraining.md`
@@ -71,7 +71,10 @@ Reference: `SPEC-retraining.md` (approved on 2026-10-25) · Detailed tasks: `tas
 
 ## Status (2026-10-25)
 
-Phases A and B (R1 to R4) coded and tested.
+Phases A, B and C (R1 to R6) coded and tested: 376 green tests across the project.
+The PowerShell scripts could not be run here (no Windows): they were reviewed by reading; your first run on Windows
+is the remaining check. Task name uses a plain hyphen ("ETF Classifier - daily retraining") to avoid encoding issues
+in Windows PowerShell 5.1.
 
 Correction found during the end-to-end run: change detection compared the dataset only with the *current* model.
 After a refused candidate, the job would have retrained (and stored a new version) every day without any change.

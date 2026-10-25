@@ -139,3 +139,16 @@ def test_monitoring_without_journal_or_cost_log(app_settings):
     feedback, costs = services.monitoring(app_settings)
     assert feedback.stats["n_validations"] == 0
     assert "No Azure call" in costs.markdown
+
+
+def test_retraining_runs_newest_first(app_settings):
+    from etf_classifier.retraining.history import append_run
+
+    append_run(app_settings, {"started_at": "2026-10-25T10:00:00Z", "outcome": "promoted", "candidate_version": "v1"})
+    append_run(app_settings, {"started_at": "2026-10-26T10:00:00Z", "outcome": "skipped", "reasons": "No change"})
+    runs = services.retraining_runs(app_settings)
+    assert list(runs["outcome"]) == ["skipped", "promoted"]
+
+
+def test_no_retraining_run_yet(app_settings):
+    assert services.retraining_runs(app_settings).empty

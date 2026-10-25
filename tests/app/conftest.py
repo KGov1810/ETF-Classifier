@@ -37,6 +37,8 @@ def app_settings(settings, tmp_path, sample_csv):
     cfg["model"]["artifacts_dir"] = str(tmp_path / "artifacts" / "models")
     cfg["model"]["reports_dir"] = str(tmp_path / "reports")
     cfg["costs"]["usage_log_path"] = str(tmp_path / "logs" / "usage.csv")
+    cfg["retraining"].update({"history_path": str(tmp_path / "artifacts" / "models" / "retraining_history.csv"),
+                              "log_path": str(tmp_path / "logs" / "retraining.log")})
     return cfg
 
 

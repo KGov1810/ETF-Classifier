@@ -229,3 +229,20 @@ def test_monitoring_page_shows_the_acceptance_rate(trained_settings, use_setting
     at = _app("pages/4_Monitoring.py").run()
     assert not at.exception
     assert any(m.value == "100%" for m in at.metric)
+
+
+def test_monitoring_page_shows_the_retraining_runs(trained_settings, use_settings):
+    from etf_classifier.retraining.history import append_run
+
+    use_settings(trained_settings)
+    append_run(trained_settings, {"started_at": "2026-10-25T10:00:00Z", "outcome": "not_promoted",
+                                  "candidate_version": "v9", "reasons": "Comparison macro F1 too low"})
+    at = _app("pages/4_Monitoring.py").run()
+    assert not at.exception
+    assert any("not_promoted" in df.value.to_string() for df in at.dataframe)
+
+
+def test_monitoring_page_without_retraining_runs(trained_settings, use_settings):
+    use_settings(trained_settings)
+    at = _app("pages/4_Monitoring.py").run()
+    assert "No retraining run yet" in _texts(at, "info")

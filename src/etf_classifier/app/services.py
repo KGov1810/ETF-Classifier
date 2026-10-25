@@ -339,3 +339,13 @@ def without_title(markdown: str) -> str:
         lines = lines[1:]
     lines = ["#### " + line[3:] if line.startswith("## ") else line for line in lines]
     return "\n".join(lines).strip()
+
+
+def retraining_runs(settings: dict, limit: int = 10) -> pd.DataFrame:
+    """Last daily retraining runs, newest first."""
+    from etf_classifier.retraining.history import read_history
+
+    history = read_history(settings)
+    columns = ["started_at", "outcome", "current_version", "candidate_version", "current_f1_macro",
+               "candidate_f1_macro", "azure_cost_usd", "reasons"]
+    return history.iloc[::-1].head(limit)[columns].reset_index(drop=True)

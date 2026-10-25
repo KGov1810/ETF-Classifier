@@ -51,6 +51,18 @@ with model_tab:
         cols[0].metric("Version", bundle.version)
         cols[1].metric("Macro F1 (test set)", f"{metrics.get('f1_macro', 0):.3f}")
         cols[2].metric("Trivial baseline", f"{metrics.get('baseline', {}).get('f1_macro', 0):.3f}")
+    st.markdown("#### Daily retraining")
+    runs = services.retraining_runs(settings)
+    if runs.empty:
+        st.info("No retraining run yet. The daily job writes one line per run "
+                "(`python -m etf_classifier.retraining.run`).")
+    else:
+        st.dataframe(runs, hide_index=True, width="stretch",
+                     column_config={"started_at": "Started (UTC)", "outcome": "Outcome",
+                                    "current_version": "Current", "candidate_version": "Candidate",
+                                    "current_f1_macro": "Current F1", "candidate_f1_macro": "Candidate F1",
+                                    "azure_cost_usd": "Azure cost ($)", "reasons": "Reasons"})
+    if not model_error:
         card = bundle.path / "MODEL_CARD.md"
         if card.exists():
             with st.expander("Model card"):

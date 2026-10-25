@@ -59,7 +59,7 @@ favours it: the rule stays cautious).
 ## Windows scheduling
 
 - `scripts/run_daily_retraining.ps1`: goes to the project folder, activates the `.venv`, runs the job, appends the output to `logs/retraining.log`.
-- `scripts/register_daily_retraining.ps1 [-Time 10:00]`: creates (or updates) the task *ETF Classifier – daily retraining*
+- `scripts/register_daily_retraining.ps1 [-Time 10:00]`: creates (or updates) the task *ETF Classifier - daily retraining*
   in the Windows Task Scheduler, for the current user, with **"run as soon as possible after a missed start"**
   (the machine may be off at the scheduled time) and no run if one is already in progress.
 - Default time: **10:00** (approved); change it with `-Time`.

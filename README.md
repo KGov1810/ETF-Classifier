@@ -20,7 +20,7 @@ measured against a simple baseline.
 | `feedback` | Validation journal, category registry, import and monitoring | ✅ Done |
 | `app` | Streamlit interface | ✅ Done |
 | `llm-justify` | LLM justification (Azure OpenAI) | — |
-| `retraining` | Daily retraining | — |
+| `retraining` | Daily retraining | ✅ Done |
 
 See `CAPABILITY-MAP.md` for the architecture and the build order, and the `SPEC-<module>.md` files for the details of each module.
 
@@ -169,6 +169,39 @@ If the model uses Azure embeddings, the estimated cost is shown and must be conf
 After the daily retraining, the new current model is picked up automatically (or use *Reload the model*).
 v1 runs locally; sharing it on the team's network will be documented later.
 
+## Daily retraining
+
+```bash
+python -m etf_classifier.retraining.run              # what the scheduler runs every day
+python -m etf_classifier.retraining.run --force      # retrain even if nothing changed
+python -m etf_classifier.retraining.run --dry-run    # train and compare, never promote
+```
+
+- Nothing new since the last training (no validation added or cancelled): the run stops in a few seconds.
+- Otherwise a candidate is trained (Azure embeddings paid without confirmation) and compared with the current model
+  on test ETFs the current model never saw. It is promoted only if its macro F1 is at least the current one minus 0.01,
+  no category collapses, and it beats the trivial baseline (thresholds in `config/settings.yaml`, `retraining` section).
+- Every run leaves a line in `artifacts/models/retraining_history.csv`, a report `reports/retraining_<version>.md`
+  and a technical log `logs/retraining.log`. The interface shows the last runs in *Monitoring > Current model*.
+- Every model version is kept (no automatic deletion).
+- A model trained before this module does not know its training ETFs, which makes the comparison favour it:
+  retrain it once with `python -m etf_classifier.model.train --csv data/raw/etfs.csv --promote`.
+
+### Windows Task Scheduler
+
+From the project folder, in PowerShell (no administrator rights needed):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\register_daily_retraining.ps1 -Time 10:00
+Start-ScheduledTask -TaskName "ETF Classifier - daily retraining"     # test run now
+Get-ScheduledTaskInfo -TaskName "ETF Classifier - daily retraining"   # LastTaskResult 0 = OK, 1 = failure
+powershell -ExecutionPolicy Bypass -File scripts\unregister_daily_retraining.ps1   # remove the task
+```
+
+The task runs every day at 10:00 while your Windows session is open, starts as soon as possible if that time was
+missed, and never runs twice at the same time. The console output goes to `logs/retraining_console.log`.
+The `.venv` virtual environment must exist in the project folder (see Installation).
+
 ## Tests
 
 ```bash
@@ -196,6 +229,8 @@ src/etf_classifier/model/     model module
 src/etf_classifier/similarity/ similarity module
 src/etf_classifier/feedback/  feedback module
 src/etf_classifier/app/       Streamlit interface
+src/etf_classifier/retraining/ daily retraining
+scripts/                      Windows Task Scheduler scripts
 logs/ cache/ artifacts/       logs, cache and pipelines (not committed)
 tests/                        tests and fictitious CSV
 tasks/                        plans and tasks
