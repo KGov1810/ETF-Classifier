@@ -1,6 +1,6 @@
 # Implementation plan: `retraining` module
 
-Reference: `SPEC-retraining.md` (approved on 2026-10-25) · Detailed tasks: `tasks/todo-retraining.md`
+Reference: `docs/specs/SPEC-retraining.md` (approved on 2026-10-25) · Detailed tasks: `tasks/todo-retraining.md`
 
 ## Overview
 
@@ -54,7 +54,7 @@ Reference: `SPEC-retraining.md` (approved on 2026-10-25) · Detailed tasks: `tas
 - [x] R6: run history in the Monitoring page
 
 ### Final checkpoint
-- [ ] The 5 success criteria of `SPEC-retraining.md`
+- [ ] The 5 success criteria of `docs/specs/SPEC-retraining.md`
 - [ ] You register the task on your Windows machine and check a first run in the history
 
 ## Risks and mitigations

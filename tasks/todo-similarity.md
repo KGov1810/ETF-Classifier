@@ -126,5 +126,5 @@ modules, no network call in the tests, no commit without your approval.
 ---
 
 ## Final checkpoint
-- [ ] The 4 success criteria of `SPEC-similarity.md`
+- [ ] The 4 success criteria of `docs/specs/SPEC-similarity.md`
 - [ ] After the first real training: composition/text weights and use of the vote decided with you

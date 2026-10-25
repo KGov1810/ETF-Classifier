@@ -126,5 +126,5 @@ modules, no network call in the tests, no commit without your approval.
 ---
 
 ## Final checkpoint
-- [ ] The 4 success criteria of `SPEC-feedback.md`
+- [ ] The 4 success criteria of `docs/specs/SPEC-feedback.md`
 - [ ] Full loop on the fixture: `predict` → import of validations → `train` that sees the new ETFs

@@ -1,6 +1,6 @@
 # Implementation plan: `app` module
 
-Reference: `SPEC-app.md` (approved on 2026-10-25) · Detailed tasks: `tasks/todo-app.md`
+Reference: `docs/specs/SPEC-app.md` (approved on 2026-10-25) · Detailed tasks: `tasks/todo-app.md`
 
 ## Overview
 
@@ -48,7 +48,7 @@ as today; the 92 `data` tests and the whole suite (291 tests) must stay green.
 - [x] P7: "Monitoring" screen and README
 
 ### Final checkpoint
-- [ ] The 5 success criteria of `SPEC-app.md`
+- [ ] The 5 success criteria of `docs/specs/SPEC-app.md`
 - [ ] Manual run on `localhost:8501` with a model trained on the fixture: you try the 4 screens
 
 ## Risks and mitigations

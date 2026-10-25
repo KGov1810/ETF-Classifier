@@ -1,208 +1,102 @@
 # ETF Classifier
 
-A **multi-label ETF categorisation** tool built with machine learning: from a dataset of
-5,000 to 10,000 already-categorised ETFs, it proposes one or more categories for every new ETF.
-A team member validates or corrects the proposal, and the validated ETF enriches the dataset.
-The model is retrained once a day.
+Proposes one or more categories for every new ETF, learned from 5,000 to 10,000 ETFs the team has already
+categorised. A team member validates or corrects each proposal in a web interface; validated ETFs enrich the
+dataset, and the model is retrained every day.
 
-The project is also a machine-learning learning ground: it is built step by step, each step
-measured against a simple baseline.
+```
+ new ETFs ──► model proposes categories ──► team validates in the app ──► journal of validations
+                  ▲          + closest ETFs       (+ optional GPT-6.1 Sol          │
+                  │          + near-duplicates      second opinion)               │
+                  └──────────── daily retraining, promoted only if not worse ◄─────┘
+```
 
-## Progress
+The project is also a machine-learning learning ground: every step is measured against a trivial baseline,
+and the reports explain what the model learned.
 
-| Module | Role | Status |
-|---|---|---|
-| `data` | Loading, quality checks, normalisation, near-duplicates, split | ✅ Done |
-| `costs` | Azure OpenAI cost estimation and tracking (USD) | ✅ Done |
-| `features` | Vectorisation of the text and composition, Azure embeddings | ✅ Done |
-| `model` | Multi-label classifier, evaluation, versioning | ✅ Done |
-| `similarity` | Closest ETFs, near-duplicate alert, neighbour vote | ✅ Done |
-| `feedback` | Validation journal, category registry, import and monitoring | ✅ Done |
-| `app` | Streamlit interface | ✅ Done |
-| `llm-justify` | LLM justification (Azure OpenAI) | ✅ Done |
-| `retraining` | Daily retraining | ✅ Done |
+---
 
-See `CAPABILITY-MAP.md` for the architecture and the build order, and the `SPEC-<module>.md` files for the details of each module.
+## Quick start
 
-## Expected data format
+Python 3.11 or later, from the project folder.
 
-UTF-8 CSV, `;` separator, with these columns:
+1. **Install**
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate          # Windows: .venv\Scripts\activate
+   pip install -r requirements.txt
+   ```
+2. **Add your data**: put the categorised CSV in `data/raw/etfs.csv` (never committed; format below).
+3. **Check its quality**
+   ```bash
+   python -m etf_classifier.data.report --csv data/raw/etfs.csv
+   ```
+   Excluded rows and their reason, categories, coverage, tickers to harmonise, near-duplicates
+   → `reports/data_quality.md`.
+4. **Train a first model** (local blocks, no Azure needed)
+   ```bash
+   python -m etf_classifier.model.train --csv data/raw/etfs.csv --no-azure
+   ```
+   Macro F1 against the trivial baseline → `reports/model_<version>.md`.
+5. **Open the interface**
+   ```bash
+   streamlit run src/etf_classifier/app/Home.py      # http://localhost:8501
+   ```
 
-| Column | Example |
+Azure OpenAI (embeddings and GPT-6.1 Sol) and the daily retraining are optional: see [One-time setup](#one-time-setup).
+
+---
+
+## Daily use (team guide)
+
+Choose your name in the sidebar, then:
+
+| Screen | What you do |
 |---|---|
-| `Name` | `iShares Core MSCI World` |
-| `Description` | `Tracks the MSCI World index…` |
-| `Composition` | `[{'AAPL': 5.1}, {'MSFT': 4.6}, {'NVDA': 4.2}]` (tickers and weights in %) |
-| `Category` | `['Global Equity', 'ESG']` |
+| **Single ETF** | Enter the name, the description and the composition (editable table; two columns can be pasted from Excel), then *Propose categories*. Review the proposed categories (pre-ticked), the scores, the closest ETFs and any near-duplicate alert, adjust, then *Validate*. |
+| **Batch** | Upload a CSV `Name;Description;Composition`. Refused rows are listed with their reason; the others are validated one by one (*Next ETF*, *Skip*), uncertain ones first if you wish. |
+| **History** | Recent validations, with filters. Cancel a mistake (a comment is required: nothing is ever deleted). Read the LLM justification of a validation. |
+| **Monitoring** | Acceptance rates and bias alerts, current model and its last retraining runs, Azure costs. |
 
-Cells containing a `;` (for example a description) must be quoted.
-The composition may be partial (top holdings only).
+**Second opinion with GPT-6.1 Sol.** Under a proposal, *Explain with GPT-6.1 Sol* gives a verdict for each
+proposed category, categories to add or remove, a possible new category, and an alert when the description and
+the holdings contradict each other. The estimated cost is shown and must be confirmed; the same request is never
+paid twice. *Apply the suggestions* updates your selection, and you still decide.
 
-## Installation
+**Good habits**
+- A proposal flagged **uncertain** deserves a careful look: it may need a new category.
+- If you always accept proposals unchanged, the Monitoring page raises a **bias alert**: the model would end up
+  learning its own mistakes.
+- A new category is proposed by the model only after the next retraining, once it has enough examples.
+- Do not open `data/validations.csv` in Excel while the team validates (Windows locks the file).
 
-Python 3.11 or later.
+Each validation is saved immediately. The next daily retraining learns from it; the app picks up the new
+model by itself (or use *Reload the model*).
 
-```bash
-python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-```
+---
 
-## Usage
+## One-time setup
 
-Put the CSV in `data/raw/` (this folder is never committed), then generate the quality report:
+### Azure OpenAI (optional)
 
-```bash
-python -m etf_classifier.data.report --csv data/raw/etfs.csv
-```
+1. Copy `.env.example` to `.env` (never committed) and fill in the endpoint, the key, the API version and the
+   names of your deployments (`AZURE_OPENAI_EMBEDDING_DEPLOYMENT`, `AZURE_OPENAI_CHAT_DEPLOYMENT`).
+2. Make sure these deployment names appear in `config/pricing.yaml` (`deployments` section), and **check the
+   prices** against your contract: they are pre-filled with public Data Zone Standard prices (upper end).
+3. Estimate, then train with the embeddings:
+   ```bash
+   python -m etf_classifier.features.build --csv data/raw/etfs.csv --estimate-only   # cost, no call
+   python -m etf_classifier.model.train --csv data/raw/etfs.csv --promote            # asks for confirmation
+   ```
 
-The report is printed and written to `reports/data_quality.md`. It shows the excluded rows and
-their reason, the categories, the composition coverage, the tickers to harmonise, the
-near-duplicate groups and the train/test split.
+Without `.env`, everything works with the local blocks; only the embeddings and the LLM button are disabled.
+Every Azure call is recorded with its cost (`logs/azure_usage.csv`, counters only, never the texts).
 
-From Python, for the downstream modules:
+### Team members
 
-```python
-from etf_classifier.data.loader import prepare_dataset
+Replace the placeholder names of `app.validators` in `config/settings.yaml` with the team's names.
 
-prepared = prepare_dataset("data/raw/etfs.csv")
-prepared.split.train   # training ETFs
-prepared.split.test    # test ETFs (no near-duplicate shared with training)
-prepared.log           # exclusions and warnings
-```
-
-## Azure OpenAI access
-
-Copy `.env.example` to `.env` (never committed) and fill in the endpoint, the key, the API version
-and the name of the embeddings deployment. The deployment name must also appear in
-`config/pricing.yaml` (`deployments` section). **Check the prices of this price list** against your
-contract: they are pre-filled with the public Data Zone Standard prices (upper end).
-
-Without `.env`, everything works with the three local blocks; only the embeddings block is disabled.
-
-## Building the features
-
-```bash
-python -m etf_classifier.features.build --csv data/raw/etfs.csv --estimate-only   # estimated cost, no call
-python -m etf_classifier.features.build --csv data/raw/etfs.csv                   # asks for confirmation
-python -m etf_classifier.features.build --csv data/raw/etfs.csv --yes             # no confirmation (daily job)
-python -m etf_classifier.features.build --csv data/raw/etfs.csv --no-azure        # local blocks only
-```
-
-Embeddings are cached (`cache/embeddings.sqlite`): an ETF already processed is never paid for again.
-The fitted pipeline is saved to `artifacts/features/<version>/`.
-
-## Tracking Azure costs
-
-Every Azure call is recorded in `logs/azure_usage.csv` (token counters and cost, never the texts).
-
-```bash
-python -m etf_classifier.costs.report --since 2026-10-01
-```
-
-Token counting uses `tiktoken`, which downloads its tables on first use. If the network blocks it,
-the estimate switches to approximate mode (flagged); the actual cost returned by Azure always
-prevails. For an offline machine, pre-download the tables and set `TIKTOKEN_CACHE_DIR`.
-
-## Training and using the model
-
-```bash
-python -m etf_classifier.model.train --csv data/raw/etfs.csv --no-azure          # baseline without Azure
-python -m etf_classifier.model.train --csv data/raw/etfs.csv --yes --promote     # with embeddings, promoted
-python -m etf_classifier.model.compare --csv data/raw/etfs.csv --experiments local,local+embeddings
-python -m etf_classifier.model.predict --csv new_etfs.csv                        # CSV without a Category column
-```
-
-- Tuning (regularisation and one threshold per category) is done on an internal validation set; the test set is only used for the final evaluation.
-- Every model is compared with a trivial baseline (most frequent categories). Main metric: macro F1.
-- Every model is saved to `artifacts/models/<version>/` with its feature pipeline, its metrics and a card (`MODEL_CARD.md`); `registry.json` points to the current model. The first model becomes current, later ones with `--promote`.
-- Reports in `reports/`: `model_<version>.md` (metrics, details per category, most influential features), `model_comparison.md`.
-- `predict` writes, for every ETF, the selected categories (at least 1, at most 5), the scores and an "uncertain" flag.
-
-## Finding the closest ETFs
-
-```bash
-python -m etf_classifier.similarity.search --csv new_etfs.csv --k 5         # explained neighbours + near-duplicate alert
-python -m etf_classifier.similarity.evaluate --csv data/raw/etfs.csv        # neighbour vote vs model vs baseline
-```
-
-- Combined score: 0.5 × composition similarity (cosine of the weights) + 0.5 × text similarity (embeddings or TF-IDF).
-- Every neighbour is explained: share of the weight in common and main shared tickers.
-- The index is built by `model.train` and stored in the model folder (`similarity.joblib`).
-
-## Recording the team's validations
-
-Validations are appended to a separate journal, `data/validations.csv`, which is automatically merged
-with the original CSV (never rewritten) on every load: the next training therefore sees the new ETFs.
-
-```bash
-python -m etf_classifier.model.predict --csv new_etfs.csv --output to_validate.csv
-# the team adds a Category column (validated categories) to to_validate.csv
-python -m etf_classifier.feedback.importer --csv to_validate.csv --by "First Last" [--create-categories]
-python -m etf_classifier.feedback.report                       # acceptance rate, bias alert
-```
-
-- Writes happen under a file lock, one complete line at a time, with a daily backup in `data/backups/`.
-- A mistake is fixed with a cancellation (nothing is ever deleted).
-- **Keep `data/` on a local disk of the server**: a file lock is not reliable on a network drive.
-- Do not open the journal in Excel during validations (Windows then locks the file).
-
-## Using the interface
-
-```bash
-streamlit run src/etf_classifier/app/Home.py      # opens http://localhost:8501
-```
-
-Start it from the project root (the theme lives in `.streamlit/config.toml`). A current model is needed
-(`model.train`). Choose your name in the sidebar: the list of validators is `app.validators` in
-`config/settings.yaml` (placeholder names to replace with the team's).
-
-- **Single ETF**: enter the name, the description and the composition (editable table; two columns can be
-  pasted from Excel), then *Propose categories*. You see the proposed categories (pre-ticked), the scores,
-  the closest ETFs and any near-duplicate alert; adjust the categories and *Validate*.
-- **Batch**: upload a CSV `Name;Description;Composition` (UTF-8, `;`). Refused rows are listed with their
-  reason; the others are validated one by one (*Next ETF*, *Skip*), uncertain ones first if you wish.
-- **History**: recent validations, filters, and cancellation of a mistake (with a mandatory comment).
-- **Monitoring**: acceptance rates and bias alerts, current model, Azure costs.
-
-If the model uses Azure embeddings, the estimated cost is shown and must be confirmed before any call.
-After the daily retraining, the new current model is picked up automatically (or use *Reload the model*).
-v1 runs locally; sharing it on the team's network will be documented later.
-
-## LLM justification (GPT-6.1 Sol)
-
-In the *Single ETF* and *Batch* screens, **Explain with GPT-6.1 Sol** asks the language model for a second opinion on the
-proposal: a verdict and a reason for each proposed category, existing categories to add or remove, a possible new
-category, and an alert when the description and the holdings contradict each other.
-
-- The estimated cost is shown and must be confirmed before every call; the same request is never paid twice (cache).
-- **Apply the suggestions** updates the selection (and pre-fills a suggested new category); the validator still decides.
-- Sent to Azure: the ETF name and description, its 10 largest holdings, the proposed categories and scores, the 5 closest
-  ETFs and the list of known categories. Never: validator names, the journal or secrets.
-- Every answer is kept in `data/llm_justifications.jsonl` (not committed), linked to the validation that followed it;
-  the *History* screen shows it. Costs appear in the cost report under the `llm-justify` module.
-- Set the name of your chat deployment in `.env` (`AZURE_OPENAI_CHAT_DEPLOYMENT`); it must also appear in
-  `config/pricing.yaml`. If your deployment refuses structured outputs, the app falls back to JSON mode automatically.
-
-## Daily retraining
-
-```bash
-python -m etf_classifier.retraining.run              # what the scheduler runs every day
-python -m etf_classifier.retraining.run --force      # retrain even if nothing changed
-python -m etf_classifier.retraining.run --dry-run    # train and compare, never promote
-```
-
-- Nothing new since the last training (no validation added or cancelled): the run stops in a few seconds.
-- Otherwise a candidate is trained (Azure embeddings paid without confirmation) and compared with the current model
-  on test ETFs the current model never saw. It is promoted only if its macro F1 is at least the current one minus 0.01,
-  no category collapses, and it beats the trivial baseline (thresholds in `config/settings.yaml`, `retraining` section).
-- Every run leaves a line in `artifacts/models/retraining_history.csv`, a report `reports/retraining_<version>.md`
-  and a technical log `logs/retraining.log`. The interface shows the last runs in *Monitoring > Current model*.
-- Every model version is kept (no automatic deletion).
-- A model trained before this module does not know its training ETFs, which makes the comparison favour it:
-  retrain it once with `python -m etf_classifier.model.train --csv data/raw/etfs.csv --promote`.
-
-### Windows Task Scheduler
+### Daily retraining on Windows
 
 From the project folder, in PowerShell (no administrator rights needed):
 
@@ -213,44 +107,123 @@ Get-ScheduledTaskInfo -TaskName "ETF Classifier - daily retraining"   # LastTask
 powershell -ExecutionPolicy Bypass -File scripts\unregister_daily_retraining.ps1   # remove the task
 ```
 
-The task runs every day at 10:00 while your Windows session is open, starts as soon as possible if that time was
-missed, and never runs twice at the same time. The console output goes to `logs/retraining_console.log`.
-The `.venv` virtual environment must exist in the project folder (see Installation).
+The task runs every day at 10:00 while your Windows session is open, starts as soon as possible if that time
+was missed, and never runs twice at the same time. It needs the `.venv` of the quick start.
 
-## Tests
+What a run does:
+- nothing new since the last training (no validation added or cancelled) → stops in a few seconds;
+- otherwise trains a candidate (Azure embeddings paid without confirmation) and compares it with the current model
+  on test ETFs the current model never saw;
+- promotes it only if its macro F1 is at least the current one minus 0.01, no category collapses, and it beats the
+  trivial baseline;
+- writes a report (`reports/retraining_<version>.md`) and a line in the history shown in the Monitoring page.
+
+A model trained before the retraining module does not know its training ETFs, which biases the comparison in its
+favour: retrain it once with `python -m etf_classifier.model.train --csv data/raw/etfs.csv --promote`.
+
+---
+
+## Reference
+
+### Data format
+
+UTF-8 CSV, `;` separator (cells containing a `;` must be quoted):
+
+| Column | Example |
+|---|---|
+| `Name` | `iShares Core MSCI World` |
+| `Description` | `Tracks the MSCI World index…` (English) |
+| `Composition` | `[{'AAPL': 5.1}, {'MSFT': 4.6}, {'NVDA': 4.2}]`: tickers and weights in %, top holdings only is fine |
+| `Category` | `['Global Equity', 'ESG']`: one or more categories (omitted for new ETFs) |
+
+### Modules
+
+Each module has its specification in [`docs/specs/`](docs/specs/); the architecture and the build order are in
+[`docs/CAPABILITY-MAP.md`](docs/CAPABILITY-MAP.md).
+
+| Module | Role | Spec |
+|---|---|---|
+| `data` | Loading, quality checks, ticker normalisation, near-duplicates, train/test split | [SPEC-data](docs/specs/SPEC-data.md) |
+| `costs` | Azure OpenAI cost estimate before a call, actual cost after it, report in USD | [SPEC-costs](docs/specs/SPEC-costs.md) |
+| `features` | Text (TF-IDF), holdings and composition statistics, cached Azure embeddings | [SPEC-features](docs/specs/SPEC-features.md) |
+| `model` | One logistic regression per category, thresholds, evaluation, versioned registry | [SPEC-model](docs/specs/SPEC-model.md) |
+| `similarity` | Closest ETFs (composition + text), near-duplicate alert, neighbour vote | [SPEC-similarity](docs/specs/SPEC-similarity.md) |
+| `feedback` | Validation journal under lock, category registry, batch import, bias monitoring | [SPEC-feedback](docs/specs/SPEC-feedback.md) |
+| `app` | Streamlit interface | [SPEC-app](docs/specs/SPEC-app.md) |
+| `retraining` | Daily retraining, fair comparison, conditional promotion | [SPEC-retraining](docs/specs/SPEC-retraining.md) |
+| `llm-justify` | GPT-6.1 Sol second opinion, on demand and cost-confirmed | [SPEC-llm-justify](docs/specs/SPEC-llm-justify.md) |
+
+### Commands
+
+Every command has `--help`; all but `costs.report` accept `--config <file>`. Commands that may call Azure show the
+estimated cost and ask for confirmation, unless `--yes` is given (the daily retraining never asks).
+
+| Command | Purpose | Output |
+|---|---|---|
+| `python -m etf_classifier.data.report --csv …` | Data quality report | `reports/data_quality.md` |
+| `python -m etf_classifier.features.build --csv … [--estimate-only] [--no-azure]` | Build and save the features | `artifacts/features/<version>/` |
+| `python -m etf_classifier.model.train --csv … [--no-azure] [--promote]` | Train, evaluate once, save | `artifacts/models/<version>/`, `reports/model_<version>.md` |
+| `python -m etf_classifier.model.compare --csv … --experiments local,local+embeddings` | Compare feature sets on the same split | `reports/model_comparison.md` |
+| `python -m etf_classifier.model.predict --csv new.csv [--output …]` | Proposals for new ETFs | CSV of proposals |
+| `python -m etf_classifier.similarity.search --csv new.csv [--k 5]` | Closest ETFs, explained | CSV + Markdown summary |
+| `python -m etf_classifier.similarity.evaluate --csv …` | Neighbour vote vs model vs baseline | `reports/similarity_evaluation.md` |
+| `python -m etf_classifier.feedback.importer --csv validated.csv --by "First Last"` | Import validations made outside the app | journal |
+| `python -m etf_classifier.feedback.report [--since …]` | Acceptance rates, bias alert | `reports/feedback.md` |
+| `python -m etf_classifier.costs.report [--since …]` | Azure costs per day, module, operation | `reports/azure_costs.md` |
+| `python -m etf_classifier.retraining.run [--force] [--dry-run]` | Daily retraining (what the scheduler runs) | history + `reports/retraining_<version>.md` |
+
+### Where things are kept
+
+None of these files is committed.
+
+| File or folder | Content |
+|---|---|
+| `data/raw/` | The original CSV, never rewritten |
+| `data/validations.csv` | Validation journal: appended under a lock, merged with the original CSV on every load; mistakes are fixed by cancellation lines |
+| `data/categories.csv` | Category registry (historical and created, with author and description) |
+| `data/backups/` | Daily backups of the journal (last 30) |
+| `data/llm_justifications.jsonl` | GPT-6.1 Sol answers, linked to the validations that followed them |
+| `artifacts/models/` | One folder per model (model, features, similarity index, metrics, card), `registry.json` (current model), retraining history |
+| `cache/` | Embeddings and LLM answers already paid for |
+| `logs/` | Azure costs, retraining log |
+| `reports/` | Generated reports |
+
+Keep `data/` on a local disk: a file lock is not reliable on a network drive.
+
+### Configuration
+
+- `config/settings.yaml`: every threshold and path (CSV format, near-duplicate threshold, split, model, similarity
+  weights, validators, retraining rule, LLM limits).
+- `config/pricing.yaml`: dated Azure price list, in USD per million tokens.
+- `config/holding_aliases.csv`: tickers to merge by hand (for example `GOOG` and `GOOGL`).
+- `.env`: Azure endpoint, key, API version and deployment names (see `.env.example`).
+
+Token counting uses `tiktoken`, which downloads its tables on first use; on an offline machine the estimate is
+flagged as approximate (pre-download the tables and set `TIKTOKEN_CACHE_DIR` to avoid it). The actual cost returned
+by Azure always prevails.
+
+### Tests
 
 ```bash
-pytest -v                 # full suite (≈ 30 s, no network call)
+pytest -v                 # full suite (about 50 s, no network call: Azure is faked)
 pytest -m "not slow"      # without the performance tests
 ```
 
-## Configuration
-
-All thresholds live in `config/settings.yaml` (separator, column names, near-duplicate overlap
-threshold, test set size…). Tickers to merge manually (for example `GOOG` and `GOOGL`) are
-declared in `config/holding_aliases.csv`.
-
-## Structure
+### Project structure
 
 ```
-config/                       configuration and ticker aliases
-data/raw/                     real CSV (not committed)
-data/validations.csv          validation journal (not committed)
-reports/                      generated reports (not committed)
-src/etf_classifier/common.py  shared helpers (UTC timestamps, Markdown tables, append-only CSV)
-src/etf_classifier/azure.py   Azure OpenAI client shared by the embeddings and the LLM
-src/etf_classifier/data/      data module
-src/etf_classifier/costs/     costs module
-src/etf_classifier/features/  features module
-src/etf_classifier/model/     model module
-src/etf_classifier/similarity/ similarity module
-src/etf_classifier/feedback/  feedback module
-src/etf_classifier/app/       Streamlit interface
-src/etf_classifier/retraining/ daily retraining
-src/etf_classifier/llm/       LLM justification
-scripts/                      Windows Task Scheduler scripts
-logs/ cache/ artifacts/       logs, cache and pipelines (not committed)
-tests/                        tests and fictitious CSV (shared fixtures in tests/conftest.py)
-tests/support/                fake Azure clients and synthetic dataset used by the tests
-tasks/                        plans and tasks
+config/                         settings, price list, ticker aliases
+docs/CAPABILITY-MAP.md          modules, dependencies, build order, decisions
+docs/specs/                     one specification per module
+src/etf_classifier/
+├── data/  costs/  features/    data preparation, Azure costs, features
+├── model/  similarity/         classifier, closest ETFs
+├── feedback/  retraining/      validation journal, daily retraining
+├── llm/                        GPT-6.1 Sol justification
+├── app/                        Streamlit interface (services.py holds the logic, pages only display)
+├── common.py                   shared helpers (timestamps, Markdown tables, append-only CSV)
+└── azure.py                    Azure OpenAI client shared by the embeddings and the LLM
+scripts/                        Windows Task Scheduler scripts
+tests/                          tests (shared fixtures in conftest.py, fakes in support/, fictitious CSV in data/fixtures/)
+tasks/                          implementation plans and task lists, per module
 ```

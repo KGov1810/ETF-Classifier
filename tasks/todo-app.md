@@ -146,5 +146,5 @@ modules, no network call in the tests, no commit without your approval.
 ---
 
 ## Final checkpoint
-- [ ] The 5 success criteria of `SPEC-app.md`
+- [ ] The 5 success criteria of `docs/specs/SPEC-app.md`
 - [ ] You try the 4 screens on `localhost:8501` with a model trained on the fixture

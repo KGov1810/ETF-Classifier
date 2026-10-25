@@ -106,5 +106,5 @@ modules, no network call in the tests, no commit without your approval.
 ---
 
 ## Final checkpoint
-- [ ] The 5 success criteria of `SPEC-llm-justify.md`
+- [ ] The 5 success criteria of `docs/specs/SPEC-llm-justify.md`
 - [ ] You try it with your GPT-6.1 Sol deployment

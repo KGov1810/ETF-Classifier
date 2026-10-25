@@ -1,6 +1,6 @@
 # Implementation plan: `costs` then `features` modules
 
-References: `SPEC-costs.md`, `SPEC-features.md` (approved on 2026-10-25) · `CAPABILITY-MAP.md`
+References: `docs/specs/SPEC-costs.md`, `docs/specs/SPEC-features.md` (approved on 2026-10-25) · `docs/CAPABILITY-MAP.md`
 Detailed tasks: `tasks/todo-costs-features.md`
 
 ## Overview

@@ -1,6 +1,6 @@
 # Implementation plan: `similarity` module
 
-Reference: `SPEC-similarity.md` (approved on 2026-10-25) · Detailed tasks: `tasks/todo-similarity.md`
+Reference: `docs/specs/SPEC-similarity.md` (approved on 2026-10-25) · Detailed tasks: `tasks/todo-similarity.md`
 
 ## Overview
 
@@ -37,7 +37,7 @@ Reference: `SPEC-similarity.md` (approved on 2026-10-25) · Detailed tasks: `tas
 - [x] S6: `evaluate` command (neighbour vote against the model and the trivial baseline)
 
 ### Final checkpoint
-- [ ] The 4 success criteria of `SPEC-similarity.md`
+- [ ] The 4 success criteria of `docs/specs/SPEC-similarity.md`
 - [ ] After the first real training: composition/text weights and use of the vote decided with you
 
 ## Risks and mitigations

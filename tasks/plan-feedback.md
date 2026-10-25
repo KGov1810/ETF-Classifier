@@ -1,6 +1,6 @@
 # Implementation plan: `feedback` module
 
-Reference: `SPEC-feedback.md` (approved on 2026-10-25) · Detailed tasks: `tasks/todo-feedback.md`
+Reference: `docs/specs/SPEC-feedback.md` (approved on 2026-10-25) · Detailed tasks: `tasks/todo-feedback.md`
 
 ## Overview
 
@@ -36,7 +36,7 @@ Reference: `SPEC-feedback.md` (approved on 2026-10-25) · Detailed tasks: `tasks
 - [x] F6: monitoring report (acceptance rate, bias alert)
 
 ### Final checkpoint
-- [ ] The 4 success criteria of `SPEC-feedback.md`
+- [ ] The 4 success criteria of `docs/specs/SPEC-feedback.md`
 - [x] Full loop on the fixture: `predict` → import of validations → `train` that sees the new ETFs
 
 ## Risks and mitigations

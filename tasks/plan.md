@@ -1,6 +1,6 @@
 # Implementation plan: `data` module
 
-Reference: `SPEC-data.md` (approved on 2026-10-25) · `CAPABILITY-MAP.md`
+Reference: `docs/specs/SPEC-data.md` (approved on 2026-10-25) · `docs/CAPABILITY-MAP.md`
 
 ## Overview
 
@@ -44,7 +44,7 @@ Full details in `tasks/todo.md`.
 - [x] Task 8: full report and check that the source CSV is not modified
 
 ### Final checkpoint
-- [ ] The 4 success criteria of `SPEC-data.md` are met
+- [ ] The 4 success criteria of `docs/specs/SPEC-data.md` are met
 - [ ] Review with you before moving on to the `features` module
 
 ## Risks and mitigations

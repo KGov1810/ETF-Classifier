@@ -1,7 +1,7 @@
 # Tasks: `data` module
 
 Definition of "done" for every task: green tests (`pytest tests/data -v`), no regression,
-code consistent with the style of `SPEC-data.md`, no commit without your approval.
+code consistent with the style of `docs/specs/SPEC-data.md`, no commit without your approval.
 
 ---
 
@@ -171,6 +171,6 @@ code consistent with the style of `SPEC-data.md`, no commit without your approva
 ---
 
 ## Final checkpoint
-- [ ] The 4 success criteria of `SPEC-data.md` are met
+- [ ] The 4 success criteria of `docs/specs/SPEC-data.md` are met
 - [x] `load_dataset()` and `make_split()` can be used directly by the `features` module
 - [ ] Review with you before moving on to the `features` spec

@@ -1,6 +1,6 @@
 # Implementation plan: `llm-justify` module
 
-Reference: `SPEC-llm-justify.md` (approved on 2026-10-25) · Detailed tasks: `tasks/todo-llm-justify.md`
+Reference: `docs/specs/SPEC-llm-justify.md` (approved on 2026-10-25) · Detailed tasks: `tasks/todo-llm-justify.md`
 
 ## Overview
 
@@ -42,7 +42,7 @@ Reference: `SPEC-llm-justify.md` (approved on 2026-10-25) · Detailed tasks: `ta
 - [x] L5: justification in the *History* screen, README
 
 ### Final checkpoint
-- [ ] The 5 success criteria of `SPEC-llm-justify.md`
+- [ ] The 5 success criteria of `docs/specs/SPEC-llm-justify.md`
 - [ ] You try it with your GPT-6.1 Sol deployment (the only step that needs the real Azure)
 
 ## Risks and mitigations

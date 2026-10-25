@@ -38,7 +38,7 @@ measured steps.
 - Daily retraining triggered by the server scheduler (cron or Windows Task Scheduler), not by
   Streamlit. The job is skipped when there has been no new validation since the last training,
   and it respects the same file lock as the interface to avoid write conflicts.
-- One spec per module: `SPEC-<module-id>.md`, at the project root.
+- One spec per module: `docs/specs/SPEC-<module-id>.md` (moved from the project root on 2026-10-25).
 - Azure OpenAI: `text-embedding-3-large` embeddings, GPT-6.1 Sol LLM, Data Zone Standard deployments. Descriptions in English.
   No budget constraint, but every Azure call goes through `costs` (estimate + actual tracking, in USD).
   Prices live in a dated configuration file and are never hard-coded.

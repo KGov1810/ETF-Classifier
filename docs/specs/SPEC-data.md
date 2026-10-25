@@ -90,8 +90,8 @@ python -m etf_classifier.data.report --csv data/raw/etfs.csv
 ## Project structure
 ```
 etf-classifier/
-├── CAPABILITY-MAP.md
-├── SPEC-data.md
+├── docs/CAPABILITY-MAP.md
+├── docs/specs/SPEC-data.md
 ├── config/
 │   ├── settings.yaml          # column names, separator, thresholds
 │   └── holding_aliases.csv    # manual fixes (optional)

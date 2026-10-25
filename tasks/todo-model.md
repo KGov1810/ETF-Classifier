@@ -170,5 +170,5 @@ Definition of "done" for every task: green tests (`pytest -v`), no regression on
 ---
 
 ## Final checkpoint
-- [ ] The 5 success criteria of `SPEC-model.md` (those on the real CSV as soon as you have it)
+- [ ] The 5 success criteria of `docs/specs/SPEC-model.md` (those on the real CSV as soon as you have it)
 - [ ] Numerical target set with you after the first real training

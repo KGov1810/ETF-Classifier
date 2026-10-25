@@ -132,5 +132,5 @@ modules, no network call in the tests, no commit without your approval.
 ---
 
 ## Final checkpoint
-- [ ] The 5 success criteria of `SPEC-retraining.md`
+- [ ] The 5 success criteria of `docs/specs/SPEC-retraining.md`
 - [ ] You register the task on Windows and check a first run in the history

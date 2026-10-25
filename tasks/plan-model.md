@@ -1,6 +1,6 @@
 # Implementation plan: `model` module
 
-Reference: `SPEC-model.md` (approved on 2026-10-25) · Detailed tasks: `tasks/todo-model.md`
+Reference: `docs/specs/SPEC-model.md` (approved on 2026-10-25) · Detailed tasks: `tasks/todo-model.md`
 
 ## Overview
 
@@ -45,7 +45,7 @@ Three phases:
 - [x] M8: `compare` command
 
 ### Final checkpoint
-- [ ] The 5 success criteria of `SPEC-model.md`, including those on the real CSV, once you have it
+- [ ] The 5 success criteria of `docs/specs/SPEC-model.md`, including those on the real CSV, once you have it
 - [ ] Numerical target defined with you after the first real training
 
 ## Risks and mitigations
