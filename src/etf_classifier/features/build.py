@@ -24,11 +24,16 @@ def _density(matrix) -> float:
     return matrix.nnz / cells if cells else 0.0
 
 
-def announce_embedding_plan(settings: dict, data, embedder) -> tuple[EmbeddingPlan, str]:
-    """Shows what computing the embeddings would cost (cache deducted), without calling Azure."""
+def plan_embeddings(settings: dict, data, embedder) -> EmbeddingPlan:
+    """What computing the embeddings of these ETFs would cost (cache deducted), without calling Azure."""
     texts = EmbeddingsBlock(None, embedder.dimensions,
                             settings["features"]["embeddings"]["include_top_tickers"]).texts(data)
-    plan = embedder.plan(texts)
+    return embedder.plan(texts)
+
+
+def announce_embedding_plan(settings: dict, data, embedder) -> tuple[EmbeddingPlan, str]:
+    """Shows what computing the embeddings would cost (cache deducted), without calling Azure."""
+    plan = plan_embeddings(settings, data, embedder)
     cost = f"${plan.estimate.cost_usd:.4f}" if plan.estimate else "unknown (deployment missing from the price list)"
     approx = " (approximate)" if plan.estimate and plan.estimate.approximate else ""
     tokens = plan.estimate.input_tokens if plan.estimate else "?"

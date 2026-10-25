@@ -93,3 +93,11 @@ feedback:
   lock_timeout_seconds: 10                 # beyond this: clear error, never a write without the lock
   bias_acceptance_threshold: 0.95          # acceptance-without-change rate considered suspicious
   bias_min_validations: 50                 # minimum number of validations before raising the alert
+
+app:
+  validators:                  # team members who can validate (placeholder names: replace with the real team)
+    - Alice Martin
+    - Bruno Leroy
+    - Chloe Dubois
+  n_scores_shown: 10           # category scores shown per ETF
+  history_days: 7              # default period of the history screen

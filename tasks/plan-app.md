@@ -33,13 +33,13 @@ as today; the 92 `data` tests and the whole suite (291 tests) must stay green.
 ## Task list
 
 ### Phase A: services
-- [ ] P1: `streamlit` dependency, `app` settings section and `load_records()` extraction
-- [ ] P2: proposal service (model, neighbours, near-duplicate, cost confirmation)
-- [ ] P3: validation, cancellation and history services
+- [x] P1: `streamlit` dependency, `app` settings section and `load_records()` extraction
+- [x] P2: proposal service (model, neighbours, near-duplicate, cost confirmation)
+- [x] P3: validation, cancellation and history services
 
 ### Checkpoint A
-- [ ] Tests green, `data` suite unchanged
-- [ ] A typed ETF and the same ETF read from a CSV give the same proposal
+- [x] Tests green, `data` suite unchanged
+- [x] A typed ETF and the same ETF read from a CSV give the same proposal
 
 ### Phase B: pages
 - [ ] P4: home page, sidebar and "Single ETF" screen
@@ -61,6 +61,16 @@ as today; the 92 `data` tests and the whole suite (291 tests) must stay green.
 | Regression of the `data` module during the extraction | Medium | Small extraction, default behaviour unchanged, full suite re-run |
 | `AppTest` cannot drive every widget (file upload, editable table) | Low | Those inputs are tested at the service level; `AppTest` covers rendering and the main buttons |
 | Streamlit version drift | Low | Minimum version pinned in `requirements.txt` (`streamlit>=1.40`) |
+
+## Status (2026-10-25)
+
+Phase A (P1 to P3) coded and tested: 323 green tests across the project (32 for the app services).
+
+Adjustments made during phase A:
+- `features.build.plan_embeddings()` extracted from `announce_embedding_plan()` (cost without printing, reused by the app);
+- `FeedbackStore.record_validation(..., category_descriptions=...)` to store the description of a created category,
+  and `FeedbackStore.known_categories()`;
+- weights pasted as text in the editable table ("4.5", "4,5") are converted to numbers; the CSV rules stay unchanged.
 
 ## Open questions
 

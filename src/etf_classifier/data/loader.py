@@ -100,6 +100,20 @@ def load_dataset(path: str | Path, settings: dict | None = None, require_categor
     n_reference = len(rows) + len(bad_lines)
     if require_categories and "feedback" in settings:
         rows = rows + _validation_rows(settings, first_record=n_reference)
+    return load_records(rows, settings, require_categories, bad_lines=bad_lines, n_reference=n_reference)
+
+
+def load_records(rows: list[dict], settings: dict, require_categories: bool = True,
+                 bad_lines: list[dict] | None = None, n_reference: int | None = None) -> LoadResult:
+    """Checks and normalises rows already in memory (keys = CSV column names).
+
+    Same quality rules and ticker normalisation as load_dataset(): an ETF typed in the interface
+    and the same ETF read from a CSV give the same record.
+    Rows whose record number is >= n_reference are tagged as coming from the validation journal.
+    """
+    bad_lines = bad_lines or []
+    if n_reference is None:
+        n_reference = len(rows) + len(bad_lines)
     data, log = validate_rows(rows, bad_lines, settings, require_categories)
     for issue in log.issues:
         if issue.row_id is not None and issue.row_id >= n_reference:

@@ -8,5 +8,6 @@ scikit-learn>=1.4      # TF-IDF, scaling, category encoding
 openai>=1.40           # official Azure OpenAI client
 python-dotenv>=1.0     # reading the .env file
 filelock>=3.12         # portable file lock (validation journal)
+streamlit>=1.40         # web interface (app module)
 # Installs the project itself (editable mode) for `python -m etf_classifier...`
 -e .

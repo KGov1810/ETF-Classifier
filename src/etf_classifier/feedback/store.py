@@ -94,6 +94,12 @@ class FeedbackStore:
         keep = (journal["Decision"] != CANCELLATION) & ~journal["ValidationId"].isin(cancelled)
         return journal[keep]  # the index stays the position in the journal (for line numbers)
 
+    def known_categories(self) -> set[str]:
+        """Historical and created categories (the registry is initialised from the original CSV if needed)."""
+        with self.locked():
+            self.registry.ensure_initialized(self._reference_names_and_categories()[1])
+            return self.registry.known()
+
     def active_validations(self) -> pd.DataFrame:
         """Validations that have not been cancelled: they are the ones enriching the reference dataset."""
         return self._active(self.read_journal())
@@ -148,8 +154,11 @@ class FeedbackStore:
 
     def record_validation(self, etf: dict, categories, validated_by: str, predicted_categories=None,
                           model_version: str | None = None, comment: str = "", create_categories: bool = False,
-                          allow_duplicate_name: bool = False) -> dict:
-        """Checks then records a validation; raises ValidationError or FeedbackError otherwise."""
+                          allow_duplicate_name: bool = False, category_descriptions: dict | None = None) -> dict:
+        """Checks then records a validation; raises ValidationError or FeedbackError otherwise.
+
+        category_descriptions: optional description of each category created by this validation.
+        """
         categories = _clean(categories)
         name = str(etf.get("name") or "").strip()
         composition = serialize_composition(etf.get("composition") or {})
@@ -164,7 +173,8 @@ class FeedbackStore:
                 raise ValidationError(errors)
             for category in categories:
                 if category not in self.registry.known():
-                    self.registry.add(category, validated_by.strip())
+                    self.registry.add(category, validated_by.strip(),
+                                      (category_descriptions or {}).get(category, ""))
             if predicted_categories is None:
                 decision = NO_PROPOSAL
             else:

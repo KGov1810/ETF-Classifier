@@ -10,9 +10,9 @@ modules, no network call in the tests, no commit without your approval.
 **Description:** add `streamlit>=1.40` to `requirements.txt`; `app` section in `settings.yaml` (validators `Alice Martin`, `Bruno Leroy`, `Chloe Dubois`, neighbours shown, scores shown, history period); extract `load_records(rows, settings, require_categories)` from `data.loader.load_dataset()`, and `services.etf_from_inputs(name, description, holdings_table)` which builds a row from the editable table.
 
 **Acceptance criteria:**
-- [ ] `load_dataset()` gives exactly the same result as before (92 `data` tests green)
-- [ ] An ETF built from a table (`Ticker`, `Weight (%)`) goes through the same quality rules and normalisation as a CSV row (` aapl ` → `AAPL`, negative weight → refused with its reason)
-- [ ] Empty table rows are ignored; a duplicate ticker has its weights added up, with a warning
+- [x] `load_dataset()` gives exactly the same result as before (92 `data` tests green)
+- [x] An ETF built from a table (`Ticker`, `Weight (%)`) goes through the same quality rules and normalisation as a CSV row (` aapl ` → `AAPL`, negative weight → refused with its reason)
+- [x] Empty table rows are ignored; a duplicate ticker has its weights added up, with a warning
 
 **Verification:** `pytest tests/data tests/app/test_services.py -v`
 
@@ -29,9 +29,9 @@ modules, no network call in the tests, no commit without your approval.
 **Description:** `services.load_current_model(settings)`; `services.estimate(etfs, bundle, settings)` (cost of new texts if the model uses embeddings); `services.propose(etfs, bundle, settings, confirmed)` returning, per ETF, the selected categories, top-10 scores, "uncertain" flag, neighbours, near-duplicate alert and model version.
 
 **Acceptance criteria:**
-- [ ] On the fixture model, a proposal contains at least 1 category, scores, `k` neighbours and the model version; a copy of an existing ETF raises the near-duplicate alert
-- [ ] With an embeddings model and the fake client, no Azure call happens without `confirmed=True`; already-cached texts cost nothing
-- [ ] No current model, or a model without a similarity index: clear error (proposal still possible without neighbours in the second case)
+- [x] On the fixture model, a proposal contains at least 1 category, scores, `k` neighbours and the model version; a copy of an existing ETF raises the near-duplicate alert
+- [x] With an embeddings model and the fake client, no Azure call happens without `confirmed=True`; already-cached texts cost nothing
+- [x] No current model, or a model without a similarity index: clear error (proposal still possible without neighbours in the second case)
 
 **Verification:** `pytest tests/app/test_services.py -v`
 
@@ -48,9 +48,9 @@ modules, no network call in the tests, no commit without your approval.
 **Description:** `services.validate(etf, categories, validator, proposal, comment, new_categories)`, `services.cancel(validation_id, validator, comment)`, `services.history(settings, since, validator, decision, name)`, `services.known_categories(settings)`; feedback errors converted to readable messages.
 
 **Acceptance criteria:**
-- [ ] A validation lands in the journal with validator, model version, predicted categories and the derived decision
-- [ ] Refusals (empty name, unknown category without creation, duplicate, locked journal, no validator) return the readable message, without writing
-- [ ] Cancellation requires a comment; the history shows cancelled validations as flagged and applies the filters
+- [x] A validation lands in the journal with validator, model version, predicted categories and the derived decision
+- [x] Refusals (empty name, unknown category without creation, duplicate, locked journal, no validator) return the readable message, without writing
+- [x] Cancellation requires a comment; the history shows cancelled validations as flagged and applies the filters
 
 **Verification:** `pytest tests/app/test_services.py -v`
 
@@ -63,8 +63,8 @@ modules, no network call in the tests, no commit without your approval.
 ---
 
 ## Checkpoint A
-- [ ] All tests pass, `data` suite unchanged
-- [ ] A typed ETF and the same ETF read from a CSV give the same proposal
+- [x] All tests pass, `data` suite unchanged
+- [x] A typed ETF and the same ETF read from a CSV give the same proposal
 - [ ] Review with you before the pages
 
 ---
