@@ -1,4 +1,4 @@
-"""Encodage des catégories en matrice multi-étiquettes (une colonne par catégorie)."""
+"""Encoding of the categories as a multi-label matrix (one column per category)."""
 
 import logging
 from collections import Counter
@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 class CategoryEncoder:
-    """Apprend la liste des catégories sur l'entraînement et l'applique telle quelle ensuite."""
+    """Learns the list of categories on the training set and applies it unchanged afterwards."""
 
     def __init__(self):
         self.classes: list[str] = []
@@ -23,7 +23,7 @@ class CategoryEncoder:
         return self
 
     def transform(self, data: pd.DataFrame) -> np.ndarray:
-        """Matrice 0/1 ; les catégories inconnues de l'entraînement sont signalées, jamais ignorées en silence."""
+        """0/1 matrix; categories unknown to the training set are reported, never silently ignored."""
         matrix = np.zeros((len(data), len(self.classes)), dtype=np.int8)
         unknown: Counter = Counter()
         for row, cats in enumerate(data["categories"]):
@@ -34,6 +34,6 @@ class CategoryEncoder:
                     unknown[category] += 1
         self.last_unknown = dict(unknown)
         if unknown:
-            logger.warning("Catégories absentes de l'entraînement (non prédictibles) : %s",
+            logger.warning("Categories missing from the training set (cannot be predicted): %s",
                            ", ".join(f"{c} ({n})" for c, n in unknown.most_common()))
         return matrix

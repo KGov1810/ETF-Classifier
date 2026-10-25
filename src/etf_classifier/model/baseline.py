@@ -1,6 +1,6 @@
-"""Référence triviale : prédire pour tout ETF les catégories les plus fréquentes de l'entraînement.
+"""Trivial baseline: predict, for every ETF, the most frequent categories of the training set.
 
-Elle n'utilise aucune variable. Un modèle qui ne la bat pas nettement n'apprend rien d'utile.
+It uses no feature. A model that does not clearly beat it learns nothing useful.
 """
 
 import numpy as np
@@ -21,7 +21,7 @@ class FrequencyBaseline:
         return self
 
     def predict(self, n_rows: int) -> np.ndarray:
-        """Même prédiction pour chaque ETF : le nombre médian de catégories, parmi les plus fréquentes."""
+        """Same prediction for every ETF: the median number of categories, among the most frequent ones."""
         row = np.zeros(self.n_classes, dtype=np.int8)
         row[self.order[: self.n_predicted]] = 1
         return np.tile(row, (n_rows, 1))

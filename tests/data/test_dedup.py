@@ -7,7 +7,7 @@ from etf_classifier.data.dedup import assign_groups, find_near_duplicate_pairs, 
 
 
 def _index(n_holdings: int, prefix: str = "T") -> dict[str, float]:
-    """Indice fictif à poids décroissants dont la somme vaut 100."""
+    """Fictitious index with decreasing weights summing to 100."""
     raw = np.array([1.0 / (rank + 1) for rank in range(n_holdings)])
     weights = raw / raw.sum() * 100
     return {f"{prefix}{rank}": float(weight) for rank, weight in enumerate(weights)}

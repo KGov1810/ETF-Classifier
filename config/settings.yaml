@@ -1,4 +1,4 @@
-# Configuration du module data. Aucun seuil n'est écrit en dur dans le code.
+# Project configuration. No threshold is hard-coded in the source code.
 
 csv:
   separator: ";"
@@ -10,21 +10,21 @@ csv:
     category: "Category"
 
 quality:
-  max_weight_sum: 105.0        # au-delà : avertissement
+  max_weight_sum: 105.0        # above this: warning
 
 normalize:
-  strip_exchange_suffix: false # retirer " US", ".PA", " UW Equity"… (désactivé par défaut)
+  strip_exchange_suffix: false # remove " US", ".PA", " UW Equity"… (disabled by default)
   aliases_path: "config/holding_aliases.csv"
 
 dedup:
-  overlap_threshold: 0.80      # recouvrement pondéré minimal pour lier deux ETF
-  min_common_holdings: 3       # garde-fou contre une seule grosse ligne partagée
-  max_group_share: 0.02        # avertissement si un groupe dépasse 2 % du jeu
+  overlap_threshold: 0.80      # minimum weighted overlap to link two ETFs
+  min_common_holdings: 3       # safeguard against a single large shared holding
+  max_group_share: 0.02        # warning if a group exceeds 2% of the dataset
 
 split:
   test_size: 0.20
   seed: 42
-  rare_category_min: 5         # catégories sous ce seuil listées dans le rapport
+  rare_category_min: 5         # categories below this count are listed in the report
 
 report:
   output_path: "reports/data_quality.md"
@@ -33,43 +33,43 @@ report:
 costs:
   pricing_path: "config/pricing.yaml"
   usage_log_path: "logs/azure_usage.csv"
-  stale_after_days: 90         # avertissement si la grille tarifaire est plus ancienne
+  stale_after_days: 90         # warning if the price list is older than this
   report_output_path: "reports/azure_costs.md"
 
 features:
-  blocks:                      # blocs actifs et poids relatif dans la matrice combinée
+  blocks:                      # active blocks and their relative weight in the combined matrix
     text_tfidf: {enabled: true, weight: 1.0}
     holdings: {enabled: true, weight: 1.0}
     composition_stats: {enabled: true, weight: 1.0}
     embeddings: {enabled: true, weight: 1.0}
   text_tfidf:
-    ngram_max: 2               # mots et paires de mots
-    min_df: 2                  # un terme doit apparaître dans au moins 2 ETF
+    ngram_max: 2               # words and word pairs
+    min_df: 2                  # a term must appear in at least 2 ETFs
     max_features: 50000
   holdings:
-    min_df: 1                  # un ticker doit apparaître dans au moins N ETF d'entraînement
+    min_df: 1                  # a ticker must appear in at least N training ETFs
   embeddings:
-    deployment: "text-embedding-3-large"   # remplacé par AZURE_OPENAI_EMBEDDING_DEPLOYMENT s'il est défini
+    deployment: "text-embedding-3-large"   # overridden by AZURE_OPENAI_EMBEDDING_DEPLOYMENT if set
     dimensions: 3072
     batch_size: 64
     max_tokens: 8192
-    max_retries: 6             # nouvelles tentatives du client en cas d'erreur 429 ou serveur
-    include_top_tickers: false # expérimentation : ajouter les 10 premiers tickers au texte
+    max_retries: 6             # client retries on 429 or server errors
+    include_top_tickers: false # experiment: append the top 10 tickers to the text
     cache_path: "cache/embeddings.sqlite"
   artifacts_dir: "artifacts/features"
 
 model:
-  c_grid: [0.1, 1.0, 10.0]     # force de régularisation testée (petite valeur = plus de régularisation)
-  validation_size: 0.20        # part de l'entraînement mise de côté pour le réglage
-  min_positives_for_threshold: 3   # en dessous (en validation), seuil par défaut
+  c_grid: [0.1, 1.0, 10.0]     # regularisation strengths tried (smaller value = more regularisation)
+  validation_size: 0.20        # share of the training set held out for tuning
+  min_positives_for_threshold: 3   # below this (in validation), default threshold
   default_threshold: 0.5
-  uncertain_threshold: 0.5     # meilleur score en dessous : ETF signalé « incertain »
-  max_categories: 5            # catégories proposées au maximum par ETF
+  uncertain_threshold: 0.5     # best score below this: ETF flagged as "uncertain"
+  max_categories: 5            # maximum number of categories proposed per ETF
   seed: 42
   max_iter: 2000
   artifacts_dir: "artifacts/models"
   reports_dir: "reports"
-  experiments:                 # blocs actifs de chaque expérience comparable
+  experiments:                 # active blocks of each comparable experiment
     local: {text_tfidf: true, holdings: true, composition_stats: true, embeddings: false}
     local+embeddings: {text_tfidf: true, holdings: true, composition_stats: true, embeddings: true}
     text_only: {text_tfidf: true, holdings: false, composition_stats: false, embeddings: false}
@@ -77,19 +77,19 @@ model:
     embeddings_only: {text_tfidf: false, holdings: false, composition_stats: false, embeddings: true}
 
 similarity:
-  composition_weight: 0.5      # poids de la similarité de composition dans le score combiné
-  text_weight: 0.5             # poids de la similarité de texte
-  n_neighbors: 5               # voisins affichés par défaut
-  n_shared_holdings: 5         # tickers partagés affichés pour expliquer un rapprochement
-  eval_k: [5, 10, 20]          # nombres de voisins évalués pour le vote
-  query_chunk: 256             # requêtes traitées par paquet (mémoire)
+  composition_weight: 0.5      # weight of the composition similarity in the combined score
+  text_weight: 0.5             # weight of the text similarity
+  n_neighbors: 5               # neighbours shown by default
+  n_shared_holdings: 5         # shared tickers shown to explain a match
+  eval_k: [5, 10, 20]          # numbers of neighbours evaluated for the vote
+  query_chunk: 256             # queries processed per batch (memory)
 
 feedback:
-  reference_csv: "data/raw/etfs.csv"       # CSV d'origine (jamais réécrit)
-  journal_path: "data/validations.csv"     # journal des validations, complété ligne après ligne
-  categories_path: "data/categories.csv"   # registre des catégories
+  reference_csv: "data/raw/etfs.csv"       # original CSV (never rewritten)
+  journal_path: "data/validations.csv"     # validation journal, appended line by line
+  categories_path: "data/categories.csv"   # category registry
   backups_dir: "data/backups"
-  backups_kept: 30                         # sauvegardes quotidiennes conservées
-  lock_timeout_seconds: 10                 # au-delà : erreur claire, jamais d'écriture sans verrou
-  bias_acceptance_threshold: 0.95          # taux d'acceptation sans modification jugé suspect
-  bias_min_validations: 50                 # nombre minimal de validations pour lever l'alerte
+  backups_kept: 30                         # daily backups kept
+  lock_timeout_seconds: 10                 # beyond this: clear error, never a write without the lock
+  bias_acceptance_threshold: 0.95          # acceptance-without-change rate considered suspicious
+  bias_min_validations: 50                 # minimum number of validations before raising the alert

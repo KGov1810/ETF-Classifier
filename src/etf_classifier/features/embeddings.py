@@ -1,8 +1,8 @@
-"""Bloc embeddings : vecteurs Azure OpenAI (text-embedding-3-large) du texte « Name. Description ».
+"""embeddings block: Azure OpenAI vectors (text-embedding-3-large) of the text "Name. Description".
 
-Chaque lot envoyé à Azure passe par le cache (pour ne jamais repayer un texte) et par le module
-costs (estimation avant, coût réel après). Le client est injectable : les tests utilisent un faux
-client et ne font aucun appel réseau.
+Every batch sent to Azure goes through the cache (so a text is never paid for twice) and through
+the costs module (estimate before, actual cost after). The client is injectable: the tests use a
+fake client and make no network call.
 """
 
 import logging
@@ -25,14 +25,14 @@ from etf_classifier.features.text import build_text
 logger = logging.getLogger(__name__)
 
 TOP_TICKERS = 10
-EMPTY_TEXT = "[empty]"  # Azure refuse un texte vide
+EMPTY_TEXT = "[empty]"  # Azure rejects an empty text
 ENV_VARIABLES = ("AZURE_OPENAI_ENDPOINT", "AZURE_OPENAI_API_KEY", "AZURE_OPENAI_API_VERSION")
 DEFAULT_TOKENIZER = "cl100k_base"
 
 
 @dataclass(frozen=True)
 class EmbeddingPlan:
-    """Ce que coûterait le calcul d'une liste de textes, cache déduit."""
+    """What computing a list of texts would cost, cache deducted."""
 
     n_total: int
     n_cached: int
@@ -41,7 +41,7 @@ class EmbeddingPlan:
 
 
 class AzureEmbedder:
-    """Calcule des embeddings normalisés par lots, avec cache et suivi des coûts."""
+    """Computes normalised embeddings in batches, with caching and cost tracking."""
 
     def __init__(self, client, deployment: str, dimensions: int, batch_size: int, max_tokens: int,
                  pricing: PricingTable, tracker: CostTracker, cache: EmbeddingCache):
@@ -65,7 +65,7 @@ class AzureEmbedder:
             text = text.strip() or EMPTY_TEXT
             truncated_text, truncated = self.counter.truncate(text, self.max_tokens)
             if truncated:
-                logger.warning("Texte tronqué à %d tokens pour les embeddings : %s…", self.max_tokens, text[:40])
+                logger.warning("Text truncated to %d tokens for the embeddings: %s…", self.max_tokens, text[:40])
             prepared.append(truncated_text)
         return prepared
 
@@ -84,14 +84,14 @@ class AzureEmbedder:
         return missing, found
 
     def plan(self, texts: list[str]) -> EmbeddingPlan:
-        """Estimation sans aucun appel à Azure : seuls les textes absents du cache sont comptés."""
+        """Estimate without any Azure call: only texts missing from the cache are counted."""
         prepared = self._prepare(texts)
         missing, _ = self._missing(prepared)
         unique = len(set(prepared))
         return EmbeddingPlan(unique, unique - len(missing), len(missing), self._estimate(missing))
 
     def embed(self, texts: list[str]) -> np.ndarray:
-        """Matrice (n, dimensions) de vecteurs normalisés L2, dans l'ordre des textes."""
+        """(n, dimensions) matrix of L2-normalised vectors, in the order of the texts."""
         prepared = self._prepare(texts)
         missing, found = self._missing(prepared)
         for start in range(0, len(missing), self.batch_size):
@@ -102,7 +102,7 @@ class AzureEmbedder:
             vectors = [item.embedding for item in sorted(response.data, key=lambda item: item.index)]
             matrix = np.asarray(vectors, dtype=np.float32)
             if matrix.shape != (len(batch), self.dimensions):
-                raise ValueError(f"Réponse Azure inattendue : {matrix.shape} au lieu de {(len(batch), self.dimensions)}")
+                raise ValueError(f"Unexpected Azure response: {matrix.shape} instead of {(len(batch), self.dimensions)}")
             norms = np.linalg.norm(matrix, axis=1, keepdims=True)
             matrix = matrix / np.where(norms > 0, norms, 1.0)
             computed = {self._key(t): v for t, v in zip(batch, matrix)}
@@ -111,7 +111,7 @@ class AzureEmbedder:
             record = self.tracker.record("features", "embeddings_batch", self.deployment,
                                          Usage.from_openai(response.usage),
                                          estimated_cost_usd=estimate.cost_usd if estimate else None,
-                                         note=f"{len(batch)} textes")
+                                         note=f"{len(batch)} texts")
             self.run_cost_usd += record["cost_usd"] or 0.0
         if not prepared:
             return np.zeros((0, self.dimensions), dtype=np.float32)
@@ -119,13 +119,13 @@ class AzureEmbedder:
 
 
 def create_embedder(settings: dict, client=None) -> AzureEmbedder | None:
-    """Construit l'embedder à partir de la configuration et du .env ; None si Azure n'est pas configuré."""
+    """Builds the embedder from the configuration and .env; None if Azure is not configured."""
     load_dotenv(PROJECT_ROOT / ".env", override=False)
     emb = settings["features"]["embeddings"]
     if client is None:
         missing = [name for name in ENV_VARIABLES if not os.environ.get(name)]
         if missing:
-            logger.info("Azure OpenAI non configuré (variables absentes : %s) : voir .env.example", ", ".join(missing))
+            logger.info("Azure OpenAI not configured (missing variables: %s): see .env.example", ", ".join(missing))
             return None
         from openai import AzureOpenAI
 
@@ -149,7 +149,7 @@ def create_embedder(settings: dict, client=None) -> AzureEmbedder | None:
 
 def embedding_text(name: str, description: str, composition: dict | None = None,
                    include_top_tickers: bool = False) -> str:
-    """Texte envoyé aux embeddings. La catégorie n'y figure jamais (ce serait une fuite)."""
+    """Text sent to the embeddings. The category is never included (that would be a leak)."""
     text = build_text(name, description)
     if include_top_tickers and composition:
         top = sorted(composition, key=composition.get, reverse=True)[:TOP_TICKERS]
@@ -158,7 +158,7 @@ def embedding_text(name: str, description: str, composition: dict | None = None,
 
 
 class EmbeddingsBlock:
-    """Embeddings normalisés L2. Sans calculateur d'embeddings (Azure absent), le bloc est inactif."""
+    """L2-normalised embeddings. Without an embedder (Azure not available), the block is inactive."""
 
     name = "embeddings"
 
@@ -169,7 +169,7 @@ class EmbeddingsBlock:
 
     def __getstate__(self):
         state = self.__dict__.copy()
-        state["embedder"] = None  # le client Azure n'est jamais sauvegardé avec le pipeline
+        state["embedder"] = None  # the Azure client is never saved with the pipeline
         return state
 
     def texts(self, data: pd.DataFrame) -> list[str]:
@@ -178,11 +178,11 @@ class EmbeddingsBlock:
                 for n, d, c in zip(data["name"], data["description"], compositions)]
 
     def fit(self, data: pd.DataFrame) -> "EmbeddingsBlock":
-        return self  # rien à apprendre : le modèle d'embeddings est déjà entraîné
+        return self  # nothing to learn: the embedding model is already trained
 
     def transform(self, data: pd.DataFrame) -> sparse.csr_matrix:
         if self.embedder is None:
-            raise RuntimeError("Bloc embeddings sans accès Azure : recharger le pipeline avec un embedder")
+            raise RuntimeError("Embeddings block without Azure access: reload the pipeline with an embedder")
         vectors = self.embedder.embed(self.texts(data))
         return sparse.csr_matrix(np.asarray(vectors, dtype=np.float32))
 

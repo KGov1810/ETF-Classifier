@@ -1,4 +1,4 @@
-"""Blocs holdings (tickers pondérés) et composition_stats (forme du portefeuille)."""
+"""holdings (weighted tickers) and composition_stats (portfolio shape) blocks."""
 
 import numpy as np
 import pandas as pd
@@ -10,9 +10,9 @@ STAT_NAMES = ["coverage", "log_n_holdings", "top1_weight", "top10_concentration"
 
 
 class HoldingsBlock:
-    """Vecteur creux ticker → poids (%) × rareté du ticker (IDF), normalisé L2.
+    """Sparse vector ticker → weight (%) × ticker rarity (IDF), L2-normalised.
 
-    Le vocabulaire et l'IDF sont appris sur l'entraînement ; un ticker inconnu est ignoré.
+    The vocabulary and the IDF are learned on the training set; an unknown ticker is ignored.
     """
 
     name = "holdings"
@@ -30,7 +30,7 @@ class HoldingsBlock:
         kept = sorted(t for t, df in document_frequency.items() if df >= self.min_df)
         self.vocabulary = {t: i for i, t in enumerate(kept)}
         n_docs = len(data)
-        # IDF lissé (même formule que scikit-learn) : les tickers très répandus pèsent moins
+        # smoothed IDF (same formula as scikit-learn): very common tickers weigh less
         self.idf = np.array([np.log((1 + n_docs) / (1 + document_frequency[t])) + 1 for t in kept])
         return self
 
@@ -53,7 +53,7 @@ class HoldingsBlock:
 
 
 def composition_stats(composition: dict[str, float], known_tickers: set[str]) -> dict[str, float]:
-    """Statistiques d'une composition ; toujours finies, y compris pour une composition vide."""
+    """Statistics of a composition; always finite, including for an empty composition."""
     weights = np.array(sorted(composition.values(), reverse=True), dtype=float)
     coverage = float(weights.sum())
     if coverage <= 0:
@@ -73,7 +73,7 @@ def composition_stats(composition: dict[str, float], known_tickers: set[str]) ->
 
 
 class CompositionStatsBlock:
-    """Forme du portefeuille (couverture, concentration…), centrée-réduite sur l'entraînement."""
+    """Portfolio shape (coverage, concentration…), standardised on the training set."""
 
     name = "composition_stats"
 

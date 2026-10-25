@@ -47,9 +47,9 @@ def test_second_pass_makes_no_api_call(azure_settings, fake_client):
 
 
 def test_changing_dimensions_does_not_reuse_cached_vectors(azure_settings, fake_client):
-    create_embedder(azure_settings, client=fake_client).embed(["texte"])
+    create_embedder(azure_settings, client=fake_client).embed(["text"])
     azure_settings["features"]["embeddings"]["dimensions"] = 4
-    vectors = create_embedder(azure_settings, client=fake_client).embed(["texte"])
+    vectors = create_embedder(azure_settings, client=fake_client).embed(["text"])
     assert len(fake_client.calls) == 2
     assert vectors.shape == (1, 4)
 
@@ -67,8 +67,8 @@ def test_one_cost_line_per_batch_sent_and_none_for_cached_texts(azure_settings, 
 
 def test_estimate_counts_only_uncached_texts_without_calling_azure(azure_settings, fake_client):
     embedder = create_embedder(azure_settings, client=fake_client)
-    embedder.embed(["déjà calculé"])
-    plan = embedder.plan(["déjà calculé", "nouveau 1", "nouveau 2"])
+    embedder.embed(["already computed"])
+    plan = embedder.plan(["already computed", "new 1", "new 2"])
     assert (plan.n_total, plan.n_cached, plan.n_to_compute) == (3, 1, 2)
     assert plan.estimate.cost_usd > 0
     assert len(fake_client.calls) == 1
@@ -78,7 +78,7 @@ def test_long_text_is_truncated_with_a_warning(azure_settings, fake_client, capl
     azure_settings["features"]["embeddings"]["max_tokens"] = 10
     with caplog.at_level(logging.WARNING):
         create_embedder(azure_settings, client=fake_client).embed(["word " * 500])
-    assert "tronqué" in caplog.text
+    assert "truncated" in caplog.text
     assert len(fake_client.calls[0]["input"][0]) < len("word " * 500)
 
 

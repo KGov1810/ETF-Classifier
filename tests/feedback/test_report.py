@@ -9,20 +9,20 @@ def _etf(name):
 
 @pytest.fixture
 def journal(store):
-    """Alice : 3 acceptées + 1 corrigée ; Bob : 1 acceptée + 1 acceptée annulée ; 1 sans proposition."""
+    """Alice: 3 accepted + 1 corrected; Bob: 1 accepted + 1 accepted then cancelled; 1 without proposal."""
     for i in range(3):
-        store.record_validation(_etf(f"A{i}"), ["Actions US"], "Alice", predicted_categories=["Actions US"])
-    store.record_validation(_etf("A3"), ["Actions US", "ESG"], "Alice", predicted_categories=["Actions US", "Or"])
-    store.record_validation(_etf("B0"), ["Or"], "Bob", predicted_categories=["Or"])
-    cancelled = store.record_validation(_etf("B1"), ["Or"], "Bob", predicted_categories=["Or"])
+        store.record_validation(_etf(f"A{i}"), ["US Equity"], "Alice", predicted_categories=["US Equity"])
+    store.record_validation(_etf("A3"), ["US Equity", "ESG"], "Alice", predicted_categories=["US Equity", "Gold"])
+    store.record_validation(_etf("B0"), ["Gold"], "Bob", predicted_categories=["Gold"])
+    cancelled = store.record_validation(_etf("B1"), ["Gold"], "Bob", predicted_categories=["Gold"])
     store.cancel_validation(cancelled["ValidationId"], "Bob")
-    store.record_validation(_etf("C0"), ["Or"], "Carla")
+    store.record_validation(_etf("C0"), ["Gold"], "Carla")
     return store
 
 
 def test_acceptance_rates_computed_by_hand(journal, fb_settings):
     stats = build_feedback_report(fb_settings).stats
-    assert stats["n_validations"] == 6  # hors validation annulée
+    assert stats["n_validations"] == 6  # excluding the cancelled validation
     assert stats["acceptance_rate"] == pytest.approx(4 / 5)
     assert stats["by_validator"]["Alice"]["acceptance_rate"] == pytest.approx(3 / 4)
     assert stats["by_validator"]["Bob"]["acceptance_rate"] == pytest.approx(1.0)
@@ -32,7 +32,7 @@ def test_acceptance_rates_computed_by_hand(journal, fb_settings):
 def test_categories_added_and_removed_by_validators(journal, fb_settings):
     stats = build_feedback_report(fb_settings).stats
     assert stats["added"] == {"ESG": 1}
-    assert stats["removed"] == {"Or": 1}
+    assert stats["removed"] == {"Gold": 1}
 
 
 def test_bias_alert_above_the_threshold(journal, fb_settings):
@@ -48,12 +48,12 @@ def test_no_bias_alert_below_the_minimum_number_of_validations(journal, fb_setti
 
 
 def test_created_categories_are_listed(store, fb_settings):
-    store.record_validation(_etf("H"), ["Hydrogène"], "Alice", create_categories=True)
+    store.record_validation(_etf("H"), ["Hydrogen"], "Alice", create_categories=True)
     report = build_feedback_report(fb_settings)
-    assert report.stats["created_categories"] == ["Hydrogène"]
+    assert report.stats["created_categories"] == ["Hydrogen"]
 
 
 def test_missing_journal_gives_a_clear_message(fb_settings):
     report = build_feedback_report(fb_settings)
     assert report.stats["n_validations"] == 0
-    assert "Aucune validation" in report.markdown
+    assert "No validation" in report.markdown

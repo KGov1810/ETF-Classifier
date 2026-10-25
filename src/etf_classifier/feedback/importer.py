@@ -1,10 +1,10 @@
-"""Import d'un lot de validations faites hors interface.
+"""Import of a batch of validations made outside the interface.
 
-Format d'entrée : la sortie de `model.predict`, complétée par l'équipe d'une colonne Category
-(catégories validées). Chaque ligne passe par les mêmes contrôles qu'une validation unitaire.
+Input format: the output of `model.predict`, completed by the team with a Category column
+(validated categories). Every line goes through the same checks as a single validation.
 
-Usage :
-    python -m etf_classifier.feedback.importer --csv valides.csv --by "Prénom Nom" [--create-categories]
+Usage:
+    python -m etf_classifier.feedback.importer --csv validated.csv --by "First Last" [--create-categories]
 """
 
 import argparse
@@ -23,29 +23,28 @@ EXIT_OK, EXIT_BAD_FILE, EXIT_STORE = 0, 2, 3
 
 
 def _created_categories(store: FeedbackStore) -> set[str]:
-    """Catégories créées par les validateurs (hors catégories historiques)."""
-    registry = store.registry.read()
-    return set(registry.loc[registry["source"] == "créée", "category"])
+    """Categories created by the validators (excluding historical ones)."""
+    return set(store.registry.created()["category"])
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Import d'un lot de validations")
-    parser.add_argument("--csv", required=True, help="CSV validé (sortie de predict + colonne Category)")
-    parser.add_argument("--by", required=True, help="Nom ou e-mail du validateur")
-    parser.add_argument("--config", help="Fichier de configuration (défaut : config/settings.yaml)")
-    parser.add_argument("--create-categories", action="store_true", help="Autoriser la création de catégories")
+    parser = argparse.ArgumentParser(description="Import a batch of validations")
+    parser.add_argument("--csv", required=True, help="Validated CSV (output of predict + Category column)")
+    parser.add_argument("--by", required=True, help="Name or e-mail of the validator")
+    parser.add_argument("--config", help="Configuration file (default: config/settings.yaml)")
+    parser.add_argument("--create-categories", action="store_true", help="Allow categories to be created")
     args = parser.parse_args(argv)
 
     settings = load_settings(args.config)
     path = Path(args.csv)
     if not path.is_file():
-        print(f"Erreur : fichier introuvable : {path}", file=sys.stderr)
+        print(f"Error: file not found: {path}", file=sys.stderr)
         return EXIT_BAD_FILE
     with path.open(encoding="utf-8", newline="") as handle:
         reader = csv.DictReader(handle, delimiter=";")
         missing = [c for c in REQUIRED_COLUMNS if c not in (reader.fieldnames or [])]
         if missing:
-            print(f"Erreur : colonnes absentes : {', '.join(missing)}", file=sys.stderr)
+            print(f"Error: missing columns: {', '.join(missing)}", file=sys.stderr)
             return EXIT_BAD_FILE
         rows = [(reader.line_num, row) for row in reader]
 
@@ -62,7 +61,7 @@ def main(argv: list[str] | None = None) -> int:
             refused.append((line, name, [str(exc)]))
             continue
         if not categories:
-            refused.append((line, name, ["catégorie validée manquante (colonne Category vide)"]))
+            refused.append((line, name, ["validated category missing (empty Category column)"]))
             continue
         try:
             record = store.record_validation(
@@ -75,25 +74,25 @@ def main(argv: list[str] | None = None) -> int:
         except ValidationError as exc:
             refused.append((line, name, exc.errors))
         except FeedbackError as exc:
-            print(f"Erreur : {exc} ({len(accepted)} ligne(s) déjà enregistrée(s))", file=sys.stderr)
+            print(f"Error: {exc} ({len(accepted)} line(s) already recorded)", file=sys.stderr)
             return EXIT_STORE
     created = sorted(_created_categories(store) - categories_before)
 
-    lines = [f"# Import de validations : {path.name}", "",
-             f"{len(accepted)} validation(s) enregistrée(s) · {len(refused)} ligne(s) refusée(s) · "
-             f"{len(created)} catégorie(s) créée(s)", ""]
+    lines = [f"# Validation import: {path.name}", "",
+             f"{len(accepted)} validation(s) recorded · {len(refused)} line(s) refused · "
+             f"{len(created)} category(ies) created", ""]
     if created:
-        lines += [f"Catégories créées : {', '.join(created)}", ""]
+        lines += [f"Created categories: {', '.join(created)}", ""]
     if refused:
-        lines += ["## Lignes refusées", "", "| Ligne | ETF | Raison |", "|---|---|---|"]
-        lines += [f"| {line} | {name} | {' ; '.join(errors)} |" for line, name, errors in refused]
+        lines += ["## Refused lines", "", "| Line | ETF | Reason |", "|---|---|---|"]
+        lines += [f"| {line} | {name} | {'; '.join(errors)} |" for line, name, errors in refused]
         lines.append("")
     report = "\n".join(lines)
     target = resolve_path(settings["model"]["reports_dir"]) / f"feedback_import_{datetime.now():%Y%m%d-%H%M%S}.md"
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(report, encoding="utf-8")
     print(report)
-    print(f"Compte rendu : {target}")
+    print(f"Summary: {target}")
     return EXIT_OK
 
 

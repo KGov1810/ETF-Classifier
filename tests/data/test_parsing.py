@@ -57,7 +57,7 @@ def test_composition_never_evaluates_code():
 
 
 def test_categories_are_stripped_and_deduplicated_in_order():
-    assert parse_categories("[' Actions Monde ', 'ESG', 'Actions Monde']") == ["Actions Monde", "ESG"]
+    assert parse_categories("[' Global Equity ', 'ESG', 'Global Equity']") == ["Global Equity", "ESG"]
 
 
 def test_empty_category_list_gives_empty_list():
@@ -66,7 +66,7 @@ def test_empty_category_list_gives_empty_list():
 
 def test_unreadable_categories_raise():
     with pytest.raises(ParsingError):
-        parse_categories("['Actions US'")
+        parse_categories("['US Equity'")
 
 
 def test_categories_must_be_strings():

@@ -1,126 +1,126 @@
-# Spec : module `feedback`
+# Spec: `feedback` module
 
-Statut : **validée** (25/10/2026)
+Status: **approved** (2026-10-25)
 
-## Objectif
+## Objective
 
-Enregistrer **de façon sûre et traçable** les validations de l'équipe, pour que chaque ETF validé enrichisse
-le jeu de référence et serve au réentraînement quotidien. C'est la brique qui ferme la boucle d'apprentissage.
+Record the team's validations **safely and traceably**, so that every validated ETF enriches
+the reference dataset and feeds the daily retraining. This is the piece that closes the learning loop.
 
-Exigences :
-- **ne jamais perdre ni corrompre de donnée**, même si plusieurs personnes valident en même temps ou si le réentraînement lit le fichier au même moment ;
-- **tracer** qui a validé quoi, quand, avec quel modèle, et ce que le modèle avait proposé ;
-- **mesurer** si les validateurs acceptent les propositions sans les relire. C'est le risque de biais identifié au début du projet : le modèle finirait par renforcer ses propres erreurs.
+Requirements:
+- **never lose or corrupt data**, even if several people validate at the same time or if retraining reads the file at the same moment;
+- **trace** who validated what, when, with which model, and what the model had proposed;
+- **measure** whether validators accept proposals without reviewing them. This is the bias risk identified at the start of the project: the model would end up reinforcing its own mistakes.
 
-Utilisateurs : le module `app` (bouton « Valider »), le job `retraining`, l'équipe via un rapport.
-Avant l'interface, une commande permet d'importer un lot de validations depuis un CSV.
+Users: the `app` module ("Validate" button), the `retraining` job, the team through a report.
+Before the interface, a command imports a batch of validations from a CSV.
 
-Hors périmètre (v1) : la gestion des droits et l'authentification ; la modification des catégories des ETF historiques.
+Out of scope (v1): permissions and authentication; changing the categories of historical ETFs.
 
-## Stockage
+## Storage
 
-- **Le CSV de référence d'origine reste intact.** Les validations sont ajoutées, ligne après ligne, dans un **journal séparé** `data/validations.csv`, qu'on ne fait que compléter.
-- **Le module `data` fusionne les deux fichiers au chargement** : le jeu de référence = CSV d'origine + ETF validés (moins les validations annulées). Le réentraînement voit donc automatiquement les nouveaux ETF.
-- Avantages : retour arrière simple, CSV d'origine jamais réécrit, traçabilité complète, écriture courte donc peu de conflits.
+- **The original reference CSV stays intact.** Validations are appended, line after line, to a **separate journal** `data/validations.csv`, which is only ever appended to.
+- **The `data` module merges both files on load**: reference dataset = original CSV + validated ETFs (minus cancelled validations). Retraining therefore automatically sees the new ETFs.
+- Benefits: simple rollback, original CSV never rewritten, full traceability, short writes hence few conflicts.
 
-Colonnes du journal :
+Journal columns:
 
-| Colonne | Contenu |
+| Column | Content |
 |---|---|
-| `ValidationId` | Identifiant unique de la validation |
-| `Name`, `Description`, `Composition`, `Category` | L'ETF, au format du CSV de référence ; `Category` = catégories validées |
-| `ValidatedBy` | Nom ou e-mail du validateur |
-| `ValidatedAt` | Date et heure UTC |
-| `ModelVersion` | Version du modèle qui a fait la proposition |
-| `PredictedCategories` | Catégories proposées par le modèle |
-| `Decision` | `accepté` (proposition inchangée), `corrigé` (catégories ajoutées ou retirées), `annulation` |
-| `CancelsId` | Pour une annulation, la validation annulée |
-| `Comment` | Commentaire libre facultatif |
+| `ValidationId` | Unique identifier of the validation |
+| `Name`, `Description`, `Composition`, `Category` | The ETF, in the reference CSV format; `Category` = validated categories |
+| `ValidatedBy` | Validator's name or e-mail |
+| `ValidatedAt` | UTC date and time |
+| `ModelVersion` | Version of the model that made the proposal |
+| `PredictedCategories` | Categories proposed by the model |
+| `Decision` | `accepted` (proposal unchanged), `corrected` (categories added or removed), `cancellation` |
+| `CancelsId` | For a cancellation, the cancelled validation |
+| `Comment` | Optional free comment |
 
-## Fonctionnalités
+## Features
 
-### 1. Enregistrer une validation
+### 1. Recording a validation
 - `record_validation(etf, categories, validated_by, prediction=None, model_version=None, comment="")`.
-- Contrôles avant écriture, avec des messages clairs :
-  - nom non vide ;
-  - composition au bon format (même lecture que le module `data`) ;
-  - au moins une catégorie ;
-  - catégories connues, sauf création explicite (point 3).
-- **ETF déjà présent** (même nom dans la référence ou déjà validé) : refus par défaut, avec la référence existante. Le validateur peut confirmer qu'il s'agit d'un ETF différent.
-- La décision (`accepté` ou `corrigé`) est déduite en comparant aux catégories proposées.
+- Checks before writing, with clear messages:
+  - non-empty name;
+  - composition in the right format (same parsing as the `data` module);
+  - at least one category;
+  - known categories, unless explicitly created (point 3).
+- **ETF already present** (same name in the reference or already validated): refused by default, with the existing record. The validator can confirm that it is a different ETF.
+- The decision (`accepted` or `corrected`) is derived by comparing with the proposed categories.
 
-### 2. Écriture sûre
-- **Verrou de fichier** pris pendant chaque écriture et pendant la lecture du journal par le module `data`. Il fonctionne sous Windows, Linux et macOS.
-- Une ligne complète écrite en une seule opération ; fichier en UTF-8, séparateur `;`.
-- **Sauvegarde quotidienne** du journal dans `data/backups/` (les 30 dernières conservées).
-- Le verrou a un délai maximal : passé ce délai, erreur claire (« un autre enregistrement est en cours, réessayez »), jamais d'écriture sans verrou.
+### 2. Safe writing
+- **File lock** held during every write and while the `data` module reads the journal. It works on Windows, Linux and macOS.
+- One complete line written in a single operation; UTF-8 file, `;` separator.
+- **Daily backup** of the journal in `data/backups/` (the last 30 kept).
+- The lock has a timeout: past it, a clear error ("another record is being saved, try again"), never a write without the lock.
 
-### 3. Catégories
-- Registre `data/categories.csv` : les catégories connues (historiques et créées), avec qui les a créées, quand, et une description.
-- Une catégorie inconnue n'est acceptée qu'avec `create_categories=True`. Sa création est enregistrée.
-- Information affichée : une nouvelle catégorie ne sera proposée par le modèle qu'après le réentraînement suivant, et à condition d'avoir assez d'exemples.
+### 3. Categories
+- Registry `data/categories.csv`: the known categories (historical and created), with who created them, when, and a description.
+- An unknown category is only accepted with `create_categories=True`. Its creation is recorded.
+- Information displayed: a new category will only be proposed by the model after the next retraining, and provided it has enough examples.
 
-### 4. Annulation
-- `cancel_validation(validation_id, cancelled_by, comment)` ajoute une ligne `annulation`. On ne supprime jamais rien : l'historique reste complet, et l'ETF annulé disparaît du jeu de référence au chargement suivant.
+### 4. Cancellation
+- `cancel_validation(validation_id, cancelled_by, comment)` appends a `cancellation` line. Nothing is ever deleted: the history stays complete, and the cancelled ETF disappears from the reference dataset on the next load.
 
-### 5. Import d'un lot (avant l'interface)
-`python -m etf_classifier.feedback.importer --csv valides.csv --by "Prénom Nom" [--create-categories]`
-- Format d'entrée : celui produit par `model.predict`, complété par l'équipe d'une colonne `Category` (catégories validées).
-- Chaque ligne passe par les mêmes contrôles. Le rapport d'import indique les lignes acceptées et refusées, avec la raison.
+### 5. Batch import (before the interface)
+`python -m etf_classifier.feedback.importer --csv validated.csv --by "First Last" [--create-categories]`
+- Input format: the one produced by `model.predict`, completed by the team with a `Category` column (validated categories).
+- Every line goes through the same checks. The import report shows the accepted and refused lines, with the reason.
 
-### 6. Rapport de suivi
-`python -m etf_classifier.feedback.report [--since …]` écrit `reports/feedback.md` :
-- nombre de validations par jour et par validateur ;
-- **taux d'acceptation sans modification**, global et par validateur ; un taux proche de 100 % sur une longue période est signalé comme risque de biais ;
-- catégories le plus souvent ajoutées ou retirées par les validateurs, ce qui indique les faiblesses du modèle ;
-- nouvelles catégories créées, et validations annulées.
+### 6. Monitoring report
+`python -m etf_classifier.feedback.report [--since …]` writes `reports/feedback.md`:
+- number of validations per day and per validator;
+- **acceptance rate without changes**, global and per validator; a rate close to 100 % over a long period is flagged as a bias risk;
+- categories most often added or removed by validators, which indicates the model's weaknesses;
+- new categories created, and cancelled validations.
 
 ## Tech Stack
-- **Nouvelle dépendance** : `filelock` (verrou de fichier portable entre Windows, Linux et macOS)
-- Existant : pandas, PyYAML
+- **New dependency**: `filelock` (file lock portable across Windows, Linux and macOS)
+- Existing: pandas, PyYAML
 
 ## Structure
 ```
-data/validations.csv            # journal des validations (non versionné, comme data/raw/)
-data/categories.csv             # registre des catégories (non versionné)
-data/backups/                   # sauvegardes quotidiennes (non versionnées)
+data/validations.csv            # validation journal (not committed, like data/raw/)
+data/categories.csv             # category registry (not committed)
+data/backups/                   # daily backups (not committed)
 src/etf_classifier/feedback/
-├── store.py                    # journal : écriture verrouillée, annulation, lecture, sauvegarde
-├── checks.py                   # contrôles avant écriture
-├── categories.py               # registre des catégories
-├── importer.py                 # CLI d'import d'un lot
-└── report.py                   # CLI du rapport de suivi
+├── store.py                    # journal: locked writes, cancellation, reading, backup
+├── checks.py                   # checks before writing
+├── categories.py               # category registry
+├── importer.py                 # batch import CLI
+└── report.py                   # monitoring report CLI
 tests/feedback/
 ```
-Modification d'un module existant : `data.loader` fusionne le CSV d'origine et le journal (validations non annulées), sous le même verrou.
+Change to an existing module: `data.loader` merges the original CSV and the journal (non-cancelled validations), under the same lock.
 
-## Stratégie de test
-- Contrôles : nom vide, composition illisible, aucune catégorie, catégorie inconnue sans création, ETF déjà présent.
-- **Écritures concurrentes** : plusieurs processus valident en même temps ; aucune ligne perdue ni mélangée.
-- Verrou indisponible au-delà du délai : erreur claire, aucune écriture.
-- Annulation : l'ETF disparaît du jeu de référence, la ligne d'annulation reste dans le journal.
-- Fusion par `data` : les ETF validés apparaissent, avec les mêmes contrôles de qualité que le CSV d'origine ; le CSV d'origine n'est jamais modifié (empreinte).
-- Rapport : taux d'acceptation calculés à la main sur un journal fictif, alerte de biais.
-- Import : lignes acceptées et refusées avec leur raison.
+## Test strategy
+- Checks: empty name, unreadable composition, no category, unknown category without creation, ETF already present.
+- **Concurrent writes**: several processes validate at the same time; no line lost or interleaved.
+- Lock unavailable beyond the timeout: clear error, no write.
+- Cancellation: the ETF disappears from the reference dataset, the cancellation line stays in the journal.
+- Merge by `data`: validated ETFs appear, with the same quality checks as the original CSV; the original CSV is never modified (fingerprint).
+- Report: acceptance rates computed by hand on a fictitious journal, bias alert.
+- Import: accepted and refused lines with their reason.
 
-## Limites
-- **Toujours :** écrire sous verrou ; ajouter, ne jamais réécrire ni supprimer ; enregistrer qui, quand et avec quel modèle.
-- **Demander d'abord :** modifier le format du journal ; toucher au CSV d'origine.
-- **Jamais :** écrire sans verrou ; supprimer une ligne du journal ; versionner `data/`.
+## Boundaries
+- **Always:** write under the lock; append, never rewrite or delete; record who, when and with which model.
+- **Ask first:** changing the journal format; touching the original CSV.
+- **Never:** write without the lock; delete a line from the journal; commit `data/`.
 
-## Critères de succès
-1. Une validation enregistrée apparaît dans le jeu de référence au chargement suivant, donc au prochain réentraînement.
-2. Aucune perte ni corruption lors d'écritures simultanées (test de concurrence).
-3. Le rapport de suivi donne le taux d'acceptation par validateur et signale un risque de biais.
-4. Un lot validé hors interface s'importe, avec un compte rendu ligne par ligne.
+## Success criteria
+1. A recorded validation appears in the reference dataset on the next load, hence at the next retraining.
+2. No loss or corruption during simultaneous writes (concurrency test).
+3. The monitoring report gives the acceptance rate per validator and flags a bias risk.
+4. A batch validated outside the interface can be imported, with a line-by-line report.
 
-## Décisions prises
-- **Stockage B** : journal séparé `data/validations.csv`, fusionné au chargement avec le CSV d'origine, qui reste intact.
-- **Dépendance `filelock`** acceptée (verrou portable Windows / Linux / macOS).
-- **Corrections d'ETF historiques hors v1** ; elles pourront venir sous forme de lignes `correction` dans le journal.
-- **Identité du validateur** : nom ou e-mail, sans authentification en v1.
-- **Ajouts pendant l'implémentation** :
-  - décision `sans_proposition` pour une validation saisie sans proposition du modèle (exclue du taux d'acceptation) ;
-  - la commande d'import s'appelle `feedback.importer` (`import` est un mot réservé de Python) ;
-  - la sortie de `model.predict` contient désormais `Description`, `Composition` et `ModelVersion`, pour que le
-    fichier complété par l'équipe se suffise à lui-même.
+## Decisions made
+- **Storage B**: separate journal `data/validations.csv`, merged on load with the original CSV, which stays intact.
+- **`filelock` dependency** accepted (portable lock for Windows / Linux / macOS).
+- **Corrections of historical ETFs out of v1**; they may come later as `correction` lines in the journal.
+- **Validator identity**: name or e-mail, without authentication in v1.
+- **Additions during implementation**:
+  - `no_proposal` decision for a validation entered without a model proposal (excluded from the acceptance rate);
+  - the import command is called `feedback.importer` (`import` is a Python reserved word);
+  - the output of `model.predict` now contains `Description`, `Composition` and `ModelVersion`, so that the
+    file completed by the team is self-sufficient.

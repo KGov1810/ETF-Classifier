@@ -16,7 +16,7 @@ def prepared(sample_csv, settings):
 
 @pytest.fixture
 def local_settings(settings):
-    """Configuration sans Azure : les trois blocs locaux."""
+    """Configuration without Azure: the three local blocks."""
     cfg = copy.deepcopy(settings)
     cfg["features"]["blocks"]["embeddings"]["enabled"] = False
     cfg["features"]["text_tfidf"]["min_df"] = 1

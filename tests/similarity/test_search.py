@@ -50,16 +50,16 @@ def test_near_duplicate_is_reported_in_the_summary(sample_csv, new_etfs_csv, con
     output = tmp_path / "neighbors.csv"
     search_main(["--csv", str(new_etfs_csv), "--config", config, "--output", str(output)])
     summary = output.with_suffix(".md").read_text(encoding="utf-8")
-    assert "Quasi-doublon" in summary and "World Tracker" in summary
+    assert "Near-duplicate" in summary and "World Tracker" in summary
 
 
 def test_without_any_model_a_clear_message_is_shown(new_etfs_csv, config, capsys):
     assert search_main(["--csv", str(new_etfs_csv), "--config", config]) == 2
-    assert "Aucun modèle" in capsys.readouterr().err
+    assert "No current model" in capsys.readouterr().err
 
 
 def test_model_without_index_asks_to_retrain(sample_csv, new_etfs_csv, config, sim_settings, capsys):
     train_main(["--csv", str(sample_csv), "--config", config, "--no-azure"])
     (load_bundle("current", sim_settings).path / "similarity.joblib").unlink()
     assert search_main(["--csv", str(new_etfs_csv), "--config", config]) == 4
-    assert "réentraîner" in capsys.readouterr().err
+    assert "retrain" in capsys.readouterr().err

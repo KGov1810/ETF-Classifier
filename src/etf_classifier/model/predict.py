@@ -1,7 +1,7 @@
-"""Propositions de catégories pour de nouveaux ETF (CSV sans colonne Category).
+"""Category proposals for new ETFs (CSV without a Category column).
 
-Usage :
-    python -m etf_classifier.model.predict --csv nouveaux_etfs.csv [--model current] [--output …]
+Usage:
+    python -m etf_classifier.model.predict --csv new_etfs.csv [--model current] [--output …]
 """
 
 import argparse
@@ -23,20 +23,20 @@ EXIT_OK, EXIT_CANCELLED, EXIT_NO_MODEL, EXIT_NO_AZURE = 0, 1, 2, 3
 
 
 def main(argv: list[str] | None = None, client=None, input_fn: Callable[[str], str] = input) -> int:
-    parser = argparse.ArgumentParser(description="Propositions de catégories pour de nouveaux ETF")
-    parser.add_argument("--csv", required=True, help="CSV des nouveaux ETF (Name;Description;Composition)")
-    parser.add_argument("--model", default="current", help="Version du modèle (défaut : modèle courant)")
-    parser.add_argument("--config", help="Fichier de configuration (défaut : config/settings.yaml)")
-    parser.add_argument("--output", help="CSV de sortie (défaut : reports/predictions_<version>_<date>.csv)")
-    parser.add_argument("--yes", action="store_true", help="Ne pas demander de confirmation avant la dépense Azure")
+    parser = argparse.ArgumentParser(description="Category proposals for new ETFs")
+    parser.add_argument("--csv", required=True, help="CSV of the new ETFs (Name;Description;Composition)")
+    parser.add_argument("--model", default="current", help="Model version (default: current model)")
+    parser.add_argument("--config", help="Configuration file (default: config/settings.yaml)")
+    parser.add_argument("--output", help="Output CSV (default: reports/predictions_<version>_<date>.csv)")
+    parser.add_argument("--yes", action="store_true", help="Do not ask for confirmation before spending on Azure")
     args = parser.parse_args(argv)
-    logging.basicConfig(level=logging.WARNING, format="%(levelname)s : %(message)s")
+    logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 
     settings = load_settings(args.config)
     try:
         bundle = load_bundle(args.model, settings)
     except NoModelError as exc:
-        print(f"Erreur : {exc}", file=sys.stderr)
+        print(f"Error: {exc}", file=sys.stderr)
         return EXIT_NO_MODEL
 
     loaded = load_dataset(args.csv, settings, require_categories=False)
@@ -44,8 +44,8 @@ def main(argv: list[str] | None = None, client=None, input_fn: Callable[[str], s
     if bundle.pipeline.uses_embeddings:
         embedder = create_embedder(settings, client=client)
         if embedder is None:
-            print("Erreur : ce modèle utilise les embeddings Azure, mais Azure OpenAI n'est pas configuré "
-                  "(voir .env.example).", file=sys.stderr)
+            print("Error: this model uses Azure embeddings, but Azure OpenAI is not configured "
+                  "(see .env.example).", file=sys.stderr)
             return EXIT_NO_AZURE
         bundle.pipeline.attach_embedder(embedder)
         plan, cost = announce_embedding_plan(settings, data, embedder)
@@ -55,7 +55,7 @@ def main(argv: list[str] | None = None, client=None, input_fn: Callable[[str], s
     cfg = settings["model"]
     predictions = bundle.model.predict(bundle.pipeline.transform(data).matrix,
                                        cfg["max_categories"], cfg["uncertain_threshold"])
-    # Fichier autonome : l'équipe y ajoute une colonne Category, puis l'importe (feedback.import)
+    # Self-contained file: the team adds a Category column, then imports it (feedback.importer)
     output = pd.DataFrame({
         "Name": data["name"],
         "Description": data["description"],
@@ -74,9 +74,9 @@ def main(argv: list[str] | None = None, client=None, input_fn: Callable[[str], s
     output.to_csv(output_path, sep=";", index=False, encoding="utf-8")
 
     n_uncertain = int(output["Uncertain"].sum())
-    print(f"{len(output)} ETF traités avec le modèle {bundle.version} · {n_uncertain} incertain(s) · "
-          f"{len(loaded.log.exclusions())} ligne(s) exclue(s)")
-    print(f"Propositions : {output_path}")
+    print(f"{len(output)} ETFs processed with model {bundle.version} · {n_uncertain} uncertain · "
+          f"{len(loaded.log.exclusions())} excluded row(s)")
+    print(f"Proposals: {output_path}")
     return EXIT_OK
 
 

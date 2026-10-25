@@ -1,1 +1,1 @@
-"""Module costs : estimation et suivi des coûts Azure OpenAI (en USD)."""
+"""costs module: estimating and tracking Azure OpenAI costs (in USD)."""

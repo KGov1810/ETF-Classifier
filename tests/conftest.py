@@ -1,4 +1,4 @@
-"""Fixtures partagées par les tests."""
+"""Fixtures shared by the tests."""
 
 from pathlib import Path
 
@@ -11,11 +11,11 @@ FIXTURES_DIR = Path(__file__).parent / "data" / "fixtures"
 
 @pytest.fixture
 def settings() -> dict:
-    """Configuration par défaut du projet."""
+    """Default project configuration."""
     return load_settings()
 
 
 @pytest.fixture
 def sample_csv() -> Path:
-    """CSV fictif couvrant chaque règle de qualité."""
+    """Fictitious CSV covering every quality rule."""
     return FIXTURES_DIR / "sample.csv"

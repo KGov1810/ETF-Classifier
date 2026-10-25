@@ -1,14 +1,14 @@
-"""Jeu synthétique où la réponse est connue : chaque catégorie a ses mots et ses tickers signatures."""
+"""Synthetic dataset where the answer is known: each category has its own signature words and tickers."""
 
 import numpy as np
 import pandas as pd
 
 CATEGORIES = {
-    "Or": (["gold", "bullion", "miners"], ["NEM", "GOLD", "AEM", "KGC"]),
-    "Technologie": (["technology", "software", "semiconductor"], ["AAPL", "MSFT", "NVDA", "AVGO"]),
-    "Santé": (["healthcare", "pharma", "biotech"], ["JNJ", "PFE", "MRK", "ABBV"]),
-    "Énergie": (["energy", "oil", "gas"], ["XOM", "CVX", "TTE", "SHEL"]),
-    "Obligations": (["bond", "treasury", "fixed income"], ["UST10", "UST5", "BUND", "OAT"]),
+    "Gold": (["gold", "bullion", "miners"], ["NEM", "GOLD", "AEM", "KGC"]),
+    "Technology": (["technology", "software", "semiconductor"], ["AAPL", "MSFT", "NVDA", "AVGO"]),
+    "Healthcare": (["healthcare", "pharma", "biotech"], ["JNJ", "PFE", "MRK", "ABBV"]),
+    "Energy": (["energy", "oil", "gas"], ["XOM", "CVX", "TTE", "SHEL"]),
+    "Bonds": (["bond", "treasury", "fixed income"], ["UST10", "UST5", "BUND", "OAT"]),
     "ESG": (["esg", "sustainable", "responsible"], ["ESG1", "ESG2", "ESG3", "ESG4"]),
 }
 NOISE_WORDS = [f"word{i}" for i in range(300)]
@@ -16,7 +16,7 @@ NOISE_TICKERS = [f"N{i}" for i in range(500)]
 
 
 def make_synthetic(n_etfs: int = 400, seed: int = 0) -> pd.DataFrame:
-    """ETF de 1 ou 2 catégories ; description et composition mêlent signatures et bruit."""
+    """ETFs with 1 or 2 categories; description and composition mix signatures and noise."""
     rng = np.random.default_rng(seed)
     names = list(CATEGORIES)
     rows = []

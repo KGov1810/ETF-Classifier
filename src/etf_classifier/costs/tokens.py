@@ -1,8 +1,8 @@
-"""Comptage des tokens avec tiktoken, et repli approximatif si ses tables sont indisponibles.
+"""Token counting with tiktoken, with an approximate fallback when its tables are unavailable.
 
-tiktoken télécharge ses tables au premier usage. Sur un réseau restreint, ce téléchargement peut
-échouer : on bascule alors sur une approximation (environ 4 caractères par token), signalée comme
-telle. Pour travailler hors ligne, on peut pré-télécharger les tables et définir TIKTOKEN_CACHE_DIR.
+tiktoken downloads its tables on first use. On a restricted network this download can fail: we
+then fall back to an approximation (about 4 characters per token), flagged as such. To work
+offline, pre-download the tables and set TIKTOKEN_CACHE_DIR.
 """
 
 import logging
@@ -11,12 +11,12 @@ from functools import lru_cache
 
 logger = logging.getLogger(__name__)
 
-CHARS_PER_TOKEN = 4          # approximation courante pour l'anglais
-SAFE_CHARS_PER_TOKEN = 3     # troncature prudente quand le comptage est approximatif
+CHARS_PER_TOKEN = 4          # common approximation for English
+SAFE_CHARS_PER_TOKEN = 3     # conservative truncation when counting is approximate
 
 
 class TokenCounter:
-    """Compte et tronque des textes selon un encodage tiktoken (ou une approximation)."""
+    """Counts and truncates texts with a tiktoken encoding (or an approximation)."""
 
     def __init__(self, encoding_name: str):
         self.encoding_name = encoding_name
@@ -25,9 +25,9 @@ class TokenCounter:
             import tiktoken
 
             self._encoding = tiktoken.get_encoding(encoding_name)
-        except Exception as exc:  # réseau bloqué, encodage inconnu, bibliothèque absente
+        except Exception as exc:  # blocked network, unknown encoding, missing library
             logger.warning(
-                "Tokenizer %s indisponible (%s) : comptage approximatif à %d caractères par token",
+                "Tokenizer %s unavailable (%s): approximate counting at %d characters per token",
                 encoding_name, type(exc).__name__, CHARS_PER_TOKEN,
             )
 
@@ -41,7 +41,7 @@ class TokenCounter:
         return math.ceil(len(text) / CHARS_PER_TOKEN)
 
     def truncate(self, text: str, max_tokens: int) -> tuple[str, bool]:
-        """Tronque le texte à max_tokens ; renvoie (texte, tronqué ou non)."""
+        """Truncates the text to max_tokens; returns (text, truncated or not)."""
         if self.count(text) <= max_tokens:
             return text, False
         if self._encoding is not None:
@@ -52,5 +52,5 @@ class TokenCounter:
 
 @lru_cache(maxsize=None)
 def get_counter(encoding_name: str) -> TokenCounter:
-    """Compteur partagé par encodage (les tables ne sont chargées qu'une fois)."""
+    """Counter shared per encoding (the tables are loaded only once)."""
     return TokenCounter(encoding_name)

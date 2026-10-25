@@ -1,108 +1,108 @@
-# Spec : module `features`
+# Spec: `features` module
 
-Statut : **validée** (25/10/2026)
+Status: **approved** (2026-10-25)
 
-## Objectif
+## Objective
 
-Transformer chaque ETF (nom, description, composition pondérée) et ses catégories en matrices
-numériques utilisables par les modules `model` et `similarity`, de façon **reproductible** et **sans fuite** :
-le vocabulaire, les pondérations et les mises à l'échelle sont appris sur le jeu d'entraînement seulement,
-puis appliqués tels quels au jeu de test et aux nouveaux ETF.
+Turn every ETF (name, description, weighted composition) and its categories into numerical
+matrices usable by the `model` and `similarity` modules, in a **reproducible** way and **without leaks**:
+the vocabulary, the weightings and the scalings are learned on the training set only,
+then applied as they are to the test set and to new ETFs.
 
-Le module est organisé en **blocs de variables** activables séparément. On peut ainsi mesurer l'apport
-de chacun : d'abord une référence sans Azure, puis l'ajout des embeddings.
+The module is organised in **feature blocks** that can be enabled separately. This makes it possible to
+measure the contribution of each one: first a baseline without Azure, then the addition of the embeddings.
 
-## Données d'entrée
-- `PreparedDataset` du module `data` : colonnes `name`, `description`, `composition` (tickers normalisés), `categories`, `coverage`, `n_holdings`, plus le découpage entraînement/test.
-- Descriptions en **anglais**.
-- Accès Azure OpenAI : déploiement `text-embedding-3-large`. Endpoint, clé et version d'API sont lus depuis des variables d'environnement (fichier `.env` non versionné). **La clé ne transite jamais par le code, les journaux ou le dépôt.**
+## Input data
+- `PreparedDataset` from the `data` module: columns `name`, `description`, `composition` (normalised tickers), `categories`, `coverage`, `n_holdings`, plus the train/test split.
+- Descriptions in **English**.
+- Azure OpenAI access: `text-embedding-3-large` deployment. Endpoint, key and API version are read from environment variables (`.env` file, not committed). **The key never goes through the code, the logs or the repository.**
 
-## Blocs de variables
+## Feature blocks
 
-| Bloc | Contenu | Azure | Rôle pédagogique |
+| Block | Content | Azure | Learning purpose |
 |---|---|---|---|
-| `text_tfidf` | TF-IDF du nom et de la description : mots et paires de mots, mots vides anglais retirés, `sublinear_tf`, fréquence minimale de 2 documents | Non | Référence simple et interprétable |
-| `holdings` | Vecteur creux ticker → poids (en %), pondéré par la rareté du ticker (IDF), normalisé L2 | Non | Le modèle apprend quels tickers sont typiques d'une catégorie |
-| `composition_stats` | Couverture, nombre de lignes, poids de la 1ʳᵉ ligne, concentration des 10 premières, indice de Herfindahl, composition vide, part du poids sur des tickers inconnus du vocabulaire | Non | Distingue un ETF large d'un ETF thématique ou concentré |
-| `embeddings` | Embedding `text-embedding-3-large` du texte « Name. Description » (3 072 dimensions), normalisé L2 | Oui | Sens du texte au-delà des mots exacts |
+| `text_tfidf` | TF-IDF of the name and description: words and word pairs, English stop words removed, `sublinear_tf`, minimum frequency of 2 documents | No | Simple, interpretable baseline |
+| `holdings` | Sparse ticker → weight vector (in %), weighted by ticker rarity (IDF), L2-normalised | No | The model learns which tickers are typical of a category |
+| `composition_stats` | Coverage, number of holdings, weight of the top holding, top-10 concentration, Herfindahl index, empty composition, share of the weight on tickers unknown to the vocabulary | No | Distinguishes a broad ETF from a thematic or concentrated one |
+| `embeddings` | `text-embedding-3-large` embedding of the text "Name. Description" (3,072 dimensions), L2-normalised | Yes | Meaning of the text beyond exact words |
 
-- Les blocs actifs et leur poids relatif sont définis dans `config/settings.yaml` (section `features`).
-- Les cibles sont encodées en matrice multi-étiquettes (une colonne par catégorie). Une catégorie inconnue au moment de l'apprentissage est signalée, jamais ignorée en silence.
+- Active blocks and their relative weight are defined in `config/settings.yaml` (`features` section).
+- Targets are encoded as a multi-label matrix (one column per category). A category unknown at training time is reported, never silently ignored.
 
-## Fonctionnalités
+## Features
 
-### 1. Pipeline apprendre / appliquer
-- `FeaturePipeline(settings).fit(train_df)` apprend vocabulaires, IDF et mises à l'échelle **sur l'entraînement uniquement**.
-- `transform(df) -> FeatureSet` contient une matrice par bloc, la matrice combinée (creuse) et la liste des noms de variables.
-- `fit_labels(train_df)` / `transform_labels(df)` produisent la matrice des catégories et la liste des catégories.
-- `save(path)` / `load(path)` dans `artifacts/features/<version>/`, avec la configuration utilisée et une empreinte du jeu d'entraînement, pour que le réentraînement quotidien et l'application utilisent exactement la même transformation.
+### 1. Fit / transform pipeline
+- `FeaturePipeline(settings).fit(train_df)` learns vocabularies, IDF and scalings **on training only**.
+- `transform(df) -> FeatureSet` holds one matrix per block, the combined (sparse) matrix and the list of feature names.
+- `fit_labels(train_df)` / `transform_labels(df)` produce the category matrix and the list of categories.
+- `save(path)` / `load(path)` in `artifacts/features/<version>/`, with the configuration used and a fingerprint of the training set, so that daily retraining and the application use exactly the same transformation.
 
-### 2. Embeddings Azure
-- Client `AzureOpenAI` (bibliothèque officielle `openai`), lots de textes configurables (64 par défaut), nouvelles tentatives automatiques en cas de limite de débit ou d'erreur serveur.
-- Textes trop longs tronqués à la limite du modèle (8 192 tokens), avec un avertissement.
-- **Cache** SQLite `cache/embeddings.sqlite` (bibliothèque standard), clé = empreinte de (modèle, dimensions, texte). Un texte déjà calculé n'est jamais renvoyé à Azure : le réentraînement quotidien ne paie que les nouveaux ETF.
-- **Coûts** : avant un calcul, `costs.estimate_embeddings` donne le nombre de textes à calculer (hors cache), les tokens et le coût. Après chaque lot, `CostTracker.record(module="features", operation="embeddings_batch", …)`.
-- **Sans Azure** (variables d'environnement absentes ou bloc désactivé) : le bloc `embeddings` est ignoré avec un message clair, et les autres blocs fonctionnent. Les tests utilisent un faux client, sans réseau.
+### 2. Azure embeddings
+- `AzureOpenAI` client (official `openai` library), configurable text batches (64 by default), automatic retries on rate limits or server errors.
+- Texts that are too long are truncated to the model limit (8,192 tokens), with a warning.
+- SQLite **cache** `cache/embeddings.sqlite` (standard library), key = fingerprint of (model, dimensions, text). A text already computed is never sent to Azure again: daily retraining only pays for new ETFs.
+- **Costs**: before a computation, `costs.estimate_embeddings` gives the number of texts to compute (excluding the cache), the tokens and the cost. After each batch, `CostTracker.record(module="features", operation="embeddings_batch", …)`.
+- **Without Azure** (environment variables missing or block disabled): the `embeddings` block is skipped with a clear message, and the other blocks work. Tests use a fake client, without network.
 
-### 3. Ligne de commande
+### 3. Command line
 ```
 python -m etf_classifier.features.build --csv data/raw/etfs.csv --estimate-only
-python -m etf_classifier.features.build --csv data/raw/etfs.csv            # demande confirmation avant de payer
-python -m etf_classifier.features.build --csv data/raw/etfs.csv --yes      # sans confirmation (job quotidien)
+python -m etf_classifier.features.build --csv data/raw/etfs.csv            # asks for confirmation before paying
+python -m etf_classifier.features.build --csv data/raw/etfs.csv --yes      # no confirmation (daily job)
 ```
-Affiche pour chaque bloc la dimension et la densité, le nombre d'embeddings tirés du cache ou calculés, et le coût estimé puis réel.
+Displays for each block the dimension and density, the number of embeddings taken from the cache or computed, and the estimated then actual cost.
 
 ## Tech Stack
-- Existant : pandas, numpy, scipy, PyYAML, pytest
-- **Nouvelles dépendances** :
-  - `scikit-learn` (TF-IDF, mise à l'échelle, encodage multi-étiquettes, sauvegarde via `joblib`)
-  - `openai` (client Azure officiel)
-  - `python-dotenv` (lecture du fichier `.env`)
-  - `tiktoken` (via le module `costs`)
+- Existing: pandas, numpy, scipy, PyYAML, pytest
+- **New dependencies**:
+  - `scikit-learn` (TF-IDF, scaling, multi-label encoding, saving via `joblib`)
+  - `openai` (official Azure client)
+  - `python-dotenv` (reading the `.env` file)
+  - `tiktoken` (through the `costs` module)
 
 ## Structure
 ```
-.env.example                          # modèle des variables Azure, sans valeur secrète (versionné)
+.env.example                          # template of the Azure variables, no secret value (committed)
 src/etf_classifier/features/
-├── text.py                           # bloc text_tfidf
-├── holdings.py                       # blocs holdings et composition_stats
-├── embeddings.py                     # client Azure, lots, cache, coûts
-├── labels.py                         # encodage des catégories
-├── pipeline.py                       # FeaturePipeline, sauvegarde/chargement
-└── build.py                          # ligne de commande
-cache/                                # cache d'embeddings (non versionné)
-artifacts/                            # pipelines sauvegardés (non versionnés)
+├── text.py                           # text_tfidf block
+├── holdings.py                       # holdings and composition_stats blocks
+├── embeddings.py                     # Azure client, batches, cache, costs
+├── labels.py                         # category encoding
+├── pipeline.py                       # FeaturePipeline, save/load
+└── build.py                          # command line
+cache/                                # embeddings cache (not committed)
+artifacts/                            # saved pipelines (not committed)
 tests/features/
 ```
 
-## Style de code
-Identique aux modules précédents. Chaque bloc expose la même interface (`fit`, `transform`, `feature_names`), pour pouvoir en ajouter un sans toucher au pipeline.
+## Code style
+Same as the previous modules. Every block exposes the same interface (`fit`, `transform`, `feature_names`), so that one can be added without touching the pipeline.
 
-## Stratégie de test
-- **Absence de fuite** : un mot ou un ticker présent uniquement dans le test n'entre pas dans le vocabulaire.
-- **Reproductibilité** : même entraînement, même matrice ; sauvegarde puis rechargement donnent une transformation identique.
-- **Variables de composition** calculées à la main sur des cas simples (concentration, Herfindahl, composition vide, part de tickers inconnus).
-- **Embeddings avec un faux client** : découpage en lots, cache (deuxième passage sans aucun appel), troncature, enregistrement d'une ligne de coût par lot.
-- **Mode sans Azure** : le pipeline fonctionne avec les trois autres blocs.
-- **Performance** : sur 10 000 ETF synthétiques, la construction des blocs sans Azure prend moins de 60 s.
+## Test strategy
+- **No leak**: a word or ticker present only in the test set does not enter the vocabulary.
+- **Reproducibility**: same training, same matrix; saving then reloading gives an identical transformation.
+- **Composition features** computed by hand on simple cases (concentration, Herfindahl, empty composition, share of unknown tickers).
+- **Embeddings with a fake client**: batching, cache (second pass without any call), truncation, one cost line recorded per batch.
+- **Without-Azure mode**: the pipeline works with the other three blocks.
+- **Performance**: on 10,000 synthetic ETFs, building the blocks without Azure takes less than 60 s.
 
-## Limites
-- **Toujours :** apprendre sur l'entraînement seulement ; passer par le cache et par `costs` pour tout appel Azure ; demander confirmation avant une dépense, sauf avec `--yes`.
-- **Demander d'abord :** changer de modèle d'embeddings ou de dimension (cela invalide le cache et les modèles entraînés) ; ajouter un bloc de variables.
-- **Jamais :** versionner `.env`, `cache/`, `artifacts/` ; écrire une clé dans le code ou un journal ; envoyer à Azure autre chose que le nom et la description.
+## Boundaries
+- **Always:** learn on training only; go through the cache and through `costs` for every Azure call; ask for confirmation before an expense, except with `--yes`.
+- **Ask first:** changing the embeddings model or dimension (this invalidates the cache and the trained models); adding a feature block.
+- **Never:** commit `.env`, `cache/`, `artifacts/`; write a key in the code or a log; send Azure anything other than the name and the description.
 
-## Critères de succès
-1. Sur le CSV réel, `build --estimate-only` donne le coût de l'embedding complet avant toute dépense.
-2. Un deuxième `build` sur les mêmes données ne fait aucun appel Azure et ne coûte rien.
-3. `transform` sur le jeu de test n'utilise que ce qui a été appris sur l'entraînement (test d'absence de fuite).
-4. Les tests passent sans réseau ; le pipeline fonctionne sans Azure avec les trois blocs locaux.
+## Success criteria
+1. On the real CSV, `build --estimate-only` gives the cost of the full embedding before any expense.
+2. A second `build` on the same data makes no Azure call and costs nothing.
+3. `transform` on the test set only uses what was learned on training (no-leak test).
+4. Tests pass without network; the pipeline works without Azure with the three local blocks.
 
-## Décisions prises
-- Embeddings en **3 072 dimensions** (pleine précision).
-- Texte envoyé : **« Name. Description »**.
-- **La catégorie n'est jamais incluse** dans le texte embarqué : c'est la valeur à prédire. L'inclure créerait une fuite
-  (le modèle lirait la réponse à l'entraînement, alors qu'un nouvel ETF n'a pas encore de catégorie).
-- **La composition n'est pas incluse par défaut** : elle est déjà portée par les blocs `holdings` et `composition_stats`,
-  des tickers apportent peu de sens à un modèle de langage, et chaque rebalancement changerait le texte, donc
-  ferait recalculer et repayer l'embedding. Une option `embeddings.include_top_tickers` (désactivée) permettra de
-  mesurer plus tard si l'ajout des 10 premiers tickers améliore le score.
+## Decisions made
+- Embeddings in **3,072 dimensions** (full precision).
+- Text sent: **"Name. Description"**.
+- **The category is never included** in the embedded text: it is the value to predict. Including it would create a leak
+  (the model would read the answer at training time, whereas a new ETF has no category yet).
+- **The composition is not included by default**: it is already carried by the `holdings` and `composition_stats` blocks,
+  tickers carry little meaning for a language model, and every rebalancing would change the text, hence
+  force the embedding to be recomputed and paid again. An `embeddings.include_top_tickers` option (disabled) will make it possible to
+  measure later whether adding the top 10 tickers improves the score.

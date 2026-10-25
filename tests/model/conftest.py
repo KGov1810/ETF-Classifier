@@ -1,4 +1,4 @@
-"""Fixtures du module model : jeu synthétique, configuration isolée, faux client Azure."""
+"""Fixtures for the model tests: synthetic dataset, isolated configuration, fake Azure client."""
 
 import copy
 import importlib.util
@@ -30,7 +30,7 @@ def make_synthetic():
 
 @pytest.fixture
 def model_settings(settings, tmp_path):
-    """Blocs locaux, artefacts, rapports, cache et journal dans un dossier temporaire."""
+    """Local blocks; artifacts, reports, cache and log in a temporary folder."""
     cfg = copy.deepcopy(settings)
     cfg["features"]["blocks"]["embeddings"]["enabled"] = False
     cfg["features"]["text_tfidf"]["min_df"] = 1

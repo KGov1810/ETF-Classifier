@@ -1,17 +1,17 @@
-"""Variables les plus influentes par catégorie (coefficients positifs de la régression logistique).
+"""Most influential features per category (positive coefficients of the logistic regression).
 
-Exemple attendu : « gold », « NEM » et « miners » poussent vers la catégorie « Or ».
+Expected example: "gold", "NEM" and "miners" push towards the "Gold" category.
 """
 
 import numpy as np
 
 
 def top_features(model, feature_names: list[str], k: int = 10) -> dict[str, list[tuple[str, float]]]:
-    """Pour chaque catégorie, les k variables au coefficient le plus positif (aucune si la catégorie est constante)."""
+    """For each category, the k features with the most positive coefficient (none if the category is constant)."""
     result: dict[str, list[tuple[str, float]]] = {}
     for category, estimator in zip(model.classes, model.estimators):
         coef = getattr(estimator, "coef_", None)
-        if coef is None:  # catégorie présente (ou absente) partout à l'entraînement : rien à apprendre
+        if coef is None:  # category present (or absent) everywhere in training: nothing to learn
             result[category] = []
             continue
         coef = np.asarray(coef).ravel()

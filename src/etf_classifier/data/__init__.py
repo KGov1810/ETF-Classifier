@@ -1,1 +1,1 @@
-"""Module data : chargement, contrôle qualité, normalisation, quasi-doublons et découpage."""
+"""data module: loading, quality checks, normalisation, near-duplicates and split."""

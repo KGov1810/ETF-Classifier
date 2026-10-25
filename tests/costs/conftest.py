@@ -1,4 +1,4 @@
-"""Grille tarifaire de test, indépendante de config/pricing.yaml."""
+"""Test price list, independent of config/pricing.yaml."""
 
 import textwrap
 
@@ -10,7 +10,7 @@ TEST_PRICING = textwrap.dedent(
     """
     currency: USD
     as_of: "2026-10-01"
-    source: "grille de test"
+    source: "test price list"
     models:
       embed-model:
         kind: embedding

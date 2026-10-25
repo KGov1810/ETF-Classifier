@@ -1,7 +1,7 @@
-"""Découpage entraînement/test par groupe de quasi-doublons.
+"""Train/test split by near-duplicate group.
 
-Un groupe n'est jamais coupé en deux : sinon le modèle verrait au test des ETF quasi identiques
-à ceux de l'entraînement, et son score serait trompeusement élevé.
+A group is never split in two: otherwise the model would see, in the test set, ETFs that are
+almost identical to training ones, and its score would be misleadingly high.
 """
 
 from collections import defaultdict
@@ -13,7 +13,7 @@ import pandas as pd
 
 @dataclass
 class SplitSummary:
-    """Bilan du découpage, affiché dans le rapport de qualité."""
+    """Summary of the split, shown in the quality report."""
 
     test_share: float
     n_train: int
@@ -31,14 +31,14 @@ class SplitResult:
 
 
 def make_split(data: pd.DataFrame, test_size: float = 0.2, seed: int = 42, rare_min: int = 5) -> SplitResult:
-    """Découpe le jeu en entraînement/test sans couper de groupe (colonne group_id requise).
+    """Splits the dataset into train/test without splitting any group (group_id column required).
 
-    1. Chaque catégorie présente dans au moins 2 groupes reçoit un groupe côté test.
-    2. Le test est complété par des groupes tirés au hasard jusqu'à la taille visée,
-       sans retirer à une catégorie son dernier groupe côté entraînement.
+    1. Every category present in at least 2 groups gets one group on the test side.
+    2. The test set is completed with randomly drawn groups up to the target size,
+       without taking away a category's last group on the training side.
     """
     if "group_id" not in data.columns:
-        raise ValueError("Colonne group_id absente : appeler add_groups() avant make_split().")
+        raise ValueError("group_id column missing: call add_groups() before make_split().")
 
     rng = np.random.default_rng(seed)
     positions = data.groupby("group_id", sort=True).indices
@@ -55,7 +55,7 @@ def make_split(data: pd.DataFrame, test_size: float = 0.2, seed: int = 42, rare_
 
     target = round(test_size * len(data))
     test_groups: set = set()
-    train_count = {c: len(gs) for c, gs in category_groups.items()}  # groupes restant côté entraînement
+    train_count = {c: len(gs) for c, gs in category_groups.items()}  # groups left on the training side
 
     def move_to_test(group) -> None:
         test_groups.add(group)

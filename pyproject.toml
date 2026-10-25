@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "etf-classifier"
 version = "0.1.0"
-description = "Catégorisation multi-étiquettes d'ETF par machine learning"
+description = "Multi-label ETF categorisation with machine learning"
 requires-python = ">=3.11"
 
 [tool.setuptools.packages.find]
@@ -15,4 +15,4 @@ where = ["src"]
 pythonpath = ["src"]
 testpaths = ["tests"]
 addopts = "--import-mode=importlib"
-markers = ["slow: tests de performance (désactivables avec -m 'not slow')"]
+markers = ["slow: performance tests (skip with -m 'not slow')"]

@@ -1,59 +1,59 @@
-# Plan de mise en œuvre : module `feedback`
+# Implementation plan: `feedback` module
 
-Référence : `SPEC-feedback.md` (validée le 25/10/2026) · Tâches détaillées : `tasks/todo-feedback.md`
+Reference: `SPEC-feedback.md` (approved on 2026-10-25) · Detailed tasks: `tasks/todo-feedback.md`
 
-## Vue d'ensemble
+## Overview
 
-1. **Le journal sûr** : écriture verrouillée, contrôles et registre des catégories, annulation et sauvegarde. Le test de concurrence est le point d'étape critique : aucune ligne perdue ni mélangée quand plusieurs processus valident en même temps.
-2. **La boucle fermée** : le module `data` fusionne le CSV d'origine et le journal, puis viennent l'import par lot et le rapport de suivi.
+1. **The safe journal**: locked writes, checks and category registry, cancellation and backup. The concurrency test is the critical checkpoint: no line lost or interleaved when several processes validate at the same time.
+2. **The closed loop**: the `data` module merges the original CSV and the journal, then come batch import and the monitoring report.
 
-## Décisions d'architecture
+## Architecture decisions
 
-- **Un seul point d'écriture** (`store.py`) : toute écriture passe par la même fonction, sous verrou. Les autres modules ne touchent jamais au fichier directement.
-- **Fichier verrou à côté du journal** (`validations.csv.lock`, bibliothèque `filelock`), avec un délai maximal configurable.
-- **Identifiant de validation** : date UTC + suffixe aléatoire court (`20261025-142233-a1b2`), lisible et unique sans compteur partagé.
-- **Lignes du journal identifiées à part** au chargement (`source = validation`), avec des `row_id` qui ne peuvent pas entrer en collision avec ceux du CSV d'origine. Les contrôles de qualité s'appliquent à l'identique.
-- **Registre des catégories initialisé automatiquement** à partir du CSV d'origine au premier usage. Les catégories historiques sont donc connues sans saisie.
+- **A single write point** (`store.py`): every write goes through the same function, under the lock. Other modules never touch the file directly.
+- **Lock file next to the journal** (`validations.csv.lock`, `filelock` library), with a configurable timeout.
+- **Validation identifier**: UTC date + short random suffix (`20261025-142233-a1b2`), readable and unique without a shared counter.
+- **Journal lines identified separately** on load (`source = validation`), with `row_id`s that cannot collide with those of the original CSV. Quality checks apply identically.
+- **Category registry initialised automatically** from the original CSV on first use. Historical categories are therefore known without any input.
 
-## Modification d'un module existant
+## Change to an existing module
 
-`data.loader` : `load_dataset()` et `prepare_dataset()` ajoutent les validations non annulées du journal, lues sous le même verrou. Sans journal, le comportement reste strictement identique : les 92 tests du module `data` doivent rester verts.
+`data.loader`: `load_dataset()` and `prepare_dataset()` add the non-cancelled validations from the journal, read under the same lock. Without a journal, the behaviour stays strictly identical: the 92 tests of the `data` module must stay green.
 
-## Liste des tâches
+## Task list
 
-### Phase A : le journal sûr
-- [x] F1 : configuration, dépendance `filelock` et écriture verrouillée du journal
-- [x] F2 : contrôles, registre des catégories et enregistrement d'une validation
-- [x] F3 : annulation et sauvegarde quotidienne
+### Phase A: the safe journal
+- [x] F1: configuration, `filelock` dependency and locked journal writes
+- [x] F2: checks, category registry and recording a validation
+- [x] F3: cancellation and daily backup
 
-### Point d'étape A
-- [x] Test de concurrence vert : plusieurs processus, aucune ligne perdue ni mélangée
-- [x] Verrou indisponible : erreur claire, aucune écriture
+### Checkpoint A
+- [x] Concurrency test green: several processes, no line lost or interleaved
+- [x] Lock unavailable: clear error, no write
 
-### Phase B : la boucle fermée
-- [x] F4 : fusion du journal par le module `data`
-- [x] F5 : commande d'import d'un lot
-- [x] F6 : rapport de suivi (taux d'acceptation, alerte de biais)
+### Phase B: the closed loop
+- [x] F4: journal merge by the `data` module
+- [x] F5: batch import command
+- [x] F6: monitoring report (acceptance rate, bias alert)
 
-### Point d'étape final
-- [ ] Les 4 critères de succès de `SPEC-feedback.md`
-- [x] Boucle complète sur la fixture : `predict` → import des validations → `train` qui voit les nouveaux ETF
+### Final checkpoint
+- [ ] The 4 success criteria of `SPEC-feedback.md`
+- [x] Full loop on the fixture: `predict` → import of validations → `train` that sees the new ETFs
 
-## Risques et parades
+## Risks and mitigations
 
-| Risque | Impact | Parade |
+| Risk | Impact | Mitigation |
 |---|---|---|
-| Verrou peu fiable sur un lecteur réseau (partage Windows, NFS) | Élevé | Recommander un disque local au serveur pour `data/` ; documenté dans le README |
-| Journal ouvert dans Excel sous Windows (fichier bloqué) | Moyen | Erreur claire « fichier utilisé par une autre application » ; jamais d'écriture partielle |
-| Collision de `row_id` entre CSV d'origine et journal | Moyen | Espace d'identifiants séparé et colonne `source` ; test dédié |
-| Seuil d'alerte de biais mal calibré | Faible | Seuil et nombre minimal de validations configurables (95 % sur au moins 50 validations par défaut) |
-| Régression du module `data` | Moyen | Sans journal, comportement identique ; suite `data` relancée |
+| Unreliable lock on a network drive (Windows share, NFS) | High | Recommend a local server disk for `data/`; documented in the README |
+| Journal open in Excel on Windows (file locked) | Medium | Clear "file used by another application" error; never a partial write |
+| `row_id` collision between the original CSV and the journal | Medium | Separate identifier space and `source` column; dedicated test |
+| Poorly calibrated bias alert threshold | Low | Configurable threshold and minimum number of validations (95 % over at least 50 validations by default) |
+| Regression of the `data` module | Medium | Without a journal, identical behaviour; `data` suite re-run |
 
-## Statut (25/10/2026)
+## Status (2026-10-25)
 
-Tâches F1 à F6 codées et testées (291 tests verts sur l'ensemble du projet). Concurrence : 4 processus,
-60 validations simultanées, aucune perte. Boucle complète vérifiée sur la fixture (15 → 17 ETF au réentraînement).
+Tasks F1 to F6 coded and tested (291 green tests across the project). Concurrency: 4 processes,
+60 simultaneous validations, no loss. Full loop checked on the fixture (15 → 17 ETFs at retraining).
 
-## Questions ouvertes
+## Open questions
 
-Aucune bloquante.
+None blocking.

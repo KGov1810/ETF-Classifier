@@ -1,42 +1,43 @@
-# Capability Map : Catégorisation multi-étiquettes d'ETF
+# Capability Map: multi-label ETF categorisation
 
-Statut : **validée** (25/10/2026) · mise à jour le 25/10/2026 : ajout du module `costs`
+Status: **approved** (2026-10-25) · updated on 2026-10-25: `costs` module added
 
-## Intention confirmée
+## Confirmed intent
 
-Outil de catégorisation multi-étiquettes d'ETF, entraîné sur un CSV de 5 000 à 10 000 ETF
-(Name, Description, Composition pondérée, Catégories). Il propose des catégories pour chaque
-nouvel ETF avec un score de confiance, les ETF similaires et une justification LLM (Azure OpenAI).
-L'équipe valide ou corrige dans Streamlit ; les validations enrichissent le CSV avec traçabilité ;
-le modèle est réentraîné une fois par jour. Projet également destiné à l'apprentissage du ML,
-construit par étapes mesurées.
+Multi-label ETF categorisation tool, trained on a CSV of 5,000 to 10,000 ETFs
+(Name, Description, weighted Composition, Categories). It proposes categories for every
+new ETF with a confidence score, the similar ETFs and an LLM justification (Azure OpenAI).
+The team validates or corrects in Streamlit; validations enrich the CSV with traceability;
+the model is retrained once a day. The project is also meant for learning ML, built in
+measured steps.
 
 ## Modules
 
-| Module id | Responsabilité | Dépend de |
+| Module id | Responsibility | Depends on |
 |---|---|---|
-| `data` | Chargement du CSV, parsing Composition/Catégories, contrôle qualité, normalisation des sous-jacents, détection des quasi-doublons, split train/test | — |
-| `costs` | Comptage des tokens, estimation du coût avant un appel Azure, journal du coût réel après chaque appel (embedding ou LLM), totaux en USD | — |
-| `features` | Vectorisation : texte (TF-IDF, puis embeddings Azure mis en cache) et composition pondérée | `data`, `costs` |
-| `model` | Classifieur multi-étiquettes, seuils par catégorie, évaluation (F1 micro/macro), versionnement | `features` |
-| `similarity` | ETF les plus proches (recouvrement pondéré de composition + proximité sémantique) | `features` |
-| `feedback` | Écriture sécurisée dans le CSV (verrou + sauvegarde), colonnes de traçabilité, création de catégories | `data` |
-| `app` | Interface Streamlit : saisie, propositions, ETF similaires, validation | `model`, `similarity`, `feedback` |
-| `llm-justify` | Justification LLM Azure, suggestion sur les cas incertains ou les catégories nouvelles | `model`, `similarity`, `costs` |
-| `retraining` | Réentraînement **quotidien** (1 fois par jour), comparaison au modèle en place, promotion seulement si meilleur | `model`, `feedback` |
+| `data` | CSV loading, Composition/Categories parsing, quality checks, holding normalisation, near-duplicate detection, train/test split | — |
+| `costs` | Token counting, cost estimate before an Azure call, log of the actual cost after each call (embedding or LLM), totals in USD | — |
+| `features` | Vectorisation: text (TF-IDF, then cached Azure embeddings) and weighted composition | `data`, `costs` |
+| `model` | Multi-label classifier, per-category thresholds, evaluation (micro/macro F1), versioning | `features` |
+| `similarity` | Closest ETFs (weighted composition overlap + semantic proximity) | `features` |
+| `feedback` | Safe writes (lock + backup), traceability columns, category creation | `data` |
+| `app` | Streamlit interface: input, proposals, similar ETFs, validation | `model`, `similarity`, `feedback` |
+| `llm-justify` | Azure LLM justification, suggestions for uncertain cases or new categories | `model`, `similarity`, `costs` |
+| `retraining` | **Daily** retraining (once a day), comparison with the current model, promotion only if better | `model`, `feedback` |
 
-## Ordre de construction
+## Build order
 
-`data` → `costs` → `features` → `model` + `similarity` → `feedback` → `app` (v1, sans LLM) → `llm-justify` → `retraining`
+`data` → `costs` → `features` → `model` + `similarity` → `feedback` → `app` (v1, without LLM) → `llm-justify` → `retraining`
 
-## Décisions
+## Decisions
 
-- Les CSV restent la source de vérité (pas de base de données en v1) : le CSV d'origine, jamais réécrit,
-  et le journal des validations `data/validations.csv`, fusionnés au chargement (décision du 25/10/2026).
-- Réentraînement quotidien déclenché par le planificateur du serveur (cron ou Planificateur de tâches Windows),
-  pas par Streamlit. Le job est ignoré s'il n'y a eu aucune nouvelle validation depuis le dernier entraînement,
-  et il respecte le même verrou de fichier que l'interface pour éviter les conflits d'écriture.
-- Specs par module : `SPEC-<module-id>.md`, à la racine du projet.
-- Azure OpenAI : embeddings `text-embedding-3-large`, LLM GPT-6.1 Sol, déploiements Data Zone Standard. Descriptions en anglais.
-  Pas de contrainte de budget, mais tout appel Azure passe par `costs` (estimation + suivi réel, en USD).
-  Les tarifs sont dans un fichier de configuration daté, jamais écrits en dur.
+- CSV files remain the source of truth (no database in v1): the original CSV, never rewritten,
+  and the validation journal `data/validations.csv`, merged on load (decision of 2026-10-25).
+- Daily retraining triggered by the server scheduler (cron or Windows Task Scheduler), not by
+  Streamlit. The job is skipped when there has been no new validation since the last training,
+  and it respects the same file lock as the interface to avoid write conflicts.
+- One spec per module: `SPEC-<module-id>.md`, at the project root.
+- Azure OpenAI: `text-embedding-3-large` embeddings, GPT-6.1 Sol LLM, Data Zone Standard deployments. Descriptions in English.
+  No budget constraint, but every Azure call goes through `costs` (estimate + actual tracking, in USD).
+  Prices live in a dated configuration file and are never hard-coded.
+- Repository language: English (decision of 2026-10-25).

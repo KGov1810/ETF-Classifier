@@ -18,6 +18,6 @@ def test_report_compares_vote_model_and_baseline(sample_csv, sim_settings, tmp_p
     config.write_text(yaml.safe_dump(sim_settings, allow_unicode=True), encoding="utf-8")
     assert main(["--csv", str(sample_csv), "--config", str(config)]) == 0
     report = (Path(sim_settings["model"]["reports_dir"]) / "similarity_evaluation.md").read_text(encoding="utf-8")
-    for label in ["Vote des voisins (k = 5)", "Vote des voisins (k = 20)", "Modèle (régression logistique)",
-                  "Référence triviale", "empreinte"]:
+    for label in ["Neighbour vote (k = 5)", "Neighbour vote (k = 20)", "Model (logistic regression)",
+                  "Trivial baseline", "fingerprint"]:
         assert label in report

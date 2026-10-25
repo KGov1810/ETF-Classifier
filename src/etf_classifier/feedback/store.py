@@ -1,10 +1,10 @@
-"""Journal des validations (data/validations.csv) : le seul point d'écriture du module.
+"""Validation journal (data/validations.csv): the module's single writing point.
 
-Règles :
-- toute lecture et toute écriture du journal se font sous verrou de fichier (portable) ;
-- une ligne complète est écrite en une seule opération, en mode ajout ;
-- on ne réécrit ni ne supprime jamais rien : une erreur se corrige par une ligne « annulation » ;
-- le CSV d'origine n'est jamais touché.
+Rules:
+- every read and every write of the journal happens under a (portable) file lock;
+- a complete line is written in a single operation, in append mode;
+- nothing is ever rewritten or deleted: a mistake is fixed with a "cancellation" line;
+- the original CSV is never touched.
 """
 
 import csv
@@ -28,15 +28,15 @@ logger = logging.getLogger(__name__)
 
 JOURNAL_COLUMNS = ["ValidationId", "Name", "Description", "Composition", "Category", "ValidatedBy",
                    "ValidatedAt", "ModelVersion", "PredictedCategories", "Decision", "CancelsId", "Comment"]
-ACCEPTED, CORRECTED, NO_PROPOSAL, CANCELLATION = "accepté", "corrigé", "sans_proposition", "annulation"
+ACCEPTED, CORRECTED, NO_PROPOSAL, CANCELLATION = "accepted", "corrected", "no_proposal", "cancellation"
 
 
 class FeedbackError(RuntimeError):
-    """Écriture impossible (verrou indisponible, fichier bloqué par une autre application)."""
+    """Write impossible (lock unavailable, file locked by another application)."""
 
 
 def serialize_composition(composition) -> str:
-    """Composition au format du CSV de référence : "[{'AAPL': 6.5}, {'MSFT': 6.1}]"."""
+    """Composition in the reference CSV format: "[{'AAPL': 6.5}, {'MSFT': 6.1}]"."""
     if isinstance(composition, str):
         return composition.strip()
     return str([{str(ticker): float(weight)} for ticker, weight in composition.items()])
@@ -63,22 +63,22 @@ class FeedbackStore:
         self.registry = CategoryRegistry(settings)
         self._reference: tuple[set[str], set[str]] | None = None
 
-    # ---------- verrou ----------
+    # ---------- lock ----------
     @contextmanager
     def locked(self):
-        """Verrou exclusif sur le journal (et le registre des catégories)."""
+        """Exclusive lock on the journal (and on the category registry)."""
         self.journal_path.parent.mkdir(parents=True, exist_ok=True)
         lock = FileLock(str(self.journal_path) + ".lock")
         try:
             lock.acquire(timeout=self.lock_timeout)
         except Timeout as exc:
-            raise FeedbackError("Un autre enregistrement est en cours : réessayez dans quelques secondes.") from exc
+            raise FeedbackError("Another record is being saved: try again in a few seconds.") from exc
         try:
             yield
         finally:
             lock.release()
 
-    # ---------- lecture ----------
+    # ---------- reading ----------
     def _read_unlocked(self) -> pd.DataFrame:
         if not self.journal_path.exists() or self.journal_path.stat().st_size == 0:
             return pd.DataFrame(columns=JOURNAL_COLUMNS)
@@ -92,14 +92,14 @@ class FeedbackStore:
     def _active(journal: pd.DataFrame) -> pd.DataFrame:
         cancelled = set(journal.loc[journal["Decision"] == CANCELLATION, "CancelsId"])
         keep = (journal["Decision"] != CANCELLATION) & ~journal["ValidationId"].isin(cancelled)
-        return journal[keep]  # l'index reste la position dans le journal (pour les numéros de ligne)
+        return journal[keep]  # the index stays the position in the journal (for line numbers)
 
     def active_validations(self) -> pd.DataFrame:
-        """Validations non annulées : ce sont elles qui enrichissent le jeu de référence."""
+        """Validations that have not been cancelled: they are the ones enriching the reference dataset."""
         return self._active(self.read_journal())
 
     def _reference_names_and_categories(self) -> tuple[set[str], set[str]]:
-        """Noms et catégories du CSV d'origine, lus une fois (sans passer par le module data)."""
+        """Names and categories of the original CSV, read once (without going through the data module)."""
         if self._reference is None:
             names, categories = set(), set()
             cols = self.settings["csv"]["columns"]
@@ -110,15 +110,15 @@ class FeedbackStore:
                         try:
                             categories.update(parse_categories(row.get(cols["category"]) or ""))
                         except ParsingError:
-                            continue  # ligne déjà signalée par le rapport de qualité du module data
+                            continue  # line already reported by the data module's quality report
             else:
-                logger.warning("CSV de référence introuvable (%s) : registre initialisé vide", self.reference_csv)
+                logger.warning("Reference CSV not found (%s): registry initialised empty", self.reference_csv)
             self._reference = (names, categories)
         return self._reference
 
-    # ---------- écriture ----------
+    # ---------- writing ----------
     def _backup_if_needed(self) -> None:
-        """Une sauvegarde datée par jour (avant la première écriture du jour), N dernières conservées."""
+        """One dated backup per day (before the first write of the day), the last N kept."""
         if not self.journal_path.exists():
             return
         self.backups_dir.mkdir(parents=True, exist_ok=True)
@@ -139,8 +139,8 @@ class FeedbackStore:
             with self.journal_path.open("a", encoding="utf-8", newline="") as handle:
                 handle.write(buffer.getvalue())
         except PermissionError as exc:
-            raise FeedbackError("Le journal est utilisé par une autre application (Excel ?) : "
-                                "le fermer puis réessayer.") from exc
+            raise FeedbackError("The journal is in use by another application (Excel?): "
+                                "close it and try again.") from exc
 
     @staticmethod
     def _new_id() -> str:
@@ -149,7 +149,7 @@ class FeedbackStore:
     def record_validation(self, etf: dict, categories, validated_by: str, predicted_categories=None,
                           model_version: str | None = None, comment: str = "", create_categories: bool = False,
                           allow_duplicate_name: bool = False) -> dict:
-        """Contrôle puis enregistre une validation ; lève ValidationError ou FeedbackError sinon."""
+        """Checks then records a validation; raises ValidationError or FeedbackError otherwise."""
         categories = _clean(categories)
         name = str(etf.get("name") or "").strip()
         composition = serialize_composition(etf.get("composition") or {})
@@ -188,16 +188,16 @@ class FeedbackStore:
         return record
 
     def cancel_validation(self, validation_id: str, cancelled_by: str, comment: str = "") -> dict:
-        """Annule une validation par une nouvelle ligne ; rien n'est supprimé."""
+        """Cancels a validation with a new line; nothing is deleted."""
         if not cancelled_by.strip():
-            raise ValidationError(["L'identité de la personne qui annule est obligatoire."])
+            raise ValidationError(["The identity of the person cancelling is required."])
         with self.locked():
             journal = self._read_unlocked()
             validations = journal[journal["Decision"] != CANCELLATION]
             if validation_id not in set(validations["ValidationId"]):
-                raise ValidationError([f"Validation inconnue : {validation_id}"])
+                raise ValidationError([f"Unknown validation: {validation_id}"])
             if validation_id in set(journal.loc[journal["Decision"] == CANCELLATION, "CancelsId"]):
-                raise ValidationError([f"Validation déjà annulée : {validation_id}"])
+                raise ValidationError([f"Validation already cancelled: {validation_id}"])
             original = validations.set_index("ValidationId").loc[validation_id]
             record = {
                 "ValidationId": self._new_id(), "Name": original["Name"], "Description": "", "Composition": "",

@@ -1,6 +1,6 @@
-"""Rapport des coûts Azure OpenAI à partir du journal des appels.
+"""Azure OpenAI cost report built from the call log.
 
-Usage :
+Usage:
     python -m etf_classifier.costs.report --since 2026-10-01
 """
 
@@ -30,7 +30,7 @@ def _table(headers: list[str], rows: list[list]) -> str:
 
 
 def _money(value: float) -> str:
-    return f"{value:.4f} $"
+    return f"${value:.4f}"
 
 
 def _read_log(log_path: Path) -> pd.DataFrame:
@@ -44,7 +44,7 @@ def _read_log(log_path: Path) -> pd.DataFrame:
 def build_cost_report(log_path: str | Path, pricing: PricingTable, since: date | None = None,
                       until: date | None = None, stale_after_days: int = 90,
                       today: date | None = None) -> CostReport:
-    """Totaux en USD par jour, module, opération et déploiement, sur la période demandée."""
+    """Totals in USD per day, module, operation and deployment, over the requested period."""
     log = _read_log(Path(log_path))
     if not log.empty:
         if since:
@@ -52,15 +52,15 @@ def build_cost_report(log_path: str | Path, pricing: PricingTable, since: date |
         if until:
             log = log[log["day"] <= until.isoformat()]
 
-    period = f"{since or 'début'} → {until or 'aujourd’hui'}"
-    lines = ["# Coûts Azure OpenAI", "", f"Période : {period} · devise : {pricing.currency}", ""]
+    period = f"{since or 'start'} → {until or 'today'}"
+    lines = ["# Azure OpenAI costs", "", f"Period: {period} · currency: {pricing.currency}", ""]
     age = pricing.age_days(today)
-    grid_line = f"Grille tarifaire du {pricing.as_of:%d/%m/%Y} ({age} jours) : {pricing.source}"
-    lines += [f"> ⚠️ {grid_line}. Elle a plus de {stale_after_days} jours : vérifier les prix."
+    grid_line = f"Price list dated {pricing.as_of:%Y-%m-%d} ({age} days old): {pricing.source}"
+    lines += [f"> ⚠️ {grid_line}. It is more than {stale_after_days} days old: check the prices."
               if age > stale_after_days else grid_line, ""]
 
     if log.empty:
-        lines += ["Aucun appel Azure enregistré sur cette période.", ""]
+        lines += ["No Azure call recorded over this period.", ""]
         return CostReport("\n".join(lines), {"n_calls": 0, "total_usd": 0.0, "by_day": {}, "by_module": {},
                                              "estimate_gap_pct": None})
 
@@ -83,29 +83,29 @@ def build_cost_report(log_path: str | Path, pricing: PricingTable, since: date |
         **by,
     }
 
-    lines += ["## Total", "", _table(["Indicateur", "Valeur"], [
-        ["Coût total", _money(stats["total_usd"])],
-        ["Appels", stats["n_calls"]],
-        ["Tokens d'entrée", f"{stats['input_tokens']:,}".replace(",", " ")],
-        ["Tokens de sortie", f"{stats['output_tokens']:,}".replace(",", " ")],
-        ["Écart réel / estimation", f"{gap:+.1f} %" if gap is not None else "pas d'estimation"],
+    lines += ["## Total", "", _table(["Indicator", "Value"], [
+        ["Total cost", _money(stats["total_usd"])],
+        ["Calls", stats["n_calls"]],
+        ["Input tokens", f"{stats['input_tokens']:,}".replace(",", " ")],
+        ["Output tokens", f"{stats['output_tokens']:,}".replace(",", " ")],
+        ["Actual vs estimate gap", f"{gap:+.1f}%" if gap is not None else "no estimate"],
     ]), ""]
     if stats["n_unpriced"]:
-        lines += [f"> ⚠️ {stats['n_unpriced']} appel(s) sans coût : déploiement absent de la grille tarifaire.", ""]
-    for title, key, header in [("Par jour", "by_day", "Jour"), ("Par module", "by_module", "Module"),
-                               ("Par opération", "by_operation", "Opération"),
-                               ("Par déploiement", "by_deployment", "Déploiement")]:
-        lines += [f"## {title}", "", _table([header, "Coût"], [[k, _money(v)] for k, v in stats[key].items()]), ""]
+        lines += [f"> ⚠️ {stats['n_unpriced']} call(s) without a cost: deployment missing from the price list.", ""]
+    for title, key, header in [("By day", "by_day", "Day"), ("By module", "by_module", "Module"),
+                               ("By operation", "by_operation", "Operation"),
+                               ("By deployment", "by_deployment", "Deployment")]:
+        lines += [f"## {title}", "", _table([header, "Cost"], [[k, _money(v)] for k, v in stats[key].items()]), ""]
     return CostReport("\n".join(lines), stats)
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Rapport des coûts Azure OpenAI")
-    parser.add_argument("--since", type=date.fromisoformat, help="Date de début (AAAA-MM-JJ)")
-    parser.add_argument("--until", type=date.fromisoformat, help="Date de fin (AAAA-MM-JJ)")
-    parser.add_argument("--log", help="Journal des appels (défaut : logs/azure_usage.csv)")
-    parser.add_argument("--pricing", help="Grille tarifaire (défaut : config/pricing.yaml)")
-    parser.add_argument("--output", help="Fichier Markdown (défaut : reports/azure_costs.md)")
+    parser = argparse.ArgumentParser(description="Azure OpenAI cost report")
+    parser.add_argument("--since", type=date.fromisoformat, help="Start date (YYYY-MM-DD)")
+    parser.add_argument("--until", type=date.fromisoformat, help="End date (YYYY-MM-DD)")
+    parser.add_argument("--log", help="Call log (default: logs/azure_usage.csv)")
+    parser.add_argument("--pricing", help="Price list (default: config/pricing.yaml)")
+    parser.add_argument("--output", help="Markdown file (default: reports/azure_costs.md)")
     args = parser.parse_args(argv)
 
     cfg = load_settings()["costs"]
@@ -116,7 +116,7 @@ def main(argv: list[str] | None = None) -> int:
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(report.markdown, encoding="utf-8")
     print(report.markdown)
-    print(f"\nRapport écrit dans {output}")
+    print(f"\nReport written to {output}")
     return 0
 
 

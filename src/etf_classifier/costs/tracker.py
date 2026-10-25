@@ -1,6 +1,6 @@
-"""Journal du coût réel de chaque appel Azure (logs/azure_usage.csv).
+"""Log of the actual cost of every Azure call (logs/azure_usage.csv).
 
-Seuls des compteurs sont enregistrés, jamais le contenu des textes envoyés.
+Only counters are recorded, never the content of the texts sent.
 """
 
 import csv
@@ -32,7 +32,7 @@ def _field(obj: Any, name: str, default: Any = 0) -> Any:
 
 @dataclass(frozen=True)
 class Usage:
-    """Tokens consommés par un appel (les tokens en cache sont inclus dans input_tokens)."""
+    """Tokens consumed by a call (cached tokens are included in input_tokens)."""
 
     input_tokens: int
     output_tokens: int = 0
@@ -40,7 +40,7 @@ class Usage:
 
     @classmethod
     def from_openai(cls, usage: Any) -> "Usage":
-        """Construit l'usage à partir de la réponse Azure (objet de la bibliothèque openai ou dict)."""
+        """Builds the usage from the Azure response (openai library object or dict)."""
         details = _field(usage, "prompt_tokens_details", None)
         return cls(
             input_tokens=int(_field(usage, "prompt_tokens") or 0),
@@ -50,7 +50,7 @@ class Usage:
 
 
 class CostTracker:
-    """Calcule et enregistre le coût de chaque appel Azure."""
+    """Computes and records the cost of every Azure call."""
 
     def __init__(self, pricing: PricingTable, log_path: str | Path,
                  now: Callable[[], datetime] = lambda: datetime.now(timezone.utc)):
@@ -60,11 +60,11 @@ class CostTracker:
 
     def record(self, module: str, operation: str, deployment: str, usage: Usage,
                estimated_cost_usd: float | None = None, note: str = "") -> dict:
-        """Ajoute une ligne au journal et la renvoie. Déploiement inconnu : coût vide + avertissement."""
+        """Appends a line to the log and returns it. Unknown deployment: empty cost + warning."""
         model = self.pricing.find_model(deployment)
         cost = None
         if model is None:
-            logger.warning("Déploiement « %s » absent de la grille tarifaire : appel enregistré sans coût", deployment)
+            logger.warning("Deployment '%s' missing from the price list: call recorded without a cost", deployment)
         else:
             cost = round(cost_usd(model, usage.input_tokens, usage.cached_input_tokens, usage.output_tokens), 6)
         record = {
@@ -84,7 +84,7 @@ class CostTracker:
         return record
 
     def _append(self, record: dict) -> None:
-        """Écrit la ligne en une seule opération, en mode ajout (en-tête si le fichier est nouveau)."""
+        """Writes the line in a single operation, in append mode (header if the file is new)."""
         self.log_path.parent.mkdir(parents=True, exist_ok=True)
         buffer = io.StringIO()
         writer = csv.DictWriter(buffer, fieldnames=LOG_COLUMNS, delimiter=LOG_SEPARATOR, lineterminator="\n")

@@ -1,4 +1,4 @@
-"""Bloc text_tfidf : TF-IDF du nom et de la description (anglais)."""
+"""text_tfidf block: TF-IDF of the name and the description (English)."""
 
 import logging
 
@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 def build_text(name: str, description: str) -> str:
-    """Texte d'un ETF : « Name. Description » (la catégorie n'y figure jamais)."""
+    """Text of an ETF: "Name. Description" (the category is never included)."""
     name, description = (name or "").strip(), (description or "").strip()
     return f"{name}. {description}" if name and description else name or description
 
@@ -20,7 +20,7 @@ def texts_of(data: pd.DataFrame) -> list[str]:
 
 
 class TextTfidfBlock:
-    """Mots et paires de mots pondérés par TF-IDF, mots vides anglais retirés, lignes normalisées L2."""
+    """Words and word pairs weighted by TF-IDF, English stop words removed, L2-normalised rows."""
 
     name = "text_tfidf"
 
@@ -37,8 +37,8 @@ class TextTfidfBlock:
         try:
             self._vectorizer = self._make(self.params["min_df"]).fit(texts)
         except ValueError:
-            # Jeu d'entraînement trop petit pour min_df : on accepte les termes vus une seule fois
-            logger.warning("Vocabulaire vide avec min_df=%s : repli sur min_df=1", self.params["min_df"])
+            # Training set too small for min_df: accept terms seen only once
+            logger.warning("Empty vocabulary with min_df=%s: falling back to min_df=1", self.params["min_df"])
             self._vectorizer = self._make(1).fit(texts)
         return self
 

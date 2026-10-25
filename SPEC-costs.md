@@ -1,25 +1,25 @@
-# Spec : module `costs`
+# Spec: `costs` module
 
-Statut : **validée** (25/10/2026)
+Status: **approved** (2026-10-25)
 
-## Objectif
+## Objective
 
-Rendre visible et maîtrisable chaque dépense Azure OpenAI du projet :
-- **estimer avant** un appel ou un lot d'appels (« calculer les embeddings de 8 000 ETF coûtera environ 0,05 $ ») ;
-- **enregistrer après** chaque appel le coût réel, à partir du nombre de tokens renvoyé par Azure ;
-- **résumer** les dépenses par jour, par module (`features`, `llm-justify`…) et par opération.
+Make every Azure OpenAI expense of the project visible and under control:
+- **estimate before** a call or a batch of calls ("computing the embeddings of 8,000 ETFs will cost about $0.05");
+- **record after** each call the actual cost, from the number of tokens returned by Azure;
+- **summarise** expenses per day, per module (`features`, `llm-justify`…) and per operation.
 
-Utilisateurs : les modules `features` et `llm-justify` (appels), le job `retraining` (estimation sans interaction), l'équipe via un rapport, puis plus tard l'interface Streamlit.
+Users: the `features` and `llm-justify` modules (calls), the `retraining` job (non-interactive estimate), the team through a report, and later the Streamlit interface.
 
-Hors périmètre : le rapprochement avec la facture Azure (API Cost Management), les budgets et alertes (pas de contrainte de budget), le tarif « Provisioned » (PTU).
+Out of scope: reconciliation with the Azure invoice (Cost Management API), budgets and alerts (no budget constraint), "Provisioned" pricing (PTU).
 
-## Données d'entrée
+## Input data
 
-1. **Grille tarifaire** `config/pricing.yaml`, en **USD par million de tokens**, datée et sourcée :
+1. **Price list** `config/pricing.yaml`, in **USD per million tokens**, dated and sourced:
    ```yaml
    currency: USD
    as_of: "2026-10-25"
-   source: "Tarifs publics Data Zone Standard (borne haute de la fourchette régionale), à vérifier dans votre contrat Azure"
+   source: "Public Data Zone Standard prices (upper end of the regional range), to be checked against your Azure contract"
    models:
      text-embedding-3-large:
        kind: embedding
@@ -27,38 +27,38 @@ Hors périmètre : le rapprochement avec la facture Azure (API Cost Management),
        input_per_million: 0.13
      gpt-6.1-sol:
        kind: chat
-       tokenizer: o200k_base          # approximation : tokenizer non publié
+       tokenizer: o200k_base          # approximation: tokenizer not published
        input_per_million: 2.40
        cached_input_per_million: 0.12
-       output_per_million: 12.00       # inclut les tokens de raisonnement
-       long_context_threshold: 272000  # au-delà, tarif long contexte
+       output_per_million: 12.00       # includes reasoning tokens
+       long_context_threshold: 272000  # above it, long-context pricing
        long_context:
          input_per_million: 4.80
          cached_input_per_million: 0.24
          output_per_million: 18.00
-   deployments:                        # nom du déploiement Azure → modèle de la grille
+   deployments:                        # Azure deployment name → price-list model
      text-embedding-3-large: text-embedding-3-large
      gpt-6.1-sol: gpt-6.1-sol
    ```
-   Les valeurs par défaut sont les tarifs publics **Data Zone Standard**, à la borne haute de la fourchette régionale (estimation prudente).
-   **Elles sont à vérifier** dans votre contrat : le prix exact dépend de la région. Le tarif de `text-embedding-3-large` en Data Zone n'a pas été confirmé par une source publique (0,13 $ est le tarif standard).
-2. **Usage renvoyé par Azure** après chaque appel : `prompt_tokens`, `completion_tokens`, `prompt_tokens_details.cached_tokens` le cas échéant.
+   The default values are the public **Data Zone Standard** prices, at the upper end of the regional range (cautious estimate).
+   **They must be checked** against your contract: the exact price depends on the region. The Data Zone price of `text-embedding-3-large` has not been confirmed by a public source ($0.13 is the standard price).
+2. **Usage returned by Azure** after each call: `prompt_tokens`, `completion_tokens`, `prompt_tokens_details.cached_tokens` when present.
 
-## Fonctionnalités
+## Features
 
-### 1. Comptage des tokens
-- `count_tokens(text, model) -> int`, avec le tokenizer déclaré dans la grille (bibliothèque `tiktoken`).
-- Pour `text-embedding-3-large`, le tokenizer `cl100k_base` est exact. Pour GPT-6.1 Sol, il n'est pas publié : le comptage est une **approximation**, signalée comme telle. Le coût réel enregistré après l'appel fait toujours foi.
+### 1. Token counting
+- `count_tokens(text, model) -> int`, with the tokenizer declared in the price list (`tiktoken` library).
+- For `text-embedding-3-large`, the `cl100k_base` tokenizer is exact. For GPT-6.1 Sol it is not published: the count is an **approximation**, flagged as such. The actual cost recorded after the call always prevails.
 
-### 2. Estimation avant appel
-- `estimate_embeddings(texts, deployment) -> CostEstimate` : tokens et coût en USD pour un lot de textes.
-- `estimate_chat(messages, deployment, expected_output_tokens) -> CostEstimate` : coût d'entrée exact au tokenizer près, coût de sortie selon une hypothèse explicite.
-- `CostEstimate` contient : nombre de tokens, coût en USD, date de la grille utilisée, indicateur « approximatif ».
+### 2. Estimate before a call
+- `estimate_embeddings(texts, deployment) -> CostEstimate`: tokens and cost in USD for a batch of texts.
+- `estimate_chat(messages, deployment, expected_output_tokens) -> CostEstimate`: input cost exact up to the tokenizer, output cost from an explicit assumption.
+- `CostEstimate` holds: number of tokens, cost in USD, date of the price list used, "approximate" flag.
 
-### 3. Enregistrement du coût réel
-- `CostTracker.record(module, operation, deployment, usage, metadata=None)` calcule le coût et ajoute une ligne au journal `logs/azure_usage.csv` (séparateur `;`, UTF-8) :
+### 3. Recording the actual cost
+- `CostTracker.record(module, operation, deployment, usage, metadata=None)` computes the cost and appends a line to the journal `logs/azure_usage.csv` (`;` separator, UTF-8):
 
-  | Colonne | Exemple |
+  | Column | Example |
   |---|---|
   | `timestamp_utc` | `2026-10-25T14:03:11Z` |
   | `module` | `features` |
@@ -67,24 +67,24 @@ Hors périmètre : le rapprochement avec la facture Azure (API Cost Management),
   | `input_tokens` / `cached_input_tokens` / `output_tokens` | `48211` / `0` / `0` |
   | `cost_usd` | `0.006267` |
   | `pricing_as_of` | `2026-10-25` |
-  | `estimated_cost_usd` | estimation préalable, si elle existe |
-  | `note` | identifiant de lot, nombre de textes… |
-- Le tarif long contexte s'applique quand les tokens d'entrée d'un appel dépassent le seuil.
-- **Déploiement absent de la grille** : l'appel est quand même enregistré, avec ses tokens, mais `cost_usd` vide et un avertissement. On ne perd jamais une trace, et on n'affiche jamais un faux coût nul.
-- Écriture : une ligne complète par écriture, en mode ajout. Le verrou de fichier partagé avec l'interface viendra avec le module `feedback`.
+  | `estimated_cost_usd` | prior estimate, if any |
+  | `note` | batch id, number of texts… |
+- Long-context pricing applies when the input tokens of a call exceed the threshold.
+- **Deployment missing from the price list**: the call is still recorded, with its tokens, but with an empty `cost_usd` and a warning. A trace is never lost, and a fake zero cost is never shown.
+- Writing: one complete line per write, in append mode. The file lock shared with the interface comes with the `feedback` module.
 
-### 4. Rapport des coûts
-`python -m etf_classifier.costs.report [--since 2026-10-01] [--until …]` affiche et écrit dans `reports/azure_costs.md` :
-- le total en USD sur la période ;
-- les totaux par jour, par module, par opération et par déploiement ;
-- l'écart entre estimations et coûts réels, quand les deux existent ;
-- la date de la grille tarifaire utilisée, avec un avertissement si elle a plus de 90 jours.
+### 4. Cost report
+`python -m etf_classifier.costs.report [--since 2026-10-01] [--until …]` displays and writes to `reports/azure_costs.md`:
+- the total in USD over the period;
+- totals per day, per module, per operation and per deployment;
+- the gap between estimates and actual costs, when both exist;
+- the date of the price list used, with a warning if it is more than 90 days old.
 
 ## Tech Stack
-- Python 3.11+, pandas, PyYAML (déjà présents)
-- **Nouvelle dépendance** : `tiktoken` (comptage des tokens)
+- Python 3.11+, pandas, PyYAML (already present)
+- **New dependency**: `tiktoken` (token counting)
 
-## Commandes
+## Commands
 ```
 pytest tests/costs -v
 python -m etf_classifier.costs.report --since 2026-10-01
@@ -92,39 +92,39 @@ python -m etf_classifier.costs.report --since 2026-10-01
 
 ## Structure
 ```
-config/pricing.yaml                 # grille tarifaire datée (versionnée)
-logs/azure_usage.csv                # journal des appels (non versionné)
+config/pricing.yaml                 # dated price list (committed)
+logs/azure_usage.csv                # call journal (not committed)
 src/etf_classifier/costs/
-├── pricing.py                      # lecture et contrôle de la grille
-├── tokens.py                       # comptage des tokens
-├── estimate.py                     # estimations avant appel
-├── tracker.py                      # enregistrement du coût réel
-└── report.py                       # rapport des coûts (CLI)
+├── pricing.py                      # price-list loading and checks
+├── tokens.py                       # token counting
+├── estimate.py                     # estimates before a call
+├── tracker.py                      # actual cost recording
+└── report.py                       # cost report (CLI)
 tests/costs/
 ```
 
-## Style de code
-Identique au module `data` : fonctions courtes et typées, docstrings en français, seuils et prix uniquement dans la configuration. Montants calculés en `float` et arrondis à 6 décimales dans le journal.
+## Code style
+Same as the `data` module: short typed functions, docstrings in English, thresholds and prices only in the configuration. Amounts computed as `float` and rounded to 6 decimals in the journal.
 
-## Stratégie de test
-- Calculs de coût vérifiés à la main : 1 000 000 de tokens d'embedding coûtent exactement 0,13 $ avec la grille de test.
-- Tarif long contexte, tokens en cache, tokens de sortie.
-- Déploiement inconnu : la ligne est enregistrée sans coût, avec un avertissement.
-- Grille invalide (prix manquant ou négatif) : erreur claire au chargement.
-- Rapport : totaux par jour et par module sur un journal fictif.
-- Aucun appel réseau dans les tests.
+## Test strategy
+- Cost computations checked by hand: 1,000,000 embedding tokens cost exactly $0.13 with the test price list.
+- Long-context pricing, cached tokens, output tokens.
+- Unknown deployment: the line is recorded without a cost, with a warning.
+- Invalid price list (missing or negative price): clear error on load.
+- Report: totals per day and per module on a fictitious journal.
+- No network call in the tests.
 
-## Limites
-- **Toujours :** passer par `CostTracker` pour tout appel Azure ; dater la grille tarifaire.
-- **Demander d'abord :** modifier la grille par défaut ; ajouter une dépendance autre que `tiktoken`.
-- **Jamais :** écrire un prix en dur dans le code ; versionner `logs/` ; enregistrer le contenu des textes envoyés dans le journal (seulement les compteurs).
+## Boundaries
+- **Always:** go through `CostTracker` for every Azure call; date the price list.
+- **Ask first:** changing the default price list; adding a dependency other than `tiktoken`.
+- **Never:** hard-code a price; commit `logs/`; record the content of the texts sent in the journal (only the counters).
 
-## Critères de succès
-1. Chaque appel Azure du projet produit une ligne dans le journal.
-2. Sur un lot d'embeddings, l'estimation préalable et le coût réel diffèrent de moins de 2 %.
-3. Le rapport donne le total par jour, par module et par opération.
-4. Les tests passent sans accès réseau.
+## Success criteria
+1. Every Azure call of the project produces a line in the journal.
+2. On an embeddings batch, the prior estimate and the actual cost differ by less than 2 %.
+3. The report gives the total per day, per module and per operation.
+4. Tests pass without network access.
 
-## Décisions prises
-- LLM : **GPT-6.1 Sol**, déploiement **Data Zone Standard**.
-- Devise : USD. Grille par défaut à la borne haute des tarifs Data Zone, à ajuster selon votre région.
+## Decisions made
+- LLM: **GPT-6.1 Sol**, **Data Zone Standard** deployment.
+- Currency: USD. Default price list at the upper end of Data Zone prices, to be adjusted to your region.

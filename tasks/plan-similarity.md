@@ -1,67 +1,67 @@
-# Plan de mise en œuvre : module `similarity`
+# Implementation plan: `similarity` module
 
-Référence : `SPEC-similarity.md` (validée le 25/10/2026) · Tâches détaillées : `tasks/todo-similarity.md`
+Reference: `SPEC-similarity.md` (approved on 2026-10-25) · Detailed tasks: `tasks/todo-similarity.md`
 
-## Vue d'ensemble
+## Overview
 
-1. **Le cœur** : l'index (vecteurs de composition et de texte), la recherche des voisins avec leur explication et l'alerte quasi-doublon, puis le vote des voisins et la sauvegarde.
-2. **L'intégration** : l'index construit par `model.train` et rechargé avec le modèle, puis les commandes `search` et `evaluate`.
+1. **The core**: the index (composition and text vectors), neighbour search with its explanation and the near-duplicate alert, then the neighbour vote and saving.
+2. **Integration**: the index built by `model.train` and reloaded with the model, then the `search` and `evaluate` commands.
 
-## Décisions d'architecture
+## Architecture decisions
 
-- **Vocabulaire de tickers propre à l'index**, construit sur tout le jeu de référence. Il ne reprend pas celui du modèle, appris sur l'entraînement seul : sinon les tickers présents uniquement dans les ETF de test seraient invisibles pour la recherche.
-- **La norme d'un ETF recherché inclut tous ses tickers**, même ceux absents de la référence. Sans cela, un ETF dont la moitié des lignes sont inconnues paraîtrait aussi proche qu'un ETF entièrement couvert.
-- **Vecteurs de texte tirés du pipeline du modèle** : les embeddings si le modèle les utilise, sinon le TF-IDF. On compare donc les ETF avec la même représentation que celle qui a servi à les catégoriser.
-- **Calculs matriciels** (produit creux pour la composition, produit dense ou creux pour le texte) : aucune boucle sur les 10 000 ETF de référence.
-- **Exclusion de soi par identifiant de ligne** (`row_id`), et non par nom, puisque des noms d'ETF peuvent être en double.
+- **Ticker vocabulary specific to the index**, built on the whole reference set. It does not reuse the model's vocabulary, learned on training only: otherwise tickers present only in test ETFs would be invisible to the search.
+- **The norm of a searched ETF includes all its tickers**, even those absent from the reference. Without this, an ETF whose holdings are half unknown would look as close as a fully covered ETF.
+- **Text vectors taken from the model's pipeline**: the embeddings if the model uses them, otherwise TF-IDF. ETFs are therefore compared with the same representation that was used to categorise them.
+- **Matrix computations** (sparse product for composition, dense or sparse product for text): no loop over the 10,000 reference ETFs.
+- **Self-exclusion by row identifier** (`row_id`), not by name, since ETF names can be duplicated.
 
-## Modifications de modules existants
+## Changes to existing modules
 
-- `model.train` construit l'index sur toutes les lignes exploitables et l'enregistre dans le dossier du modèle (`similarity.joblib`).
-- `model.registry` le recharge avec le modèle. Un modèle entraîné avant ce module n'a pas d'index : message clair invitant à le réentraîner.
+- `model.train` builds the index on all usable rows and saves it in the model folder (`similarity.joblib`).
+- `model.registry` reloads it with the model. A model trained before this module has no index: clear message asking to retrain it.
 
-## Liste des tâches
+## Task list
 
-### Phase A : le cœur
-- [x] S1 : configuration et construction de l'index
-- [x] S2 : recherche des voisins, explication et alerte quasi-doublon
-- [x] S3 : vote des voisins, sauvegarde et rechargement
+### Phase A: the core
+- [x] S1: configuration and index building
+- [x] S2: neighbour search, explanation and near-duplicate alert
+- [x] S3: neighbour vote, saving and reloading
 
-### Point d'étape A
-- [x] Tests verts, dont le cas « petit ETF contenu dans un grand »
-- [x] 100 requêtes sur une référence de 10 000 ETF en moins de 10 s
+### Checkpoint A
+- [x] Tests green, including the "small ETF contained in a large one" case
+- [x] 100 queries on a reference of 10,000 ETFs in less than 10 s
 
-### Phase B : l'intégration
-- [x] S4 : index construit par `train` et rechargé avec le modèle
-- [x] S5 : commande `search`
-- [x] S6 : commande `evaluate` (vote des voisins face au modèle et à la référence triviale)
+### Phase B: integration
+- [x] S4: index built by `train` and reloaded with the model
+- [x] S5: `search` command
+- [x] S6: `evaluate` command (neighbour vote against the model and the trivial baseline)
 
-### Point d'étape final
-- [ ] Les 4 critères de succès de `SPEC-similarity.md`
-- [ ] Après le premier entraînement réel : poids composition/texte et usage du vote décidés avec vous
+### Final checkpoint
+- [ ] The 4 success criteria of `SPEC-similarity.md`
+- [ ] After the first real training: composition/text weights and use of the vote decided with you
 
-## Risques et parades
+## Risks and mitigations
 
-| Risque | Impact | Parade |
+| Risk | Impact | Mitigation |
 |---|---|---|
-| Taille sur disque : l'index d'un modèle avec embeddings pèse environ 120 Mo (10 000 × 3 072 nombres) ; avec un réentraînement par jour, les versions s'accumulent | Moyen | Mesuré et affiché dans la fiche du modèle ; politique de conservation (garder les N dernières versions) à prévoir dans le module `retraining` |
-| Modèles existants sans index | Faible | Message clair au chargement ; `search` et `evaluate` indiquent de réentraîner |
-| Noms d'ETF en double | Faible | Exclusion de soi par `row_id` |
-| Évaluation biaisée du vote | Moyen | `evaluate` construit l'index sur l'entraînement seul ; même jeu de test que le modèle |
-| Embeddings des nouveaux ETF | Faible | Même cache et même confirmation de coût que `features`, `train` et `predict` |
+| Disk size: the index of a model with embeddings weighs about 120 MB (10,000 × 3,072 numbers); with one retraining per day, versions pile up | Medium | Measured and shown in the model card; retention policy (keep the last N versions) to plan in the `retraining` module |
+| Existing models without an index | Low | Clear message on load; `search` and `evaluate` say to retrain |
+| Duplicate ETF names | Low | Self-exclusion by `row_id` |
+| Biased evaluation of the vote | Medium | `evaluate` builds the index on training only; same test set as the model |
+| Embeddings of new ETFs | Low | Same cache and same cost confirmation as `features`, `train` and `predict` |
 
-## Statut (25/10/2026)
+## Status (2026-10-25)
 
-Tâches S1 à S6 codées et testées (251 tests verts sur l'ensemble du projet). 100 requêtes sur 10 000 ETF : 1,7 s.
+Tasks S1 to S6 coded and tested (251 green tests across the project). 100 queries on 10,000 ETFs: 1.7 s.
 
-Correction de la spec : la règle « texte seul si l'un des deux ETF n'a pas de composition » mettait les scores
-sur des échelles différentes (un ETF sans composition passait devant des ETF partageant les mêmes tickers).
-Désormais : texte seul uniquement si l'ETF recherché n'a pas de composition ; sinon, un voisin sans composition
-a une similarité de composition de 0 dans le score combiné.
+Spec correction: the rule "text only if either ETF has no composition" put the scores
+on different scales (an ETF without composition ranked ahead of ETFs sharing the same tickers).
+Now: text only if the searched ETF has no composition; otherwise, a neighbour without composition
+has a composition similarity of 0 in the combined score.
 
-Limite connue : l'alerte quasi-doublon reprend la règle du module `data` (recouvrement rapporté à la plus petite
-couverture), donc un petit ETF contenu dans un grand peut être signalé. À revoir avec le CSV réel.
+Known limitation: the near-duplicate alert reuses the rule of the `data` module (overlap relative to the smallest
+coverage), so a small ETF contained in a large one can be flagged. To be reviewed with the real CSV.
 
-## Questions ouvertes
+## Open questions
 
-Aucune bloquante.
+None blocking.

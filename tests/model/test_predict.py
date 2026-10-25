@@ -49,7 +49,7 @@ def test_predictions_are_written_for_new_etfs(sample_csv, new_etfs_csv, model_se
 def test_without_any_model_a_clear_message_is_shown(new_etfs_csv, model_settings, tmp_path, capsys):
     code = predict_main(["--csv", str(new_etfs_csv), "--config", _config(tmp_path, model_settings)])
     assert code == 2
-    assert "Aucun modèle" in capsys.readouterr().err
+    assert "No current model" in capsys.readouterr().err
 
 
 def test_model_with_embeddings_requires_azure(sample_csv, new_etfs_csv, model_settings, fake_client, tmp_path,

@@ -5,12 +5,12 @@ from etf_classifier.data.split import make_split
 
 
 def _dataset(n_rows: int = 100) -> pd.DataFrame:
-    """Jeu fictif : groupes de 1 à 3 ETF, 4 catégories fréquentes et une rare."""
+    """Fictitious dataset: groups of 1 to 3 ETFs, 4 frequent categories and a rare one."""
     rows = []
     group = 0
     while len(rows) < n_rows:
         size = 1 + group % 3
-        category = ["Actions Monde", "Actions Europe", "Obligations", "Or"][group % 4]
+        category = ["Global Equity", "European Equity", "Bonds", "Gold"][group % 4]
         for _ in range(size):
             rows.append({"name": f"ETF{len(rows)}", "categories": [category], "group_id": group})
         group += 1
@@ -48,7 +48,7 @@ def test_test_share_is_close_to_the_target():
 
 def test_frequent_categories_appear_on_both_sides():
     result = make_split(_dataset(), test_size=0.2, seed=4)
-    for category in ["Actions Monde", "Actions Europe", "Obligations", "Or"]:
+    for category in ["Global Equity", "European Equity", "Bonds", "Gold"]:
         assert any(category in cats for cats in result.test["categories"])
         assert any(category in cats for cats in result.train["categories"])
 

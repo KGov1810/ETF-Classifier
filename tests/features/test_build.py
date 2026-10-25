@@ -17,7 +17,7 @@ def test_estimate_only_never_calls_azure(sample_csv, azure_settings, fake_client
                 client=fake_client)
     assert code == 0
     assert fake_client.calls == []
-    assert "à calculer" in capsys.readouterr().out
+    assert "to compute" in capsys.readouterr().out
 
 
 def test_refusing_the_confirmation_cancels_without_spending(sample_csv, azure_settings, fake_client, tmp_path):
@@ -35,7 +35,7 @@ def test_yes_builds_and_saves_the_pipeline(sample_csv, azure_settings, fake_clie
     assert fake_client.calls
     saved = list(Path(azure_settings["features"]["artifacts_dir"]).glob("*/pipeline.joblib"))
     assert len(saved) == 1
-    assert "embeddings" in output and "Coût réel" in output
+    assert "embeddings" in output and "Actual cost" in output
 
 
 def test_second_build_costs_nothing(sample_csv, azure_settings, fake_client, tmp_path, capsys):
@@ -44,13 +44,13 @@ def test_second_build_costs_nothing(sample_csv, azure_settings, fake_client, tmp
     calls = len(fake_client.calls)
     main(["--csv", str(sample_csv), "--config", config], client=fake_client, input_fn=lambda p: "n")
     assert len(fake_client.calls) == calls
-    assert "0 texte(s) à calculer" in capsys.readouterr().out
+    assert "0 text(s) to compute" in capsys.readouterr().out
 
 
 def test_no_azure_option_builds_the_local_blocks(sample_csv, azure_settings, tmp_path, capsys):
     code = main(["--csv", str(sample_csv), "--config", _config(tmp_path, azure_settings), "--no-azure"])
     assert code == 0
-    assert "embeddings" not in capsys.readouterr().out.split("Blocs construits")[1]
+    assert "embeddings" not in capsys.readouterr().out.split("Blocks built")[1]
 
 
 def test_env_example_contains_no_secret():

@@ -1,15 +1,14 @@
-"""Détection des quasi-doublons (ETF répliquant le même indice).
+"""Detection of near-duplicates (ETFs replicating the same index).
 
-Recouvrement pondéré entre deux ETF A et B :
-    Σ min(wA, wB) / min(ΣwA, ΣwB)    sur les tickers communs.
-On divise par la plus petite couverture car beaucoup de compositions sont partielles
-(10 premières lignes seulement). Deux ETF sont liés si le recouvrement atteint le seuil
-et s'ils ont au moins `min_common` tickers en commun ; les groupes sont les composantes
-connexes de ce graphe (donc transitifs).
+Weighted overlap between two ETFs A and B:
+    Σ min(wA, wB) / min(ΣwA, ΣwB)    over the shared tickers.
+We divide by the smallest coverage because many compositions are partial (top 10 holdings
+only). Two ETFs are linked when the overlap reaches the threshold and they share at least
+`min_common` tickers; groups are the connected components of this graph (hence transitive).
 
-Performance : la matrice ETF × tickers est stockée en colonnes creuses (CSC). Pour chaque
-ETF, on ne parcourt que les colonnes de ses propres tickers : seules les paires qui
-partagent au moins un ticker sont examinées, jamais les ~50 millions de paires possibles.
+Performance: the ETF × ticker matrix is stored in sparse columns (CSC). For each ETF, only the
+columns of its own tickers are scanned: only pairs sharing at least one ticker are examined,
+never the ~50 million possible pairs.
 """
 
 from dataclasses import dataclass, field
@@ -23,7 +22,7 @@ _EPSILON = 1e-9
 
 @dataclass
 class DedupResult:
-    """Groupes de quasi-doublons : un group_id par ETF, dans l'ordre d'entrée."""
+    """Near-duplicate groups: one group_id per ETF, in input order."""
 
     group_ids: np.ndarray
     n_groups: int
@@ -33,7 +32,7 @@ class DedupResult:
 
 
 def weighted_overlap(first: dict[str, float], second: dict[str, float]) -> float:
-    """Recouvrement pondéré de deux compositions (version de référence, non vectorisée)."""
+    """Weighted overlap of two compositions (reference version, not vectorised)."""
     smallest_coverage = min(sum(first.values()), sum(second.values()))
     if smallest_coverage <= 0:
         return 0.0
@@ -57,7 +56,7 @@ def _to_sparse(compositions: list[dict[str, float]]) -> sparse.csr_matrix:
 def find_near_duplicate_pairs(
     compositions: list[dict[str, float]], threshold: float, min_common: int
 ) -> list[tuple[int, int, float]]:
-    """Paires (i, j, recouvrement) avec i < j qui dépassent le seuil et le nombre de tickers communs."""
+    """Pairs (i, j, overlap) with i < j that reach the threshold and the number of shared tickers."""
     n_etfs = len(compositions)
     matrix_rows = _to_sparse(compositions)
     matrix_cols = matrix_rows.tocsc()
@@ -69,11 +68,11 @@ def find_near_duplicate_pairs(
         if end - start < min_common:
             continue
         own_cols, own_weights = matrix_rows.indices[start:end], matrix_rows.data[start:end]
-        block = matrix_cols[:, own_cols]  # ETF qui détiennent au moins un ticker de i
+        block = matrix_cols[:, own_cols]  # ETFs holding at least one of i's tickers
         per_column = np.diff(block.indptr)
         shared_min = np.minimum(block.data, np.repeat(own_weights, per_column))
         others = block.indices
-        keep = others > i  # chaque paire n'est examinée qu'une fois
+        keep = others > i  # each pair is examined only once
         others, shared_min = others[keep], shared_min[keep]
         if others.size == 0:
             continue
@@ -92,7 +91,7 @@ def assign_groups(
     min_common: int,
     max_group_share: float = 1.0,
 ) -> DedupResult:
-    """Regroupe les quasi-doublons ; avertit si un groupe dépasse max_group_share du jeu."""
+    """Groups the near-duplicates; warns when a group exceeds max_group_share of the dataset."""
     n_etfs = len(compositions)
     if n_etfs == 0:
         return DedupResult(np.array([], dtype=int), 0, 0, 0)
@@ -106,15 +105,15 @@ def assign_groups(
     warnings = []
     if largest > max_group_share * n_etfs and largest > 1:
         warnings.append(
-            f"Le plus gros groupe de quasi-doublons contient {largest} ETF "
-            f"({largest / n_etfs:.1%} du jeu, au-delà de {max_group_share:.0%}) : "
-            "possible effet de chaîne, vérifier le seuil de recouvrement."
+            f"The largest near-duplicate group contains {largest} ETFs "
+            f"({largest / n_etfs:.1%} of the dataset, above {max_group_share:.0%}): "
+            "possible chaining effect, check the overlap threshold."
         )
     return DedupResult(labels.astype(int), int(n_groups), largest, len(pairs), warnings)
 
 
 def add_groups(data, settings: dict) -> DedupResult:
-    """Ajoute la colonne group_id au jeu exploitable (en place) et renvoie le résultat détaillé."""
+    """Adds the group_id column to the usable dataset (in place) and returns the detailed result."""
     cfg = settings["dedup"]
     result = assign_groups(
         list(data["composition"]),

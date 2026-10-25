@@ -1,6 +1,6 @@
-"""Lecture du CSV d'ETF et orchestration du chargement.
+"""Reading the ETF CSV and orchestrating the loading steps.
 
-Le CSV source est ouvert en lecture seule et n'est jamais modifié.
+The source CSV is opened read-only and is never modified.
 """
 
 import csv
@@ -17,12 +17,12 @@ from etf_classifier.data.validation import QualityLog, validate_rows
 
 
 class MissingColumnsError(ValueError):
-    """Une ou plusieurs colonnes attendues sont absentes du CSV."""
+    """One or more expected columns are missing from the CSV."""
 
 
 @dataclass
 class LoadResult:
-    """Jeu exploitable et journal de qualité produits par load_dataset()."""
+    """Usable dataset and quality log produced by load_dataset()."""
 
     data: pd.DataFrame
     log: QualityLog
@@ -31,11 +31,11 @@ class LoadResult:
 
 def read_raw_rows(path: str | Path, settings: dict,
                   require_categories: bool = True) -> tuple[list[dict], list[dict]]:
-    """Lit le CSV ligne à ligne en conservant le numéro de ligne du fichier.
+    """Reads the CSV row by row, keeping the line number in the file.
 
-    Renvoie (lignes valides structurellement, lignes mal formées). Une ligne est mal formée
-    si son nombre de champs diffère de celui de l'en-tête (par exemple un ';' non protégé).
-    Avec require_categories=False (nouveaux ETF à prédire), la colonne Category est facultative.
+    Returns (structurally valid rows, malformed lines). A line is malformed when its number of
+    fields differs from the header (for example an unquoted ';').
+    With require_categories=False (new ETFs to predict), the Category column is optional.
     """
     csv_cfg = settings["csv"]
     expected = [column for key, column in csv_cfg["columns"].items()
@@ -47,11 +47,11 @@ def read_raw_rows(path: str | Path, settings: dict,
         header = [column.strip().lstrip("﻿") for column in next(reader, [])]
         missing = [column for column in expected if column not in header]
         if missing:
-            raise MissingColumnsError(f"Colonnes absentes du CSV : {', '.join(missing)}")
+            raise MissingColumnsError(f"Columns missing from the CSV: {', '.join(missing)}")
         record = 0
         previous_line = reader.line_num
         for fields in reader:
-            line = previous_line + 1  # première ligne physique de l'enregistrement
+            line = previous_line + 1  # first physical line of the record
             previous_line = reader.line_num
             if not any(field.strip() for field in fields):
                 continue
@@ -68,8 +68,8 @@ def read_raw_rows(path: str | Path, settings: dict,
 
 
 def _validation_rows(settings: dict, first_record: int) -> list[dict]:
-    """Validations actives du journal, au format des lignes du CSV, avec des row_id à la suite du CSV."""
-    from etf_classifier.feedback.store import FeedbackStore  # import local : le module feedback est facultatif
+    """Active validations from the journal, as CSV rows, with row_ids following the CSV ones."""
+    from etf_classifier.feedback.store import FeedbackStore  # local import: the feedback module is optional
 
     store = FeedbackStore(settings)
     if not store.journal_path.exists():
@@ -80,20 +80,20 @@ def _validation_rows(settings: dict, first_record: int) -> list[dict]:
         rows.append({
             cols["name"]: validation["Name"], cols["description"]: validation["Description"],
             cols["composition"]: validation["Composition"], cols["category"]: validation["Category"],
-            "__line__": int(position) + 2,  # ligne dans le journal (en-tête = ligne 1)
+            "__line__": int(position) + 2,  # line in the journal (header = line 1)
             "__record__": first_record + offset,
         })
     return rows
 
 
 def load_dataset(path: str | Path, settings: dict | None = None, require_categories: bool = True) -> LoadResult:
-    """Charge, contrôle et normalise le jeu de référence : CSV d'origine + validations actives du journal.
+    """Loads, checks and normalises the reference dataset: original CSV + active validations from the journal.
 
-    Colonnes du jeu exploitable : row_id, line, source (« reference » ou « validation »), name, description,
-    composition_raw, composition (tickers normalisés), categories, coverage, n_holdings.
-    Les lignes exclues et les avertissements sont dans LoadResult.log.
-    require_categories=False sert à charger de nouveaux ETF à prédire : catégorie facultative, et jamais
-    de fusion avec le journal des validations.
+    Columns of the usable dataset: row_id, line, source ("reference" or "validation"), name, description,
+    composition_raw, composition (normalised tickers), categories, coverage, n_holdings.
+    Excluded rows and warnings are in LoadResult.log.
+    require_categories=False loads new ETFs to predict: the category is optional, and the validation
+    journal is never merged.
     """
     settings = settings or load_settings()
     rows, bad_lines = read_raw_rows(path, settings, require_categories)
@@ -112,7 +112,7 @@ def load_dataset(path: str | Path, settings: dict | None = None, require_categor
 
 @dataclass
 class PreparedDataset:
-    """Jeu prêt pour l'entraînement : données avec group_id, journal, groupes et découpage."""
+    """Dataset ready for training: data with group_id, quality log, groups and split."""
 
     data: pd.DataFrame
     log: QualityLog
@@ -122,7 +122,7 @@ class PreparedDataset:
 
 
 def prepare_dataset(path: str | Path, settings: dict | None = None) -> PreparedDataset:
-    """Point d'entrée des modules suivants : chargement, quasi-doublons puis découpage."""
+    """Entry point for the downstream modules: loading, near-duplicates, then split."""
     settings = settings or load_settings()
     loaded = load_dataset(path, settings)
     data = loaded.data.reset_index(drop=True)

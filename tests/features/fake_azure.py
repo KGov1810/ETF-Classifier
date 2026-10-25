@@ -1,4 +1,4 @@
-"""Faux client Azure OpenAI pour les tests : vecteurs déterministes, aucun appel réseau."""
+"""Fake Azure OpenAI client for the tests: deterministic vectors, no network call."""
 
 import hashlib
 from types import SimpleNamespace
@@ -19,7 +19,7 @@ class FakeEmbeddingsAPI:
         self.calls.append({"model": model, "input": list(input), "dimensions": dimensions})
         data = [SimpleNamespace(index=i, embedding=fake_vector(text, dimensions)) for i, text in enumerate(input)]
         tokens = sum(max(1, len(text) // 4) for text in input)
-        # ordre volontairement inversé : le client doit remettre les vecteurs dans l'ordre des index
+        # order deliberately reversed: the client must put the vectors back in index order
         return SimpleNamespace(data=list(reversed(data)), usage=SimpleNamespace(prompt_tokens=tokens, total_tokens=tokens))
 
 

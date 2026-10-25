@@ -15,13 +15,13 @@ def _neighbor(score, categories):
 
 
 def test_vote_computed_by_hand():
-    votes = neighbor_vote([_neighbor(0.6, ["Or"]), _neighbor(0.3, ["Or", "ESG"]), _neighbor(0.1, ["Tech"])])
-    assert votes == pytest.approx({"Or": 0.9, "ESG": 0.3, "Tech": 0.1})
-    assert list(votes) == ["Or", "ESG", "Tech"]
+    votes = neighbor_vote([_neighbor(0.6, ["Gold"]), _neighbor(0.3, ["Gold", "ESG"]), _neighbor(0.1, ["Tech"])])
+    assert votes == pytest.approx({"Gold": 0.9, "ESG": 0.3, "Tech": 0.1})
+    assert list(votes) == ["Gold", "ESG", "Tech"]
 
 
 def test_vote_with_zero_scores_does_not_divide_by_zero():
-    assert neighbor_vote([_neighbor(0.0, ["Or"])]) == {"Or": 0.0}
+    assert neighbor_vote([_neighbor(0.0, ["Gold"])]) == {"Gold": 0.0}
 
 
 def test_neighbor_vote_clearly_beats_the_baseline(make_synthetic, sim_settings):

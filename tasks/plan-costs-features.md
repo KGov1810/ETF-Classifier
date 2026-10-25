@@ -1,77 +1,77 @@
-# Plan de mise en œuvre : modules `costs` puis `features`
+# Implementation plan: `costs` then `features` modules
 
-Références : `SPEC-costs.md`, `SPEC-features.md` (validées le 25/10/2026) · `CAPABILITY-MAP.md`
-Tâches détaillées : `tasks/todo-costs-features.md`
+References: `SPEC-costs.md`, `SPEC-features.md` (approved on 2026-10-25) · `CAPABILITY-MAP.md`
+Detailed tasks: `tasks/todo-costs-features.md`
 
-## Vue d'ensemble
+## Overview
 
-1. `costs` d'abord : il ne dépend de rien, et `features` s'en sert dès le premier appel d'embedding.
-2. `features` ensuite, en deux temps :
-   - les **trois blocs locaux** (TF-IDF, tickers, statistiques de composition) et le pipeline complet,
-     utilisables sans Azure ; ils constituent la référence chiffrée du futur module `model` ;
-   - puis le **bloc embeddings** (client Azure, cache, coûts, ligne de commande).
+1. `costs` first: it depends on nothing, and `features` uses it from the first embedding call.
+2. `features` next, in two steps:
+   - the **three local blocks** (TF-IDF, tickers, composition statistics) and the full pipeline,
+     usable without Azure; they form the numerical baseline of the future `model` module;
+   - then the **embeddings block** (Azure client, cache, costs, command line).
 
-Cet ordre permet d'avoir un pipeline fonctionnel de bout en bout avant de toucher au réseau,
-et de tester tout le code Azure avec un faux client.
+This order gives an end-to-end working pipeline before touching the network,
+and lets us test all the Azure code with a fake client.
 
-## Décisions d'architecture
+## Architecture decisions
 
-- **Interface commune des blocs** (`fit`, `transform`, `feature_names`) : ajouter ou retirer un bloc ne touche pas au pipeline, ce qui facilite les comparaisons pédagogiques.
-- **Client Azure injectable** : `embeddings.py` reçoit un client en paramètre. En production c'est `AzureOpenAI` ; en test, un faux client qui renvoie des vecteurs déterministes et un usage de tokens. Aucun test ne touche le réseau.
-- **Cache SQLite** (bibliothèque standard) : robuste aux accès concurrents (application et job quotidien), sans dépendance supplémentaire.
-- **`CostTracker` appelé dans `embeddings.py` après chaque lot**, jamais par l'appelant : impossible d'oublier de tracer un appel.
-- **Sauvegarde du pipeline avec `joblib`** (fourni avec scikit-learn), accompagnée d'un fichier JSON lisible (configuration, version, empreinte du jeu d'entraînement).
+- **Common block interface** (`fit`, `transform`, `feature_names`): adding or removing a block does not touch the pipeline, which makes learning comparisons easier.
+- **Injectable Azure client**: `embeddings.py` receives a client as a parameter. In production it is `AzureOpenAI`; in tests, a fake client that returns deterministic vectors and a token usage. No test touches the network.
+- **SQLite cache** (standard library): robust to concurrent access (application and daily job), without an extra dependency.
+- **`CostTracker` called in `embeddings.py` after each batch**, never by the caller: it is impossible to forget to trace a call.
+- **Pipeline saved with `joblib`** (shipped with scikit-learn), together with a readable JSON file (configuration, version, training-set fingerprint).
 
-## Liste des tâches
+## Task list
 
-### Phase A : module `costs`
-- [x] A1 : grille tarifaire et chargement contrôlé
-- [x] A2 : comptage des tokens et estimations
-- [x] A3 : journal du coût réel (`CostTracker`)
-- [x] A4 : rapport des coûts (CLI)
+### Phase A: `costs` module
+- [x] A1: price list and checked loading
+- [x] A2: token counting and estimates
+- [x] A3: actual cost journal (`CostTracker`)
+- [x] A4: cost report (CLI)
 
-### Point d'étape A
-- [x] Tests verts sans réseau
-- [ ] Vous vérifiez les prix de `config/pricing.yaml` par rapport à votre contrat Azure
+### Checkpoint A
+- [x] Tests green without network
+- [ ] You check the prices of `config/pricing.yaml` against your Azure contract
 
-### Phase B : `features` sans Azure
-- [x] B1 : dépendances, configuration et encodage des catégories
-- [x] B2 : bloc `text_tfidf`
-- [x] B3 : blocs `holdings` et `composition_stats`
-- [x] B4 : pipeline apprendre/appliquer, sauvegarde et rechargement
+### Phase B: `features` without Azure
+- [x] B1: dependencies, configuration and category encoding
+- [x] B2: `text_tfidf` block
+- [x] B3: `holdings` and `composition_stats` blocks
+- [x] B4: fit/transform pipeline, saving and reloading
 
-### Point d'étape B
-- [x] Tests d'absence de fuite et de reproductibilité verts
-- [x] Construction des 3 blocs sur 10 000 ETF synthétiques en moins de 60 s (3,8 s)
+### Checkpoint B
+- [x] No-leak and reproducibility tests green
+- [x] Building the 3 blocks on 10,000 synthetic ETFs in less than 60 s (3.8 s)
 
-### Phase C : `features` avec Azure
-- [x] C1 : client d'embeddings (lots, troncature, nouvelles tentatives), testé avec un faux client
-- [x] C2 : cache SQLite et suivi des coûts par lot
-- [x] C3 : ligne de commande `build` (estimation, confirmation, `--yes`) et `.env.example`
+### Phase C: `features` with Azure
+- [x] C1: embeddings client (batches, truncation, retries), tested with a fake client
+- [x] C2: SQLite cache and per-batch cost tracking
+- [x] C3: `build` command line (estimate, confirmation, `--yes`) and `.env.example`
 
-### Point d'étape C : essai réel
-- [ ] Vous lancez `build --estimate-only` puis `build` sur un petit échantillon avec votre clé Azure
-- [ ] Écart entre estimation et coût réel inférieur à 2 % ; deuxième lancement sans aucun appel Azure
+### Checkpoint C: real run
+- [ ] You run `build --estimate-only` then `build` on a small sample with your Azure key
+- [ ] Gap between estimate and actual cost below 2 %; second run without any Azure call
 
-## Risques et parades
+## Risks and mitigations
 
-| Risque | Impact | Parade |
+| Risk | Impact | Mitigation |
 |---|---|---|
-| Tarifs par défaut inexacts pour votre région | Moyen | Grille datée et sourcée ; point d'étape A dédié à la vérification ; avertissement si la grille a plus de 90 jours |
-| Tokenizer de GPT-6.1 Sol non publié | Faible | Estimation signalée comme approximative ; le coût réel renvoyé par Azure fait foi (servira surtout à `llm-justify`) |
-| Limites de débit Azure (erreurs 429) sur 10 000 textes | Moyen | Lots de 64, nouvelles tentatives avec attente croissante, reprise possible grâce au cache |
-| Changement de modèle ou de dimension invalidant le cache | Moyen | Modèle et dimension inclus dans la clé du cache ; changement soumis à votre accord |
-| Fuite d'information du test vers l'entraînement | Élevé | Apprentissage sur l'entraînement seulement ; test dédié avec un mot et un ticker présents uniquement dans le test |
-| Clé Azure exposée | Élevé | `.env` exclu du versionnement ; clé jamais lue ailleurs que dans le client ; `.env.example` sans valeur |
+| Default prices inaccurate for your region | Medium | Dated and sourced price list; checkpoint A dedicated to checking; warning if the price list is more than 90 days old |
+| GPT-6.1 Sol tokenizer not published | Low | Estimate flagged as approximate; the actual cost returned by Azure prevails (mostly relevant to `llm-justify`) |
+| Azure rate limits (429 errors) on 10,000 texts | Medium | Batches of 64, retries with increasing waits, resumable thanks to the cache |
+| Change of model or dimension invalidating the cache | Medium | Model and dimension included in the cache key; change subject to your approval |
+| Information leak from test to training | High | Learning on training only; dedicated test with a word and a ticker present only in the test set |
+| Azure key exposed | High | `.env` excluded from version control; key never read anywhere but in the client; `.env.example` without values |
 
-## Statut (25/10/2026)
+## Status (2026-10-25)
 
-Tâches A1 à C3 codées et testées (171 tests verts, 1 ignoré faute d'accès aux tables tiktoken).
-Restent les vérifications de votre côté : prix de la grille (point A) et essai réel Azure (point C).
+Tasks A1 to C3 coded and tested (171 green tests, 1 skipped for lack of access to the tiktoken tables).
+Checks remaining on your side: price-list prices (checkpoint A) and real Azure run (checkpoint C).
 
-Écart à la spec : repli approximatif du comptage de tokens quand les tables tiktoken ne peuvent pas être
-téléchargées (réseau restreint), signalé dans l'estimation.
+Deviation from the spec: approximate fallback for token counting when the tiktoken tables cannot be
+downloaded (restricted network), flagged in the estimate.
 
-## Questions ouvertes
+## Open questions
 
-Aucune bloquante. Pour le point d'étape C, il vous faudra les noms exacts de vos déploiements Azure et la version d'API, à saisir dans votre `.env`.
+None blocking. For checkpoint C, you will need the exact names of your Azure deployments and the API version, to enter in your `.env`.

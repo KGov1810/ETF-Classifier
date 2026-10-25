@@ -24,8 +24,8 @@ def test_end_to_end_training_without_azure(sample_csv, model_settings, tmp_path,
     assert version is not None
     assert (Path(model_settings["model"]["artifacts_dir"]) / version / "bundle.joblib").exists()
     report = Path(model_settings["model"]["reports_dir"]) / f"model_{version}.md"
-    assert "## Comparaison à la référence triviale" in report.read_text(encoding="utf-8")
-    assert "F1 macro" in output
+    assert "## Comparison with the trivial baseline" in report.read_text(encoding="utf-8")
+    assert "Macro F1" in output
 
 
 def test_training_with_embeddings_reports_the_azure_cost(sample_csv, model_settings, fake_client, tmp_path, capsys):
@@ -35,7 +35,7 @@ def test_training_with_embeddings_reports_the_azure_cost(sample_csv, model_setti
     output = capsys.readouterr().out
     assert code == 0
     assert fake_client.calls
-    assert "Coût Azure" in output
+    assert "Azure cost" in output
 
 
 def test_refusing_the_embedding_cost_cancels_training(sample_csv, model_settings, fake_client, tmp_path):

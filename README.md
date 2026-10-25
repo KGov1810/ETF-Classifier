@@ -1,179 +1,179 @@
 # ETF Classifier
 
-Outil de **catégorisation multi-étiquettes d'ETF** par machine learning : à partir d'un jeu de
-5 000 à 10 000 ETF déjà catégorisés, il propose une ou plusieurs catégories pour chaque nouvel ETF.
-Une personne de l'équipe valide ou corrige la proposition, et l'ETF validé enrichit le jeu de données.
-Le modèle est réentraîné une fois par jour.
+A **multi-label ETF categorisation** tool built with machine learning: from a dataset of
+5,000 to 10,000 already-categorised ETFs, it proposes one or more categories for every new ETF.
+A team member validates or corrects the proposal, and the validated ETF enriches the dataset.
+The model is retrained once a day.
 
-Le projet sert aussi de terrain d'apprentissage du machine learning : il est construit par étapes,
-chacune mesurée par rapport à une référence simple.
+The project is also a machine-learning learning ground: it is built step by step, each step
+measured against a simple baseline.
 
-## État d'avancement
+## Progress
 
-| Module | Rôle | État |
+| Module | Role | Status |
 |---|---|---|
-| `data` | Chargement, contrôle qualité, normalisation, quasi-doublons, découpage | ✅ Fait |
-| `costs` | Estimation et suivi des coûts Azure OpenAI (USD) | ✅ Fait |
-| `features` | Vectorisation du texte, de la composition et embeddings Azure | ✅ Fait |
-| `model` | Classifieur multi-étiquettes, évaluation, versionnement | ✅ Fait |
-| `similarity` | ETF les plus proches, alerte quasi-doublon, vote des voisins | ✅ Fait |
-| `feedback` | Journal des validations, registre des catégories, import et suivi | ✅ Fait |
-| `app` | Interface Streamlit | — |
-| `llm-justify` | Justification par LLM (Azure OpenAI) | — |
-| `retraining` | Réentraînement quotidien | — |
+| `data` | Loading, quality checks, normalisation, near-duplicates, split | ✅ Done |
+| `costs` | Azure OpenAI cost estimation and tracking (USD) | ✅ Done |
+| `features` | Vectorisation of the text and composition, Azure embeddings | ✅ Done |
+| `model` | Multi-label classifier, evaluation, versioning | ✅ Done |
+| `similarity` | Closest ETFs, near-duplicate alert, neighbour vote | ✅ Done |
+| `feedback` | Validation journal, category registry, import and monitoring | ✅ Done |
+| `app` | Streamlit interface | — |
+| `llm-justify` | LLM justification (Azure OpenAI) | — |
+| `retraining` | Daily retraining | — |
 
-Voir `CAPABILITY-MAP.md` pour l'architecture et l'ordre de construction, et les fichiers `SPEC-<module>.md` pour le détail de chaque module.
+See `CAPABILITY-MAP.md` for the architecture and the build order, and the `SPEC-<module>.md` files for the details of each module.
 
-## Format des données attendu
+## Expected data format
 
-CSV en UTF-8, séparateur `;`, avec ces colonnes :
+UTF-8 CSV, `;` separator, with these columns:
 
-| Colonne | Exemple |
+| Column | Example |
 |---|---|
 | `Name` | `iShares Core MSCI World` |
-| `Description` | `Réplique l'indice MSCI World…` |
-| `Composition` | `[{'AAPL': 5.1}, {'MSFT': 4.6}, {'NVDA': 4.2}]` (tickers et poids en %) |
-| `Category` | `['Actions Monde', 'ESG']` |
+| `Description` | `Tracks the MSCI World index…` |
+| `Composition` | `[{'AAPL': 5.1}, {'MSFT': 4.6}, {'NVDA': 4.2}]` (tickers and weights in %) |
+| `Category` | `['Global Equity', 'ESG']` |
 
-Les cellules contenant un `;` (par exemple une description) doivent être entre guillemets.
-La composition peut être partielle (principales lignes seulement).
+Cells containing a `;` (for example a description) must be quoted.
+The composition may be partial (top holdings only).
 
 ## Installation
 
-Python 3.11 ou plus récent.
+Python 3.11 or later.
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate        # Windows : .venv\Scripts\activate
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-## Utilisation
+## Usage
 
-Placer le CSV dans `data/raw/` (ce dossier n'est jamais versionné), puis générer le rapport de qualité :
+Put the CSV in `data/raw/` (this folder is never committed), then generate the quality report:
 
 ```bash
 python -m etf_classifier.data.report --csv data/raw/etfs.csv
 ```
 
-Le rapport s'affiche et est écrit dans `reports/data_quality.md`. Il indique les lignes exclues
-et leur raison, les catégories, la couverture des compositions, les tickers à harmoniser,
-les groupes de quasi-doublons et le découpage entraînement/test.
+The report is printed and written to `reports/data_quality.md`. It shows the excluded rows and
+their reason, the categories, the composition coverage, the tickers to harmonise, the
+near-duplicate groups and the train/test split.
 
-Depuis Python, pour les modules suivants :
+From Python, for the downstream modules:
 
 ```python
 from etf_classifier.data.loader import prepare_dataset
 
 prepared = prepare_dataset("data/raw/etfs.csv")
-prepared.split.train   # ETF d'entraînement
-prepared.split.test    # ETF de test (aucun quasi-doublon commun avec l'entraînement)
-prepared.log           # exclusions et avertissements
+prepared.split.train   # training ETFs
+prepared.split.test    # test ETFs (no near-duplicate shared with training)
+prepared.log           # exclusions and warnings
 ```
 
-## Accès Azure OpenAI
+## Azure OpenAI access
 
-Copier `.env.example` en `.env` (jamais versionné) et renseigner l'endpoint, la clé, la version d'API
-et le nom du déploiement d'embeddings. Le nom du déploiement doit aussi figurer dans
-`config/pricing.yaml` (section `deployments`). **Vérifier les prix de cette grille** avec votre contrat :
-ils sont pré-remplis avec les tarifs publics Data Zone Standard (borne haute).
+Copy `.env.example` to `.env` (never committed) and fill in the endpoint, the key, the API version
+and the name of the embeddings deployment. The deployment name must also appear in
+`config/pricing.yaml` (`deployments` section). **Check the prices of this price list** against your
+contract: they are pre-filled with the public Data Zone Standard prices (upper end).
 
-Sans `.env`, tout fonctionne avec les trois blocs locaux ; seul le bloc embeddings est désactivé.
+Without `.env`, everything works with the three local blocks; only the embeddings block is disabled.
 
-## Construire les variables
+## Building the features
 
 ```bash
-python -m etf_classifier.features.build --csv data/raw/etfs.csv --estimate-only   # coût estimé, aucun appel
-python -m etf_classifier.features.build --csv data/raw/etfs.csv                   # demande confirmation
-python -m etf_classifier.features.build --csv data/raw/etfs.csv --yes             # sans confirmation (job quotidien)
-python -m etf_classifier.features.build --csv data/raw/etfs.csv --no-azure        # blocs locaux uniquement
+python -m etf_classifier.features.build --csv data/raw/etfs.csv --estimate-only   # estimated cost, no call
+python -m etf_classifier.features.build --csv data/raw/etfs.csv                   # asks for confirmation
+python -m etf_classifier.features.build --csv data/raw/etfs.csv --yes             # no confirmation (daily job)
+python -m etf_classifier.features.build --csv data/raw/etfs.csv --no-azure        # local blocks only
 ```
 
-Les embeddings sont mis en cache (`cache/embeddings.sqlite`) : un ETF déjà traité n'est jamais repayé.
-Le pipeline appris est sauvegardé dans `artifacts/features/<version>/`.
+Embeddings are cached (`cache/embeddings.sqlite`): an ETF already processed is never paid for again.
+The fitted pipeline is saved to `artifacts/features/<version>/`.
 
-## Suivre les coûts Azure
+## Tracking Azure costs
 
-Chaque appel Azure est enregistré dans `logs/azure_usage.csv` (compteurs de tokens et coût, jamais les textes).
+Every Azure call is recorded in `logs/azure_usage.csv` (token counters and cost, never the texts).
 
 ```bash
 python -m etf_classifier.costs.report --since 2026-10-01
 ```
 
-Le comptage des tokens utilise `tiktoken`, qui télécharge ses tables au premier usage. Si le réseau
-le bloque, l'estimation passe en mode approximatif (signalé) ; le coût réel renvoyé par Azure fait
-toujours foi. Pour un poste hors ligne, pré-télécharger les tables et définir `TIKTOKEN_CACHE_DIR`.
+Token counting uses `tiktoken`, which downloads its tables on first use. If the network blocks it,
+the estimate switches to approximate mode (flagged); the actual cost returned by Azure always
+prevails. For an offline machine, pre-download the tables and set `TIKTOKEN_CACHE_DIR`.
 
-## Entraîner et utiliser le modèle
+## Training and using the model
 
 ```bash
-python -m etf_classifier.model.train --csv data/raw/etfs.csv --no-azure          # référence sans Azure
-python -m etf_classifier.model.train --csv data/raw/etfs.csv --yes --promote     # avec embeddings, promu
+python -m etf_classifier.model.train --csv data/raw/etfs.csv --no-azure          # baseline without Azure
+python -m etf_classifier.model.train --csv data/raw/etfs.csv --yes --promote     # with embeddings, promoted
 python -m etf_classifier.model.compare --csv data/raw/etfs.csv --experiments local,local+embeddings
-python -m etf_classifier.model.predict --csv nouveaux_etfs.csv                   # CSV sans colonne Category
+python -m etf_classifier.model.predict --csv new_etfs.csv                        # CSV without a Category column
 ```
 
-- Le réglage (régularisation et seuil par catégorie) se fait sur une validation interne ; le jeu de test ne sert qu'à l'évaluation finale.
-- Chaque modèle est comparé à une référence triviale (catégories les plus fréquentes). Métrique principale : F1 macro.
-- Chaque modèle est sauvegardé dans `artifacts/models/<version>/` avec son pipeline de variables, ses métriques et une fiche (`MODEL_CARD.md`) ; `registry.json` indique le modèle courant. Le premier modèle devient courant, les suivants avec `--promote`.
-- Rapports dans `reports/` : `model_<version>.md` (métriques, détail par catégorie, variables les plus influentes), `model_comparison.md`.
-- `predict` écrit pour chaque ETF les catégories retenues (au moins 1, au plus 5), les scores et un indicateur « incertain ».
+- Tuning (regularisation and one threshold per category) is done on an internal validation set; the test set is only used for the final evaluation.
+- Every model is compared with a trivial baseline (most frequent categories). Main metric: macro F1.
+- Every model is saved to `artifacts/models/<version>/` with its feature pipeline, its metrics and a card (`MODEL_CARD.md`); `registry.json` points to the current model. The first model becomes current, later ones with `--promote`.
+- Reports in `reports/`: `model_<version>.md` (metrics, details per category, most influential features), `model_comparison.md`.
+- `predict` writes, for every ETF, the selected categories (at least 1, at most 5), the scores and an "uncertain" flag.
 
-## Trouver les ETF les plus proches
+## Finding the closest ETFs
 
 ```bash
-python -m etf_classifier.similarity.search --csv nouveaux_etfs.csv --k 5    # voisins expliqués + alerte quasi-doublon
-python -m etf_classifier.similarity.evaluate --csv data/raw/etfs.csv        # vote des voisins vs modèle vs référence
+python -m etf_classifier.similarity.search --csv new_etfs.csv --k 5         # explained neighbours + near-duplicate alert
+python -m etf_classifier.similarity.evaluate --csv data/raw/etfs.csv        # neighbour vote vs model vs baseline
 ```
 
-- Score combiné : 0,5 × similarité de composition (cosinus des poids) + 0,5 × similarité de texte (embeddings ou TF-IDF).
-- Chaque voisin est expliqué : part du poids en commun et principaux tickers partagés.
-- L'index est construit par `model.train` et rangé dans le dossier du modèle (`similarity.joblib`).
+- Combined score: 0.5 × composition similarity (cosine of the weights) + 0.5 × text similarity (embeddings or TF-IDF).
+- Every neighbour is explained: share of the weight in common and main shared tickers.
+- The index is built by `model.train` and stored in the model folder (`similarity.joblib`).
 
-## Enregistrer les validations de l'équipe
+## Recording the team's validations
 
-Les validations sont ajoutées à un journal séparé, `data/validations.csv`, fusionné automatiquement avec le
-CSV d'origine (jamais réécrit) à chaque chargement : le prochain entraînement voit donc les nouveaux ETF.
+Validations are appended to a separate journal, `data/validations.csv`, which is automatically merged
+with the original CSV (never rewritten) on every load: the next training therefore sees the new ETFs.
 
 ```bash
-python -m etf_classifier.model.predict --csv nouveaux_etfs.csv --output a_valider.csv
-# l'équipe ajoute une colonne Category (catégories validées) dans a_valider.csv
-python -m etf_classifier.feedback.importer --csv a_valider.csv --by "Prénom Nom" [--create-categories]
-python -m etf_classifier.feedback.report                       # taux d'acceptation, alerte de biais
+python -m etf_classifier.model.predict --csv new_etfs.csv --output to_validate.csv
+# the team adds a Category column (validated categories) to to_validate.csv
+python -m etf_classifier.feedback.importer --csv to_validate.csv --by "First Last" [--create-categories]
+python -m etf_classifier.feedback.report                       # acceptance rate, bias alert
 ```
 
-- Écriture sous verrou de fichier, une ligne complète à la fois, sauvegarde quotidienne dans `data/backups/`.
-- Une erreur se corrige par une annulation (rien n'est jamais supprimé).
-- **Placer `data/` sur un disque local du serveur** : un verrou de fichier n'est pas fiable sur un lecteur réseau.
-- Ne pas ouvrir le journal dans Excel pendant les validations (Windows bloque alors le fichier).
+- Writes happen under a file lock, one complete line at a time, with a daily backup in `data/backups/`.
+- A mistake is fixed with a cancellation (nothing is ever deleted).
+- **Keep `data/` on a local disk of the server**: a file lock is not reliable on a network drive.
+- Do not open the journal in Excel during validations (Windows then locks the file).
 
 ## Tests
 
 ```bash
-pytest -v                 # suite complète (≈ 30 s, aucun appel réseau)
-pytest -m "not slow"      # sans le test de performance
+pytest -v                 # full suite (≈ 30 s, no network call)
+pytest -m "not slow"      # without the performance tests
 ```
 
 ## Configuration
 
-Tous les seuils sont dans `config/settings.yaml` (séparateur, noms de colonnes, seuil de
-recouvrement des quasi-doublons, taille du jeu de test…). Les tickers à fusionner manuellement
-(par exemple `GOOG` et `GOOGL`) se déclarent dans `config/holding_aliases.csv`.
+All thresholds live in `config/settings.yaml` (separator, column names, near-duplicate overlap
+threshold, test set size…). Tickers to merge manually (for example `GOOG` and `GOOGL`) are
+declared in `config/holding_aliases.csv`.
 
 ## Structure
 
 ```
-config/                  configuration et alias de tickers
-data/raw/                CSV réel (non versionné)
-data/validations.csv     journal des validations (non versionné)
-reports/                 rapports générés (non versionnés)
-src/etf_classifier/data/      module data
-src/etf_classifier/costs/     module costs
-src/etf_classifier/features/  module features
-src/etf_classifier/model/     module model
-src/etf_classifier/similarity/ module similarity
-src/etf_classifier/feedback/  module feedback
-logs/ cache/ artifacts/       journaux, cache et pipelines (non versionnés)
-tests/data/              tests et CSV fictif
-tasks/                   plan et tâches
+config/                       configuration and ticker aliases
+data/raw/                     real CSV (not committed)
+data/validations.csv          validation journal (not committed)
+reports/                      generated reports (not committed)
+src/etf_classifier/data/      data module
+src/etf_classifier/costs/     costs module
+src/etf_classifier/features/  features module
+src/etf_classifier/model/     model module
+src/etf_classifier/similarity/ similarity module
+src/etf_classifier/feedback/  feedback module
+logs/ cache/ artifacts/       logs, cache and pipelines (not committed)
+tests/                        tests and fictitious CSV
+tasks/                        plans and tasks
 ```

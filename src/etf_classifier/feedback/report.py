@@ -1,9 +1,9 @@
-"""Rapport de suivi des validations : volume, taux d'acceptation, alerte de biais, faiblesses du modèle.
+"""Validation monitoring report: volume, acceptance rate, bias alert, model weaknesses.
 
-Un taux d'acceptation sans modification proche de 100 % sur beaucoup de validations peut signifier que
-les propositions sont validées sans être relues : le modèle renforcerait alors ses propres erreurs.
+An acceptance-without-change rate close to 100% over many validations may mean that proposals are
+validated without being reviewed: the model would then reinforce its own mistakes.
 
-Usage :
+Usage:
     python -m etf_classifier.feedback.report [--since 2026-10-01]
 """
 
@@ -39,11 +39,11 @@ def build_feedback_report(settings: dict, since: date | None = None) -> Feedback
     journal = store.read_journal() if store.journal_path.exists() else pd.DataFrame(columns=["Decision"])
     if since is not None and not journal.empty:
         journal = journal[journal["ValidatedAt"].str[:10] >= since.isoformat()]
-    lines = ["# Suivi des validations", ""]
+    lines = ["# Validation monitoring", ""]
     empty_stats = {"n_validations": 0, "n_cancelled": 0, "acceptance_rate": None, "by_validator": {},
                    "added": {}, "removed": {}, "bias_alerts": [], "created_categories": []}
     if journal.empty:
-        return FeedbackReport("\n".join(lines + ["Aucune validation enregistrée sur cette période.", ""]), empty_stats)
+        return FeedbackReport("\n".join(lines + ["No validation recorded over this period.", ""]), empty_stats)
 
     active = FeedbackStore._active(journal)
     n_cancelled = int((journal["Decision"] == CANCELLATION).sum())
@@ -66,8 +66,7 @@ def build_feedback_report(settings: dict, since: date | None = None) -> Feedback
     if rate is not None and n_proposed >= minimum and rate >= threshold:
         alerts.append("global")
 
-    registry = store.registry.read()
-    created = registry[registry["source"] == "créée"]
+    created = store.registry.created()
     if since is not None:
         created = created[created["created_at"].str[:10] >= since.isoformat()]
     stats = {"n_validations": len(active), "n_cancelled": n_cancelled, "acceptance_rate": rate,
@@ -77,35 +76,35 @@ def build_feedback_report(settings: dict, since: date | None = None) -> Feedback
     def pct(value):
         return f"{value:.0%}" if value is not None else "–"
 
-    lines += [f"Période : depuis {since or 'le début'}", "",
-              "| Indicateur | Valeur |", "|---|---|",
-              f"| Validations actives | {len(active)} |",
-              f"| Annulations | {n_cancelled} |",
-              f"| Taux d'acceptation sans modification | {pct(rate)} (sur {n_proposed} proposition(s)) |", ""]
+    lines += [f"Period: since {since or 'the start'}", "",
+              "| Indicator | Value |", "|---|---|",
+              f"| Active validations | {len(active)} |",
+              f"| Cancellations | {n_cancelled} |",
+              f"| Acceptance rate without change | {pct(rate)} (over {n_proposed} proposal(s)) |", ""]
     for who in alerts:
-        label = "l'ensemble des validateurs" if who == "global" else who
-        lines.append(f"> ⚠️ Risque de biais pour {label} : au moins {threshold:.0%} des propositions acceptées "
-                     f"sans modification (≥ {minimum} validations). Vérifier que les propositions sont bien relues.")
+        label = "all validators" if who == "global" else who
+        lines.append(f"> ⚠️ Bias risk for {label}: at least {threshold:.0%} of the proposals accepted without "
+                     f"change (≥ {minimum} validations). Check that the proposals are actually reviewed.")
     if alerts:
         lines.append("")
-    lines += ["## Par validateur", "", "| Validateur | Validations | Avec proposition | Taux d'acceptation |",
+    lines += ["## By validator", "", "| Validator | Validations | With proposal | Acceptance rate |",
               "|---|---|---|---|"]
     lines += [f"| {v} | {s['n_validations']} | {s['n_with_proposal']} | {pct(s['acceptance_rate'])} |"
               for v, s in sorted(by_validator.items())]
-    lines += ["", "## Par jour", "", "| Jour | Validations |", "|---|---|"]
+    lines += ["", "## By day", "", "| Day | Validations |", "|---|---|"]
     lines += [f"| {day} | {n} |" for day, n in active["ValidatedAt"].str[:10].value_counts().sort_index().items()]
-    lines += ["", "## Corrections des validateurs (faiblesses du modèle)", "",
-              "| Catégorie | Ajoutée par les validateurs | Retirée par les validateurs |", "|---|---|---|"]
+    lines += ["", "## Validator corrections (model weaknesses)", "",
+              "| Category | Added by validators | Removed by validators |", "|---|---|---|"]
     for category in sorted(set(added) | set(removed)):
         lines.append(f"| {category} | {added.get(category, 0)} | {removed.get(category, 0)} |")
-    lines += ["", "## Catégories créées", "", ", ".join(stats["created_categories"]) or "Aucune.", ""]
+    lines += ["", "## Created categories", "", ", ".join(stats["created_categories"]) or "None.", ""]
     return FeedbackReport("\n".join(lines), stats)
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Rapport de suivi des validations")
-    parser.add_argument("--since", type=date.fromisoformat, help="Date de début (AAAA-MM-JJ)")
-    parser.add_argument("--config", help="Fichier de configuration (défaut : config/settings.yaml)")
+    parser = argparse.ArgumentParser(description="Validation monitoring report")
+    parser.add_argument("--since", type=date.fromisoformat, help="Start date (YYYY-MM-DD)")
+    parser.add_argument("--config", help="Configuration file (default: config/settings.yaml)")
     args = parser.parse_args(argv)
     settings = load_settings(args.config)
     report = build_feedback_report(settings, args.since)
@@ -113,7 +112,7 @@ def main(argv: list[str] | None = None) -> int:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(report.markdown, encoding="utf-8")
     print(report.markdown)
-    print(f"Rapport : {path}")
+    print(f"Report: {path}")
     return 0
 
 

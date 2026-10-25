@@ -24,7 +24,7 @@ def test_table_contains_the_baseline_and_each_experiment(sample_csv, model_setti
                  "--experiments", "local,text_only"])
     report = (Path(model_settings["model"]["reports_dir"]) / "model_comparison.md").read_text(encoding="utf-8")
     assert code == 0
-    for label in ["Référence triviale", "| local |", "| text_only |"]:
+    for label in ["Trivial baseline", "| local |", "| text_only |"]:
         assert label in report
 
 

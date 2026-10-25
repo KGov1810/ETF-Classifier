@@ -6,27 +6,27 @@ from etf_classifier.costs.tokens import TokenCounter, get_counter
 
 
 def test_fallback_counter_approximates_four_characters_per_token():
-    counter = TokenCounter("encodage-inexistant")
+    counter = TokenCounter("missing-encoding")
     assert counter.exact is False
     assert counter.count("x" * 40) == 10
 
 
 def test_fallback_truncation_is_conservative():
-    counter = TokenCounter("encodage-inexistant")
+    counter = TokenCounter("missing-encoding")
     text, truncated = counter.truncate("y" * 1000, max_tokens=100)
     assert truncated is True
     assert counter.count(text) <= 100
 
 
 def test_short_text_is_not_truncated():
-    text, truncated = TokenCounter("encodage-inexistant").truncate("court", max_tokens=100)
-    assert (text, truncated) == ("court", False)
+    text, truncated = TokenCounter("missing-encoding").truncate("short", max_tokens=100)
+    assert (text, truncated) == ("short", False)
 
 
 def test_exact_counter_when_tiktoken_tables_are_available():
     counter = get_counter("cl100k_base")
     if not counter.exact:
-        pytest.skip("Tables tiktoken non téléchargeables ici (réseau restreint)")
+        pytest.skip("tiktoken tables cannot be downloaded here (restricted network)")
     assert counter.count("hello world") == 2
 
 
@@ -53,4 +53,4 @@ def test_chat_estimate_is_flagged_approximate(pricing):
 
 def test_estimate_for_unknown_deployment_raises(pricing):
     with pytest.raises(UnknownDeploymentError):
-        estimate_embeddings(["texte"], "inconnu", pricing)
+        estimate_embeddings(["text"], "unknown", pricing)

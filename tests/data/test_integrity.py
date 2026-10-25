@@ -12,5 +12,5 @@ def test_source_csv_is_never_modified(sample_csv, tmp_path):
     source = tmp_path / "etfs.csv"
     shutil.copy(sample_csv, source)
     before = _fingerprint(source)
-    main(["--csv", str(source), "--output", str(tmp_path / "rapport.md")])
+    main(["--csv", str(source), "--output", str(tmp_path / "report.md")])
     assert _fingerprint(source) == before

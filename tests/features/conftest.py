@@ -1,4 +1,4 @@
-"""Fixtures des tests du module features : configuration isolée et faux client Azure."""
+"""Fixtures for the features tests: isolated configuration and fake Azure client."""
 
 import copy
 import importlib.util
@@ -18,13 +18,13 @@ def fake_client():
 
 @pytest.fixture
 def fake_vector():
-    """Vecteur brut que renvoie le faux client pour un texte donné."""
+    """Raw vector returned by the fake client for a given text."""
     return fake_azure.fake_vector
 
 
 @pytest.fixture
 def azure_settings(settings, tmp_path):
-    """Configuration de test : petite dimension, cache, journal et artefacts dans un dossier temporaire."""
+    """Test configuration: small dimension, cache, log and artifacts in a temporary folder."""
     cfg = copy.deepcopy(settings)
     emb = cfg["features"]["embeddings"]
     emb.update({"dimensions": 8, "batch_size": 64, "cache_path": str(tmp_path / "cache" / "emb.sqlite")})

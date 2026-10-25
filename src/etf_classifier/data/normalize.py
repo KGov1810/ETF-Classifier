@@ -1,8 +1,8 @@
-"""Normalisation des tickers.
+"""Ticker normalisation.
 
-Règles prudentes : majuscules et espaces. Les suffixes de place de cotation (" US", ".PA",
-" UW Equity") sont conservés par défaut, car un même ticker peut désigner des sociétés
-différentes selon la place : fusionner à tort serait plus grave que ne pas fusionner.
+Conservative rules: upper case and whitespace. Exchange suffixes (" US", ".PA", " UW Equity")
+are kept by default, because the same ticker can refer to different companies on different
+exchanges: a wrong merge would be worse than no merge.
 """
 
 import csv
@@ -14,13 +14,13 @@ import pandas as pd
 from etf_classifier.config import resolve_path
 
 _EQUITY_SUFFIX = re.compile(r" EQUITY$")
-# Place de cotation : espace + 2 lettres (" US") ou point + 2-3 lettres (".PA").
-# Un point + 1 lettre ("BRK.B") est une classe d'action et n'est jamais retiré.
+# Exchange: space + 2 letters (" US") or dot + 2-3 letters (".PA").
+# A dot + 1 letter ("BRK.B") is a share class and is never removed.
 _EXCHANGE_SUFFIX = re.compile(r"( [A-Z]{2}|\.[A-Z]{2,3})$")
 
 
 def normalize_ticker(raw: str, strip_suffix: bool = False) -> str:
-    """Clé normalisée d'un ticker : majuscules, espaces nettoyés, suffixe de place optionnel."""
+    """Normalised key of a ticker: upper case, cleaned whitespace, optional exchange suffix removal."""
     ticker = " ".join(str(raw).split()).upper()
     if strip_suffix:
         ticker = _EXCHANGE_SUFFIX.sub("", _EQUITY_SUFFIX.sub("", ticker))
@@ -28,7 +28,7 @@ def normalize_ticker(raw: str, strip_suffix: bool = False) -> str:
 
 
 def load_aliases(settings: dict) -> dict[str, str]:
-    """Lit config/holding_aliases.csv (colonnes raw;canonical). Fichier absent : aucun alias."""
+    """Reads config/holding_aliases.csv (columns raw;canonical). Missing file: no alias."""
     path = resolve_path(settings["normalize"]["aliases_path"])
     if not path.exists():
         return {}
@@ -45,7 +45,7 @@ def load_aliases(settings: dict) -> dict[str, str]:
 def normalize_composition(
     composition: dict[str, float], aliases: dict[str, str], strip_suffix: bool = False
 ) -> dict[str, float]:
-    """Applique la normalisation et les alias ; les poids des tickers fusionnés sont additionnés."""
+    """Applies normalisation and aliases; the weights of merged tickers are summed."""
     normalized: dict[str, float] = {}
     for ticker, weight in composition.items():
         key = normalize_ticker(ticker, strip_suffix)
@@ -55,7 +55,7 @@ def normalize_composition(
 
 
 def normalize_dataset(data: pd.DataFrame, aliases: dict[str, str], strip_suffix: bool) -> pd.DataFrame:
-    """Ajoute composition_raw (tickers d'origine) et remplace composition par sa version normalisée."""
+    """Adds composition_raw (original tickers) and replaces composition with its normalised version."""
     result = data.copy()
     result["composition_raw"] = result["composition"]
     result["composition"] = [normalize_composition(comp, aliases, strip_suffix) for comp in result["composition"]]
@@ -63,9 +63,9 @@ def normalize_dataset(data: pd.DataFrame, aliases: dict[str, str], strip_suffix:
 
 
 def find_similar_tickers(tickers) -> dict[str, list[str]]:
-    """Regroupe les tickers qui partagent une racine mais ont des suffixes différents.
+    """Groups tickers that share a root but have different suffixes.
 
-    Aide à remplir holding_aliases.csv ; aucune fusion n'est appliquée automatiquement.
+    Helps to fill in holding_aliases.csv; no merge is applied automatically.
     """
     groups: dict[str, set[str]] = defaultdict(set)
     for ticker in tickers:

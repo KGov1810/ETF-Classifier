@@ -51,7 +51,7 @@ def test_two_saves_in_the_same_second_get_distinct_versions(trained, model_setti
 
 
 def test_loading_current_without_any_model_gives_a_clear_error(model_settings):
-    with pytest.raises(NoModelError, match="Aucun modèle"):
+    with pytest.raises(NoModelError, match="No current model"):
         load_bundle("current", model_settings)
 
 

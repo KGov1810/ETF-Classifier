@@ -1,4 +1,4 @@
-"""Fixtures du module feedback : journal, registre et sauvegardes dans un dossier temporaire."""
+"""Fixtures for the feedback tests: journal, registry and backups in a temporary folder."""
 
 import copy
 

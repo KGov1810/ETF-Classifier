@@ -1,72 +1,72 @@
-# Plan de mise en œuvre : module `model`
+# Implementation plan: `model` module
 
-Référence : `SPEC-model.md` (validée le 25/10/2026) · Tâches détaillées : `tasks/todo-model.md`
+Reference: `SPEC-model.md` (approved on 2026-10-25) · Detailed tasks: `tasks/todo-model.md`
 
-## Vue d'ensemble
+## Overview
 
-Trois phases :
-1. **Le cœur** : métriques et référence triviale, puis le classifieur (seuils, règle « au moins une catégorie », indicateur « incertain »), puis le réglage sur validation interne. Dès la fin de cette phase, on vérifie sur un jeu synthétique que le modèle bat nettement la référence.
-2. **La traçabilité** : variables influentes et rapport d'évaluation, sauvegarde versionnée avec registre, puis la commande `train` qui enchaîne tout.
-3. **L'usage** : `predict` sur un CSV de nouveaux ETF, et `compare` pour mesurer l'apport des embeddings.
+Three phases:
+1. **The core**: metrics and trivial baseline, then the classifier (thresholds, "at least one category" rule, "uncertain" flag), then tuning on internal validation. At the end of this phase, we check on a synthetic dataset that the model clearly beats the baseline.
+2. **Traceability**: influential features and evaluation report, versioned saving with a registry, then the `train` command that chains everything.
+3. **Usage**: `predict` on a CSV of new ETFs, and `compare` to measure the contribution of the embeddings.
 
-## Décisions d'architecture
+## Architecture decisions
 
-- **Le réglage ne reçoit que le jeu d'entraînement** : la fonction `tune()` n'a pas accès au test, ce qui rend la fuite impossible par construction, et un test le vérifie.
-- **Validation interne par groupe** : on réutilise `make_split()` du module `data` sur le jeu d'entraînement, pour que les quasi-doublons ne faussent pas non plus le réglage.
-- **Un dossier par modèle** contenant modèle et pipeline de variables : l'application et le job quotidien chargent un seul dossier, sans risque de mélanger des versions.
-- **Évaluation séparée du modèle** (`evaluate.py`) : la référence triviale et le classifieur sont évalués par exactement le même code.
+- **Tuning only receives the training set**: the `tune()` function has no access to the test set, which makes a leak impossible by construction, and a test checks it.
+- **Internal validation by group**: we reuse `make_split()` from the `data` module on the training set, so that near-duplicates do not skew tuning either.
+- **One folder per model** containing model and feature pipeline: the application and the daily job load a single folder, with no risk of mixing versions.
+- **Evaluation separate from the model** (`evaluate.py`): the trivial baseline and the classifier are evaluated by exactly the same code.
 
-## Modification d'un module existant
+## Change to an existing module
 
-`predict` doit lire un CSV de **nouveaux ETF, sans colonne `Category`**. Aujourd'hui, le module `data` exclut une ligne sans catégorie. J'ajouterai un paramètre `require_categories` (vrai par défaut) à `load_dataset()`. Le comportement actuel reste inchangé, et les 90 tests existants doivent rester verts.
+`predict` must read a CSV of **new ETFs, without a `Category` column**. Today, the `data` module excludes a row without a category. I will add a `require_categories` parameter (true by default) to `load_dataset()`. The current behaviour stays unchanged, and the 90 existing tests must stay green.
 
-## Liste des tâches
+## Task list
 
-### Phase A : le cœur
-- [x] M1 : métriques d'évaluation et référence triviale
-- [x] M2 : classifieur, seuils par catégorie et règles de prédiction
-- [x] M3 : réglage sur validation interne (`C`, seuils) et réentraînement final
+### Phase A: the core
+- [x] M1: evaluation metrics and trivial baseline
+- [x] M2: classifier, per-category thresholds and prediction rules
+- [x] M3: tuning on internal validation (`C`, thresholds) and final retraining
 
-### Point d'étape A
-- [x] Sur un jeu synthétique, le modèle bat nettement la référence triviale (F1 macro)
-- [x] Test de non-utilisation du jeu de test vert
+### Checkpoint A
+- [x] On a synthetic dataset, the model clearly beats the trivial baseline (macro F1)
+- [x] Test-set non-use test green
 
-### Phase B : la traçabilité
-- [x] M4 : variables influentes et rapport d'évaluation
-- [x] M5 : sauvegarde versionnée, registre et modèle courant
-- [x] M6 : commande `train`
+### Phase B: traceability
+- [x] M4: influential features and evaluation report
+- [x] M5: versioned saving, registry and current model
+- [x] M6: `train` command
 
-### Point d'étape B
-- [x] Entraînement de bout en bout sur la fixture ; rechargement avec des prédictions identiques
-- [x] Entraînement sur 10 000 ETF synthétiques (blocs locaux) en moins de 5 minutes
+### Checkpoint B
+- [x] End-to-end training on the fixture; reloading with identical predictions
+- [x] Training on 10,000 synthetic ETFs (local blocks) in less than 5 minutes
 
-### Phase C : l'usage
-- [x] M7 : chargement sans catégorie et commande `predict`
-- [x] M8 : commande `compare`
+### Phase C: usage
+- [x] M7: loading without categories and `predict` command
+- [x] M8: `compare` command
 
-### Point d'étape final
-- [ ] Les 5 critères de succès de `SPEC-model.md`, dont ceux sur le CSV réel, quand vous l'aurez
-- [ ] Objectif chiffré défini avec vous après le premier entraînement réel
+### Final checkpoint
+- [ ] The 5 success criteria of `SPEC-model.md`, including those on the real CSV, once you have it
+- [ ] Numerical target defined with you after the first real training
 
-## Risques et parades
+## Risks and mitigations
 
-| Risque | Impact | Parade |
+| Risk | Impact | Mitigation |
 |---|---|---|
-| Catégories rares : trop peu d'exemples en validation pour régler un seuil fiable | Moyen | Seuil par défaut à 0,5 sous un effectif minimal (configurable) ; signalé dans le rapport |
-| Temps d'entraînement avec le bloc embeddings (3 072 colonnes denses × 10 000 ETF) | Moyen | Mesuré par le test de performance ; solveur adapté aux matrices denses si besoin ; grille de `C` limitée à 3 valeurs |
-| Fuite du test vers le réglage | Élevé | `tune()` ne reçoit que l'entraînement ; test dédié |
-| Régression du module `data` en ajoutant `require_categories` | Faible | Paramètre facultatif, valeur par défaut inchangée ; suite `data` relancée |
-| Comparaison biaisée entre expériences | Moyen | `compare` utilise le même découpage et la même graine pour toutes les configurations |
+| Rare categories: too few examples in validation to tune a reliable threshold | Medium | Default threshold of 0.5 below a minimum count (configurable); flagged in the report |
+| Training time with the embeddings block (3,072 dense columns × 10,000 ETFs) | Medium | Measured by the performance test; solver suited to dense matrices if needed; `C` grid limited to 3 values |
+| Leak from the test set into tuning | High | `tune()` only receives training; dedicated test |
+| Regression of the `data` module when adding `require_categories` | Low | Optional parameter, default value unchanged; `data` suite re-run |
+| Biased comparison between experiments | Medium | `compare` uses the same split and the same seed for all configurations |
 
-## Statut (25/10/2026)
+## Status (2026-10-25)
 
-Tâches M1 à M8 codées et testées (225 tests verts sur l'ensemble du projet).
-Jeu synthétique : F1 macro 0,969 contre 0,067 pour la référence triviale. Entraînement de 10 000 ETF : 4,3 s.
-Reste : premier entraînement sur le CSV réel et objectif chiffré à fixer avec vous.
+Tasks M1 to M8 coded and tested (225 green tests across the project).
+Synthetic dataset: macro F1 0.969 versus 0.067 for the trivial baseline. Training on 10,000 ETFs: 4.3 s.
+Remaining: first training on the real CSV and numerical target to set with you.
 
-Ajustements : extraction de `announce_embedding_plan` / `confirm_spending` dans `features/build.py`
-(réutilisées par train, predict, compare) et ajout de `FeaturePipeline.attach_embedder`.
+Adjustments: extraction of `announce_embedding_plan` / `confirm_spending` in `features/build.py`
+(reused by train, predict, compare) and addition of `FeaturePipeline.attach_embedder`.
 
-## Questions ouvertes
+## Open questions
 
-Aucune bloquante.
+None blocking.

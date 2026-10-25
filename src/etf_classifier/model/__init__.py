@@ -1,1 +1,1 @@
-"""Module model : classifieur multi-étiquettes, évaluation, versionnement."""
+"""model module: multi-label classifier, evaluation, versioning."""

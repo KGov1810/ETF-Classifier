@@ -36,12 +36,12 @@ def test_successive_records_keep_a_single_header(tracker):
 
 
 def test_unknown_deployment_is_logged_without_cost(tracker, caplog):
-    record = tracker.record("features", "embeddings_batch", "inconnu", Usage(input_tokens=500))
+    record = tracker.record("features", "embeddings_batch", "unknown-deployment", Usage(input_tokens=500))
     row = _rows(tracker.log_path)[0]
     assert record["cost_usd"] is None
     assert row["cost_usd"] == ""
     assert row["input_tokens"] == "500"
-    assert "inconnu" in caplog.text
+    assert "unknown-deployment" in caplog.text
 
 
 def test_estimate_is_stored_next_to_the_actual_cost(tracker):
@@ -67,6 +67,6 @@ def test_usage_from_a_plain_dict():
 
 
 def test_text_content_is_never_logged(tracker):
-    tracker.record("features", "embeddings_batch", "my-embeddings", Usage(input_tokens=10), note="3 textes")
+    tracker.record("features", "embeddings_batch", "my-embeddings", Usage(input_tokens=10), note="3 texts")
     content = tracker.log_path.read_text(encoding="utf-8")
-    assert "3 textes" in content and "Description" not in content
+    assert "3 texts" in content and "Description" not in content

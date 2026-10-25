@@ -35,15 +35,15 @@ def test_each_category_uses_its_own_threshold():
 def _fit_toy():
     x = np.array([[1, 0], [1, 0], [0, 1], [0, 1], [1, 1], [1, 1]], dtype=float)
     y = np.array([[1, 0], [1, 0], [0, 1], [0, 1], [1, 1], [1, 1]])
-    model = MultiLabelClassifier(classes=["Or", "ESG"], C=10.0, seed=0, max_iter=1000)
+    model = MultiLabelClassifier(classes=["Gold", "ESG"], C=10.0, seed=0, max_iter=1000)
     return model.fit(x, y), x
 
 
 def test_predictions_list_sorted_scores_and_kept_categories():
     model, x = _fit_toy()
     prediction = model.predict(x[:1], max_categories=5, uncertain_threshold=0.5)[0]
-    assert prediction.categories == ["Or"]
-    assert [c for c, _ in prediction.scores] == ["Or", "ESG"]
+    assert prediction.categories == ["Gold"]
+    assert [c for c, _ in prediction.scores] == ["Gold", "ESG"]
     assert prediction.scores[0][1] >= prediction.scores[1][1]
 
 
@@ -58,5 +58,5 @@ def test_uncertain_flag_when_best_score_is_low():
 def test_category_present_in_every_training_example_is_handled():
     x = np.array([[1.0], [2.0], [3.0]])
     y = np.array([[1, 0], [1, 1], [1, 0]])
-    model = MultiLabelClassifier(classes=["Toujours", "Parfois"], C=1.0, seed=0, max_iter=1000).fit(x, y)
+    model = MultiLabelClassifier(classes=["Always", "Sometimes"], C=1.0, seed=0, max_iter=1000).fit(x, y)
     assert model.predict_proba(x).shape == (3, 2)

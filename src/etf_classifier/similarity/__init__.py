@@ -1,1 +1,1 @@
-"""Module similarity : ETF les plus proches, explication, alerte quasi-doublon, vote des voisins."""
+"""similarity module: closest ETFs, explanations, near-duplicate alert, neighbour vote."""

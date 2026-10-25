@@ -29,7 +29,7 @@ def test_exchange_suffix_is_kept_by_default():
         ("MC.PA", "MC"),
         ("AAPL UW Equity", "AAPL"),
         ("005930 KS", "005930"),
-        ("BRK.B", "BRK.B"),  # classe d'action, pas une place de cotation
+        ("BRK.B", "BRK.B"),  # share class, not an exchange
     ],
 )
 def test_exchange_suffix_is_removed_when_enabled(raw, expected):

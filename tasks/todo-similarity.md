@@ -1,130 +1,130 @@
-# Tâches : module `similarity`
+# Tasks: `similarity` module
 
-Définition de « terminé » pour chaque tâche : tests verts (`pytest -v`), aucune régression sur les modules
-existants, aucun appel réseau dans les tests, aucun commit sans votre accord.
-
----
-
-## S1 : configuration et construction de l'index
-
-**Description :** section `similarity` dans `settings.yaml` (poids composition/texte, nombre de voisins, nombre de tickers partagés affichés, valeurs de k évaluées) ; `SimilarityIndex.build(reference_df, pipeline)` : vecteurs de composition (vocabulaire propre, poids normalisés L2) et vecteurs de texte (embeddings ou TF-IDF du pipeline).
-
-**Critères d'acceptation :**
-- [x] Le vocabulaire couvre tous les tickers de la référence, y compris ceux absents du vocabulaire du modèle
-- [x] Le bloc de texte utilisé est celui des embeddings s'il est actif, sinon le TF-IDF ; il est indiqué dans l'index
-- [x] Un ETF de la référence sans composition a un vecteur de composition nul, sans erreur
-
-**Vérification :** `pytest tests/similarity/test_index.py -v`
-
-**Dépendances :** aucune
-
-**Fichiers :** `config/settings.yaml`, `src/etf_classifier/similarity/__init__.py`, `src/etf_classifier/similarity/index.py`, `tests/similarity/…`
-
-**Taille :** M
+Definition of "done" for every task: green tests (`pytest -v`), no regression on the existing
+modules, no network call in the tests, no commit without your approval.
 
 ---
 
-## S2 : recherche des voisins, explication et alerte quasi-doublon
+## S1: configuration and index building
 
-**Description :** `index.query(df, k, exclude_row_ids=None)` : score combiné (composition et texte, poids renormalisés si une composition est vide), k voisins triés, explication (recouvrement pondéré en %, 5 principaux tickers partagés), alerte quasi-doublon (règle du module `data`).
+**Description:** `similarity` section in `settings.yaml` (composition/text weights, number of neighbours, number of shared tickers displayed, k values evaluated); `SimilarityIndex.build(reference_df, pipeline)`: composition vectors (own vocabulary, L2-normalised weights) and text vectors (embeddings or TF-IDF from the pipeline).
 
-**Critères d'acceptation :**
-- [x] Deux compositions identiques : similarité de composition de 1 et alerte quasi-doublon
-- [x] Un petit ETF contenu dans un grand : similarité de composition nettement inférieure à 1, recouvrement de 100 %
-- [x] Un ETF de la référence n'est jamais son propre voisin ; composition vide : texte seul, avec une mention
+**Acceptance criteria:**
+- [x] The vocabulary covers all the tickers of the reference, including those absent from the model's vocabulary
+- [x] The text block used is the embeddings one if active, otherwise TF-IDF; it is recorded in the index
+- [x] A reference ETF without composition has a zero composition vector, without error
 
-**Vérification :** `pytest tests/similarity/test_query.py -v`
+**Verification:** `pytest tests/similarity/test_index.py -v`
 
-**Dépendances :** S1
+**Dependencies:** none
 
-**Fichiers :** `src/etf_classifier/similarity/index.py`, `tests/similarity/test_query.py`
+**Files:** `config/settings.yaml`, `src/etf_classifier/similarity/__init__.py`, `src/etf_classifier/similarity/index.py`, `tests/similarity/…`
 
-**Taille :** M
-
----
-
-## S3 : vote des voisins, sauvegarde et rechargement
-
-**Description :** `neighbor_vote(neighbors)` (score par catégorie = somme des scores des voisins qui l'ont / somme des scores) et décision avec les mêmes règles que le modèle (au moins 1 catégorie, au plus 5) ; `save()` / `load()` de l'index.
-
-**Critères d'acceptation :**
-- [x] Le vote calculé à la main sur un petit cas est retrouvé
-- [x] Sur le jeu synthétique, le vote bat nettement la référence triviale
-- [x] Sauvegarde puis rechargement : mêmes voisins et mêmes scores
-
-**Vérification :** `pytest tests/similarity/test_vote.py -v`
-
-**Dépendances :** S2
-
-**Fichiers :** `src/etf_classifier/similarity/vote.py`, `src/etf_classifier/similarity/index.py`, `tests/similarity/test_vote.py`
-
-**Taille :** S
+**Size:** M
 
 ---
 
-## Point d'étape A
-- [ ] Tests verts
-- [ ] 100 requêtes sur une référence de 10 000 ETF en moins de 10 s
+## S2: neighbour search, explanation and near-duplicate alert
+
+**Description:** `index.query(df, k, exclude_row_ids=None)`: combined score (composition and text, weights renormalised if a composition is empty), k sorted neighbours, explanation (weighted overlap in %, 5 main shared tickers), near-duplicate alert (rule of the `data` module).
+
+**Acceptance criteria:**
+- [x] Two identical compositions: composition similarity of 1 and near-duplicate alert
+- [x] A small ETF contained in a large one: composition similarity clearly below 1, overlap of 100 %
+- [x] A reference ETF is never its own neighbour; empty composition: text only, with a mention
+
+**Verification:** `pytest tests/similarity/test_query.py -v`
+
+**Dependencies:** S1
+
+**Files:** `src/etf_classifier/similarity/index.py`, `tests/similarity/test_query.py`
+
+**Size:** M
 
 ---
 
-## S4 : index construit par `train` et rechargé avec le modèle
+## S3: neighbour vote, saving and reloading
 
-**Description :** `model.train` construit l'index sur toutes les lignes exploitables et l'écrit dans le dossier du modèle ; `load_bundle()` le recharge (`bundle.similarity`), ou `None` avec un message clair pour un modèle plus ancien. Taille de l'index indiquée dans la fiche du modèle.
+**Description:** `neighbor_vote(neighbors)` (score per category = sum of the scores of the neighbours that have it / sum of the scores) and decision with the same rules as the model (at least 1 category, at most 5); `save()` / `load()` of the index.
 
-**Critères d'acceptation :**
-- [x] Après `train`, le dossier du modèle contient `similarity.joblib`
-- [x] `load_bundle()` renvoie un index qui donne les mêmes voisins qu'avant la sauvegarde
-- [x] Un dossier de modèle sans index se charge quand même (`similarity` vaut `None`)
+**Acceptance criteria:**
+- [x] The vote computed by hand on a small case is reproduced
+- [x] On the synthetic dataset, the vote clearly beats the trivial baseline
+- [x] Saving then reloading: same neighbours and same scores
 
-**Vérification :** `pytest tests/model tests/similarity/test_integration.py -v`
+**Verification:** `pytest tests/similarity/test_vote.py -v`
 
-**Dépendances :** S3
+**Dependencies:** S2
 
-**Fichiers :** `src/etf_classifier/model/train.py`, `src/etf_classifier/model/registry.py`, `tests/similarity/test_integration.py`
+**Files:** `src/etf_classifier/similarity/vote.py`, `src/etf_classifier/similarity/index.py`, `tests/similarity/test_vote.py`
 
-**Taille :** S
-
----
-
-## S5 : commande `search`
-
-**Description :** `python -m etf_classifier.similarity.search --csv nouveaux.csv [--model current] [--k 5] [--yes]` : CSV des voisins (un ETF × un voisin par ligne) et résumé Markdown ; embeddings via cache et confirmation de coût.
-
-**Critères d'acceptation :**
-- [x] Pour chaque nouvel ETF, k voisins avec scores, catégories et explication
-- [x] Un quasi-doublon est signalé dans le résumé
-- [x] Message clair si aucun modèle courant, ou un modèle sans index
-
-**Vérification :** `pytest tests/similarity/test_search.py -v`
-
-**Dépendances :** S4
-
-**Fichiers :** `src/etf_classifier/similarity/search.py`, `tests/similarity/test_search.py`
-
-**Taille :** M
+**Size:** S
 
 ---
 
-## S6 : commande `evaluate`
-
-**Description :** `python -m etf_classifier.similarity.evaluate --csv … [--yes]` : index construit sur l'entraînement seul, vote des voisins pour chaque ETF de test (k = 5, 10, 20), comparaison au modèle réglé sur le même découpage et à la référence triviale ; rapport `reports/similarity_evaluation.md`.
-
-**Critères d'acceptation :**
-- [x] L'index d'évaluation ne contient aucun ETF de test
-- [x] Le rapport contient le vote pour chaque k, le modèle et la référence triviale (F1 macro et micro)
-- [x] Même jeu de test que le modèle (empreinte affichée)
-
-**Vérification :** `pytest tests/similarity/test_evaluate.py -v`
-
-**Dépendances :** S3
-
-**Fichiers :** `src/etf_classifier/similarity/evaluate.py`, `tests/similarity/test_evaluate.py`
-
-**Taille :** M
+## Checkpoint A
+- [ ] Tests green
+- [ ] 100 queries on a reference of 10,000 ETFs in less than 10 s
 
 ---
 
-## Point d'étape final
-- [ ] Les 4 critères de succès de `SPEC-similarity.md`
-- [ ] Après le premier entraînement réel : poids composition/texte et usage du vote décidés avec vous
+## S4: index built by `train` and reloaded with the model
+
+**Description:** `model.train` builds the index on all usable rows and writes it to the model folder; `load_bundle()` reloads it (`bundle.similarity`), or `None` with a clear message for an older model. Index size shown in the model card.
+
+**Acceptance criteria:**
+- [x] After `train`, the model folder contains `similarity.joblib`
+- [x] `load_bundle()` returns an index that gives the same neighbours as before saving
+- [x] A model folder without an index still loads (`similarity` is `None`)
+
+**Verification:** `pytest tests/model tests/similarity/test_integration.py -v`
+
+**Dependencies:** S3
+
+**Files:** `src/etf_classifier/model/train.py`, `src/etf_classifier/model/registry.py`, `tests/similarity/test_integration.py`
+
+**Size:** S
+
+---
+
+## S5: `search` command
+
+**Description:** `python -m etf_classifier.similarity.search --csv new.csv [--model current] [--k 5] [--yes]`: CSV of neighbours (one ETF × one neighbour per line) and Markdown summary; embeddings through the cache and cost confirmation.
+
+**Acceptance criteria:**
+- [x] For every new ETF, k neighbours with scores, categories and explanation
+- [x] A near-duplicate is flagged in the summary
+- [x] Clear message if there is no current model, or a model without an index
+
+**Verification:** `pytest tests/similarity/test_search.py -v`
+
+**Dependencies:** S4
+
+**Files:** `src/etf_classifier/similarity/search.py`, `tests/similarity/test_search.py`
+
+**Size:** M
+
+---
+
+## S6: `evaluate` command
+
+**Description:** `python -m etf_classifier.similarity.evaluate --csv … [--yes]`: index built on training only, neighbour vote for every test ETF (k = 5, 10, 20), comparison with the model tuned on the same split and with the trivial baseline; report `reports/similarity_evaluation.md`.
+
+**Acceptance criteria:**
+- [x] The evaluation index contains no test ETF
+- [x] The report contains the vote for each k, the model and the trivial baseline (macro and micro F1)
+- [x] Same test set as the model (fingerprint displayed)
+
+**Verification:** `pytest tests/similarity/test_evaluate.py -v`
+
+**Dependencies:** S3
+
+**Files:** `src/etf_classifier/similarity/evaluate.py`, `tests/similarity/test_evaluate.py`
+
+**Size:** M
+
+---
+
+## Final checkpoint
+- [ ] The 4 success criteria of `SPEC-similarity.md`
+- [ ] After the first real training: composition/text weights and use of the vote decided with you

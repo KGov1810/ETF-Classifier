@@ -1,7 +1,7 @@
-"""Cache SQLite des embeddings : un texte déjà calculé n'est jamais renvoyé (ni repayé) à Azure.
+"""SQLite cache of the embeddings: a text already computed is never sent (nor paid for) to Azure again.
 
-La clé combine le modèle, la dimension et le texte : changer l'un des trois ne réutilise jamais
-un vecteur calculé dans d'autres conditions.
+The key combines the model, the dimension and the text: changing any of the three never reuses
+a vector computed under different conditions.
 """
 
 import hashlib
@@ -11,7 +11,7 @@ from pathlib import Path
 
 import numpy as np
 
-CHUNK = 500  # nombre de clés par requête (limite de variables SQLite)
+CHUNK = 500  # keys per query (SQLite variable limit)
 
 
 def cache_key(model: str, dimensions: int, text: str) -> str:
@@ -23,7 +23,7 @@ class EmbeddingCache:
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self._connect() as connection:
-            connection.execute("PRAGMA journal_mode=WAL")  # lectures et écritures concurrentes (app + job)
+            connection.execute("PRAGMA journal_mode=WAL")  # concurrent reads and writes (app + job)
             connection.execute(
                 "CREATE TABLE IF NOT EXISTS embeddings ("
                 "key TEXT PRIMARY KEY, model TEXT NOT NULL, dimensions INTEGER NOT NULL, "

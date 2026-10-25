@@ -12,19 +12,19 @@ def test_vectors_are_stored_and_read_back_exactly(tmp_path):
 
 
 def test_key_depends_on_model_dimensions_and_text():
-    base = cache_key("model", 8, "texte")
-    assert base != cache_key("model", 16, "texte")
-    assert base != cache_key("autre", 8, "texte")
-    assert base != cache_key("model", 8, "texte différent")
+    base = cache_key("model", 8, "text")
+    assert base != cache_key("model", 16, "text")
+    assert base != cache_key("other", 8, "text")
+    assert base != cache_key("model", 8, "another text")
 
 
 def test_missing_keys_are_absent_from_the_result(tmp_path):
-    assert EmbeddingCache(tmp_path / "emb.sqlite").get_many(["absente"]) == {}
+    assert EmbeddingCache(tmp_path / "emb.sqlite").get_many(["missing"]) == {}
 
 
 def test_cache_persists_between_instances(tmp_path):
     path = tmp_path / "emb.sqlite"
-    key = cache_key("model", 4, "texte")
+    key = cache_key("model", 4, "text")
     EmbeddingCache(path).put_many({key: np.ones(4, dtype=np.float32)}, model="model", dimensions=4)
     assert key in EmbeddingCache(path).get_many([key])
 

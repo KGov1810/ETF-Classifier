@@ -8,7 +8,7 @@ from etf_classifier.costs.tracker import CostTracker, Usage
 
 @pytest.fixture
 def usage_log(pricing, tmp_path):
-    """Journal fictif : 3 appels sur 2 jours, 2 modules."""
+    """Fictitious log: 3 calls over 2 days, 2 modules."""
     path = tmp_path / "usage.csv"
     moments = iter([
         datetime(2026, 10, 24, 9, 0, tzinfo=timezone.utc),
@@ -48,17 +48,17 @@ def test_estimate_versus_actual_gap(usage_log, pricing):
 
 def test_stale_grid_warning(usage_log, pricing):
     report = build_cost_report(usage_log, pricing, today=date(2027, 3, 1))
-    assert "grille tarifaire" in report.markdown.lower() and "⚠️" in report.markdown
+    assert "price list" in report.markdown.lower() and "⚠️" in report.markdown
 
 
 def test_missing_log_gives_a_clear_message(tmp_path, pricing):
     report = build_cost_report(tmp_path / "absent.csv", pricing, today=date(2026, 10, 25))
     assert report.stats["n_calls"] == 0
-    assert "Aucun appel Azure" in report.markdown
+    assert "No Azure call" in report.markdown
 
 
 def test_cli_writes_the_report(usage_log, pricing_path, tmp_path, capsys):
     output = tmp_path / "costs.md"
     code = main(["--log", str(usage_log), "--pricing", str(pricing_path), "--output", str(output)])
     assert code == 0
-    assert output.read_text(encoding="utf-8").startswith("# Coûts Azure OpenAI")
+    assert output.read_text(encoding="utf-8").startswith("# Azure OpenAI costs")

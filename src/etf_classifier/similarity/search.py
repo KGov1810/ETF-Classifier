@@ -1,7 +1,7 @@
-"""ETF déjà catégorisés les plus proches de nouveaux ETF, avec explication et alerte quasi-doublon.
+"""Already-categorised ETFs closest to new ETFs, with explanations and a near-duplicate alert.
 
-Usage :
-    python -m etf_classifier.similarity.search --csv nouveaux_etfs.csv [--model current] [--k 5]
+Usage:
+    python -m etf_classifier.similarity.search --csv new_etfs.csv [--model current] [--k 5]
 """
 
 import argparse
@@ -23,52 +23,52 @@ EXIT_OK, EXIT_CANCELLED, EXIT_NO_MODEL, EXIT_NO_AZURE, EXIT_NO_INDEX = 0, 1, 2, 
 
 
 def _summary(names: list[str], results, version: str) -> str:
-    lines = [f"# ETF les plus proches (modèle {version})", ""]
+    lines = [f"# Closest ETFs (model {version})", ""]
     for name, result in zip(names, results):
         lines += [f"## {name}", ""]
         if result.near_duplicate:
             dup = result.near_duplicate
-            lines += [f"> ⚠️ Quasi-doublon de **{dup.name}** ({dup.overlap_pct:.0f} % du poids en commun), "
-                      f"catégories : {', '.join(dup.categories)}", ""]
+            lines += [f"> ⚠️ Near-duplicate of **{dup.name}** ({dup.overlap_pct:.0f}% of the weight in common), "
+                      f"categories: {', '.join(dup.categories)}", ""]
         if result.text_only:
-            lines += ["Composition absente : rapprochement sur le texte seul.", ""]
-        lines += ["| Rang | ETF | Catégories | Score | Poids en commun | Tickers partagés |", "|---|---|---|---|---|---|"]
+            lines += ["No composition: matched on the text only.", ""]
+        lines += ["| Rank | ETF | Categories | Score | Weight in common | Shared tickers |", "|---|---|---|---|---|---|"]
         for rank, n in enumerate(result.neighbors, start=1):
             shared = ", ".join(t for t, _ in n.shared_holdings) or "–"
             lines.append(f"| {rank} | {n.name} | {', '.join(n.categories)} | {n.score:.2f} | "
-                         f"{n.overlap_pct:.0f} % | {shared} |")
+                         f"{n.overlap_pct:.0f}% | {shared} |")
         lines.append("")
     return "\n".join(lines)
 
 
 def main(argv: list[str] | None = None, client=None, input_fn: Callable[[str], str] = input) -> int:
-    parser = argparse.ArgumentParser(description="ETF les plus proches de nouveaux ETF")
-    parser.add_argument("--csv", required=True, help="CSV des nouveaux ETF (Name;Description;Composition)")
-    parser.add_argument("--model", default="current", help="Version du modèle (défaut : modèle courant)")
-    parser.add_argument("--config", help="Fichier de configuration (défaut : config/settings.yaml)")
-    parser.add_argument("--k", type=int, help="Nombre de voisins (défaut : settings.yaml)")
-    parser.add_argument("--output", help="CSV de sortie (un résumé .md est écrit à côté)")
-    parser.add_argument("--yes", action="store_true", help="Ne pas demander de confirmation avant la dépense Azure")
+    parser = argparse.ArgumentParser(description="ETFs closest to new ETFs")
+    parser.add_argument("--csv", required=True, help="CSV of the new ETFs (Name;Description;Composition)")
+    parser.add_argument("--model", default="current", help="Model version (default: current model)")
+    parser.add_argument("--config", help="Configuration file (default: config/settings.yaml)")
+    parser.add_argument("--k", type=int, help="Number of neighbours (default: settings.yaml)")
+    parser.add_argument("--output", help="Output CSV (a .md summary is written next to it)")
+    parser.add_argument("--yes", action="store_true", help="Do not ask for confirmation before spending on Azure")
     args = parser.parse_args(argv)
-    logging.basicConfig(level=logging.WARNING, format="%(levelname)s : %(message)s")
+    logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 
     settings = load_settings(args.config)
     try:
         bundle = load_bundle(args.model, settings)
     except NoModelError as exc:
-        print(f"Erreur : {exc}", file=sys.stderr)
+        print(f"Error: {exc}", file=sys.stderr)
         return EXIT_NO_MODEL
     if bundle.similarity is None:
-        print(f"Erreur : le modèle {bundle.version} n'a pas d'index de similarité : le réentraîner "
-              "avec `python -m etf_classifier.model.train`.", file=sys.stderr)
+        print(f"Error: model {bundle.version} has no similarity index: retrain it "
+              "with `python -m etf_classifier.model.train`.", file=sys.stderr)
         return EXIT_NO_INDEX
 
     data = load_dataset(args.csv, settings, require_categories=False).data.reset_index(drop=True)
     if bundle.pipeline.uses_embeddings:
         embedder = create_embedder(settings, client=client)
         if embedder is None:
-            print("Erreur : ce modèle utilise les embeddings Azure, mais Azure OpenAI n'est pas configuré "
-                  "(voir .env.example).", file=sys.stderr)
+            print("Error: this model uses Azure embeddings, but Azure OpenAI is not configured "
+                  "(see .env.example).", file=sys.stderr)
             return EXIT_NO_AZURE
         bundle.pipeline.attach_embedder(embedder)
         plan, cost = announce_embedding_plan(settings, data, embedder)
@@ -97,8 +97,8 @@ def main(argv: list[str] | None = None, client=None, input_fn: Callable[[str], s
     output.with_suffix(".md").write_text(_summary(list(data["name"]), results, bundle.version), encoding="utf-8")
 
     n_duplicates = sum(1 for r in results if r.near_duplicate)
-    print(f"{len(data)} ETF traités · {k} voisins chacun · {n_duplicates} quasi-doublon(s) signalé(s)")
-    print(f"Voisins : {output}\nRésumé : {output.with_suffix('.md')}")
+    print(f"{len(data)} ETFs processed · {k} neighbours each · {n_duplicates} near-duplicate(s) flagged")
+    print(f"Neighbours: {output}\nSummary: {output.with_suffix('.md')}")
     return EXIT_OK
 
 

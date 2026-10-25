@@ -1,7 +1,7 @@
-"""FeaturePipeline : apprend les blocs sur l'entraînement, puis les applique à n'importe quel jeu.
+"""FeaturePipeline: fits the blocks on the training set, then applies them to any dataset.
 
-Tout ce qui est appris (vocabulaires, IDF, mises à l'échelle, liste des catégories) vient du jeu
-d'entraînement uniquement : aucune information du test ne fuit dans les variables.
+Everything that is learned (vocabularies, IDF, scaling, list of categories) comes from the training
+set only: no information from the test set leaks into the features.
 """
 
 import hashlib
@@ -30,7 +30,7 @@ METADATA_FILE = "metadata.json"
 
 @dataclass
 class FeatureSet:
-    """Variables d'un jeu : une matrice par bloc, la matrice combinée pondérée et les noms de colonnes."""
+    """Features of a dataset: one matrix per block, the weighted combined matrix and the column names."""
 
     blocks: dict[str, sparse.csr_matrix]
     matrix: sparse.csr_matrix
@@ -38,7 +38,7 @@ class FeatureSet:
 
 
 def training_fingerprint(data: pd.DataFrame) -> str:
-    """Empreinte du jeu d'entraînement (noms et catégories), pour tracer quel jeu a servi."""
+    """Fingerprint of the training set (names and categories), to trace which dataset was used."""
     content = "\n".join(f"{n}|{','.join(c)}" for n, c in zip(data["name"], data["categories"]))
     return hashlib.sha256(content.encode("utf-8")).hexdigest()[:16]
 
@@ -69,7 +69,7 @@ class FeaturePipeline:
             blocks.append(CompositionStatsBlock())
         if "embeddings" in enabled:
             if embedder is None:
-                logger.warning("Bloc embeddings désactivé : accès Azure OpenAI non configuré (voir .env.example)")
+                logger.warning("Embeddings block disabled: Azure OpenAI access not configured (see .env.example)")
             else:
                 emb = cfg["embeddings"]
                 blocks.append(EmbeddingsBlock(embedder, emb["dimensions"], emb["include_top_tickers"]))
@@ -104,7 +104,7 @@ class FeaturePipeline:
         return self.labels.transform(data)
 
     def save(self, path: str | Path | None = None) -> Path:
-        """Sauvegarde dans artifacts/features/<version>/ (sans le client Azure)."""
+        """Saves to artifacts/features/<version>/ (without the Azure client)."""
         if path is None:
             version = datetime.now().strftime("%Y%m%d-%H%M%S")
             path = resolve_path(self.settings["features"]["artifacts_dir"]) / version
@@ -119,14 +119,14 @@ class FeaturePipeline:
         return any(isinstance(block, EmbeddingsBlock) for block in self.blocks)
 
     def attach_embedder(self, embedder) -> None:
-        """Rebranche le calculateur d'embeddings après un rechargement (il n'est jamais sauvegardé)."""
+        """Reattaches the embedder after reloading (it is never saved)."""
         for block in self.blocks:
             if isinstance(block, EmbeddingsBlock):
                 block.embedder = embedder
 
     @classmethod
     def load(cls, path: str | Path, embedder=None) -> "FeaturePipeline":
-        """Recharge un pipeline ; fournir un embedder s'il contient le bloc embeddings."""
+        """Reloads a pipeline; provide an embedder if it contains the embeddings block."""
         pipeline: FeaturePipeline = joblib.load(Path(path) / PIPELINE_FILE)
         pipeline.attach_embedder(embedder)
         return pipeline

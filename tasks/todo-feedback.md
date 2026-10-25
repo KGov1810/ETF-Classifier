@@ -1,130 +1,130 @@
-# Tâches : module `feedback`
+# Tasks: `feedback` module
 
-Définition de « terminé » pour chaque tâche : tests verts (`pytest -v`), aucune régression sur les modules
-existants, aucun appel réseau dans les tests, aucun commit sans votre accord.
-
----
-
-## F1 : configuration, dépendance `filelock` et écriture verrouillée du journal
-
-**Description :** section `feedback` dans `settings.yaml` (chemins du journal, du registre et des sauvegardes, délai du verrou, nombre de sauvegardes conservées, seuils de l'alerte de biais) ; `store.py` : schéma du journal, écriture d'une ligne complète sous verrou, lecture sous verrou, identifiant de validation.
-
-**Critères d'acceptation :**
-- [x] Une ligne écrite se relit à l'identique ; l'en-tête n'est écrit qu'une fois
-- [x] Plusieurs processus écrivant en même temps : toutes les lignes présentes, aucune mélangée
-- [x] Verrou indisponible au-delà du délai : erreur claire, aucune écriture
-
-**Vérification :** `pytest tests/feedback/test_store.py -v`
-
-**Dépendances :** aucune
-
-**Fichiers :** `requirements.txt`, `config/settings.yaml`, `src/etf_classifier/feedback/__init__.py`, `src/etf_classifier/feedback/store.py`, `tests/feedback/…`
-
-**Taille :** M
+Definition of "done" for every task: green tests (`pytest -v`), no regression on the existing
+modules, no network call in the tests, no commit without your approval.
 
 ---
 
-## F2 : contrôles, registre des catégories et enregistrement d'une validation
+## F1: configuration, `filelock` dependency and locked journal writes
 
-**Description :** `checks.py` (nom, composition, catégories, doublon de nom) ; `categories.py` (registre initialisé depuis le CSV d'origine, création tracée) ; `record_validation()` qui contrôle, déduit la décision (`accepté` / `corrigé`) et écrit.
+**Description:** `feedback` section in `settings.yaml` (paths of the journal, the registry and the backups, lock timeout, number of backups kept, bias alert thresholds); `store.py`: journal schema, writing a complete line under the lock, reading under the lock, validation identifier.
 
-**Critères d'acceptation :**
-- [x] Chaque contrôle refuse avec un message clair (nom vide, composition illisible, aucune catégorie, catégorie inconnue sans création, ETF déjà présent)
-- [x] Une catégorie créée avec `create_categories=True` entre dans le registre avec son auteur et sa date
-- [x] La décision vaut `accepté` si les catégories validées sont celles proposées, `corrigé` sinon
+**Acceptance criteria:**
+- [x] A written line reads back identically; the header is written only once
+- [x] Several processes writing at the same time: all lines present, none interleaved
+- [x] Lock unavailable beyond the timeout: clear error, no write
 
-**Vérification :** `pytest tests/feedback/test_record.py -v`
+**Verification:** `pytest tests/feedback/test_store.py -v`
 
-**Dépendances :** F1
+**Dependencies:** none
 
-**Fichiers :** `src/etf_classifier/feedback/checks.py`, `src/etf_classifier/feedback/categories.py`, `src/etf_classifier/feedback/store.py`, `tests/feedback/test_record.py`
+**Files:** `requirements.txt`, `config/settings.yaml`, `src/etf_classifier/feedback/__init__.py`, `src/etf_classifier/feedback/store.py`, `tests/feedback/…`
 
-**Taille :** M
-
----
-
-## F3 : annulation et sauvegarde quotidienne
-
-**Description :** `cancel_validation()` ajoute une ligne `annulation` ; `active_validations()` renvoie les validations non annulées ; sauvegarde datée du journal au premier enregistrement de la journée, avec conservation des 30 dernières.
-
-**Critères d'acceptation :**
-- [x] Une validation annulée n'apparaît plus dans les validations actives ; la ligne d'annulation reste dans le journal
-- [x] Annuler un identifiant inconnu ou déjà annulé : erreur claire
-- [x] Une seule sauvegarde par jour ; au-delà de 30, les plus anciennes sont supprimées
-
-**Vérification :** `pytest tests/feedback/test_cancel_backup.py -v`
-
-**Dépendances :** F2
-
-**Fichiers :** `src/etf_classifier/feedback/store.py`, `tests/feedback/test_cancel_backup.py`
-
-**Taille :** S
+**Size:** M
 
 ---
 
-## Point d'étape A
-- [ ] Test de concurrence et test de verrou indisponible verts
-- [ ] Revue rapide avec vous d'un journal fictif
+## F2: checks, category registry and recording a validation
+
+**Description:** `checks.py` (name, composition, categories, duplicate name); `categories.py` (registry initialised from the original CSV, traced creation); `record_validation()` which checks, derives the decision (`accepted` / `corrected`) and writes.
+
+**Acceptance criteria:**
+- [x] Every check refuses with a clear message (empty name, unreadable composition, no category, unknown category without creation, ETF already present)
+- [x] A category created with `create_categories=True` enters the registry with its author and date
+- [x] The decision is `accepted` if the validated categories are the proposed ones, `corrected` otherwise
+
+**Verification:** `pytest tests/feedback/test_record.py -v`
+
+**Dependencies:** F1
+
+**Files:** `src/etf_classifier/feedback/checks.py`, `src/etf_classifier/feedback/categories.py`, `src/etf_classifier/feedback/store.py`, `tests/feedback/test_record.py`
+
+**Size:** M
 
 ---
 
-## F4 : fusion du journal par le module `data`
+## F3: cancellation and daily backup
 
-**Description :** `load_dataset()` ajoute les validations actives du journal (lues sous verrou) au CSV d'origine, avec la colonne `source` et des `row_id` séparés ; mêmes contrôles de qualité.
+**Description:** `cancel_validation()` appends a `cancellation` line; `active_validations()` returns the non-cancelled validations; dated backup of the journal at the first record of the day, keeping the last 30.
 
-**Critères d'acceptation :**
-- [x] Un ETF validé apparaît dans le jeu de référence ; un ETF annulé n'y apparaît pas
-- [x] Le CSV d'origine n'est jamais modifié (empreinte) ; aucun `row_id` en double
-- [x] Sans journal, résultat identique à aujourd'hui (92 tests `data` verts)
+**Acceptance criteria:**
+- [x] A cancelled validation no longer appears in the active validations; the cancellation line stays in the journal
+- [x] Cancelling an unknown or already cancelled identifier: clear error
+- [x] A single backup per day; beyond 30, the oldest are deleted
 
-**Vérification :** `pytest tests/data tests/feedback/test_merge.py -v`
+**Verification:** `pytest tests/feedback/test_cancel_backup.py -v`
 
-**Dépendances :** F3
+**Dependencies:** F2
 
-**Fichiers :** `src/etf_classifier/data/loader.py`, `tests/feedback/test_merge.py`
+**Files:** `src/etf_classifier/feedback/store.py`, `tests/feedback/test_cancel_backup.py`
 
-**Taille :** M
-
----
-
-## F5 : commande d'import d'un lot
-
-**Description :** `python -m etf_classifier.feedback.importer --csv valides.csv --by "Prénom Nom" [--create-categories]` : format de sortie de `predict` complété d'une colonne `Category` ; compte rendu ligne par ligne.
-
-**Critères d'acceptation :**
-- [x] Les lignes valides sont enregistrées avec la décision déduite des colonnes `PredictedCategories` et `Category`
-- [x] Les lignes refusées sont listées avec leur raison, sans bloquer les autres
-- [x] Le compte rendu indique le nombre de lignes acceptées, refusées et de catégories créées
-
-**Vérification :** `pytest tests/feedback/test_import.py -v`
-
-**Dépendances :** F2
-
-**Fichiers :** `src/etf_classifier/feedback/importer.py`, `tests/feedback/test_import.py`
-
-**Taille :** S
+**Size:** S
 
 ---
 
-## F6 : rapport de suivi
-
-**Description :** `python -m etf_classifier.feedback.report [--since …]` écrit `reports/feedback.md` : validations par jour et par validateur, taux d'acceptation sans modification, alerte de biais, catégories souvent ajoutées ou retirées, catégories créées, annulations.
-
-**Critères d'acceptation :**
-- [x] Taux d'acceptation global et par validateur conformes au calcul à la main
-- [x] Alerte de biais au-delà du seuil (avec le nombre minimal de validations)
-- [x] Journal absent : message clair, sans erreur
-
-**Vérification :** `pytest tests/feedback/test_report.py -v`
-
-**Dépendances :** F3
-
-**Fichiers :** `src/etf_classifier/feedback/report.py`, `tests/feedback/test_report.py`
-
-**Taille :** M
+## Checkpoint A
+- [ ] Concurrency test and unavailable-lock test green
+- [ ] Quick review with you of a fictitious journal
 
 ---
 
-## Point d'étape final
-- [ ] Les 4 critères de succès de `SPEC-feedback.md`
-- [ ] Boucle complète sur la fixture : `predict` → import des validations → `train` qui voit les nouveaux ETF
+## F4: journal merge by the `data` module
+
+**Description:** `load_dataset()` adds the active validations of the journal (read under the lock) to the original CSV, with the `source` column and separate `row_id`s; same quality checks.
+
+**Acceptance criteria:**
+- [x] A validated ETF appears in the reference dataset; a cancelled ETF does not
+- [x] The original CSV is never modified (fingerprint); no duplicate `row_id`
+- [x] Without a journal, same result as today (92 `data` tests green)
+
+**Verification:** `pytest tests/data tests/feedback/test_merge.py -v`
+
+**Dependencies:** F3
+
+**Files:** `src/etf_classifier/data/loader.py`, `tests/feedback/test_merge.py`
+
+**Size:** M
+
+---
+
+## F5: batch import command
+
+**Description:** `python -m etf_classifier.feedback.importer --csv validated.csv --by "First Last" [--create-categories]`: `predict` output format completed with a `Category` column; line-by-line report.
+
+**Acceptance criteria:**
+- [x] Valid lines are recorded with the decision derived from the `PredictedCategories` and `Category` columns
+- [x] Refused lines are listed with their reason, without blocking the others
+- [x] The report gives the number of accepted lines, refused lines and created categories
+
+**Verification:** `pytest tests/feedback/test_import.py -v`
+
+**Dependencies:** F2
+
+**Files:** `src/etf_classifier/feedback/importer.py`, `tests/feedback/test_import.py`
+
+**Size:** S
+
+---
+
+## F6: monitoring report
+
+**Description:** `python -m etf_classifier.feedback.report [--since …]` writes `reports/feedback.md`: validations per day and per validator, acceptance rate without changes, bias alert, categories often added or removed, created categories, cancellations.
+
+**Acceptance criteria:**
+- [x] Global and per-validator acceptance rates match the hand computation
+- [x] Bias alert beyond the threshold (with the minimum number of validations)
+- [x] Missing journal: clear message, no error
+
+**Verification:** `pytest tests/feedback/test_report.py -v`
+
+**Dependencies:** F3
+
+**Files:** `src/etf_classifier/feedback/report.py`, `tests/feedback/test_report.py`
+
+**Size:** M
+
+---
+
+## Final checkpoint
+- [ ] The 4 success criteria of `SPEC-feedback.md`
+- [ ] Full loop on the fixture: `predict` → import of validations → `train` that sees the new ETFs

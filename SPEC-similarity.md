@@ -1,95 +1,95 @@
-# Spec : module `similarity`
+# Spec: `similarity` module
 
-Statut : **validée** (25/10/2026)
+Status: **approved** (2026-10-25)
 
-## Objectif
+## Objective
 
-Pour un ETF (nouveau ou existant), retrouver les **ETF déjà catégorisés les plus proches** et expliquer
-pourquoi ils se ressemblent. Trois usages :
-1. **Aider le validateur** dans l'interface : « cet ETF ressemble à X et Y, catégorisés Or et Matières premières ».
-2. **Donner du contexte au LLM** (`llm-justify`) pour justifier une proposition ou traiter un cas incertain.
-3. **Signaler un quasi-doublon** : un nouvel ETF qui réplique le même indice qu'un ETF existant a très probablement les mêmes catégories.
+For an ETF (new or existing), find the **closest already-categorised ETFs** and explain
+why they look alike. Three uses:
+1. **Help the validator** in the interface: "this ETF looks like X and Y, categorised Gold and Commodities".
+2. **Give context to the LLM** (`llm-justify`) to justify a proposal or handle an uncertain case.
+3. **Report a near-duplicate**: a new ETF that tracks the same index as an existing ETF very probably has the same categories.
 
-C'est aussi une seconde méthode de catégorisation, par **vote des voisins**, que l'on compare au modèle
-pour l'apprentissage (deux approches, mêmes données, même jeu de test).
+It is also a second categorisation method, by **neighbour vote**, compared with the model
+for learning purposes (two approaches, same data, same test set).
 
-Hors périmètre : combiner le vote des voisins avec le modèle pour la prédiction finale (à décider après
-mesure), l'interface (module `app`).
+Out of scope: combining the neighbour vote with the model for the final prediction (to be decided after
+measurement), the interface (`app` module).
 
-## Données d'entrée
-- **Jeu de référence** : les ETF catégorisés du CSV (lignes exploitables du module `data`).
-- **Pipeline de variables** du modèle courant (module `features`) : vecteurs de tickers, TF-IDF, embeddings s'ils sont actifs.
-- Les nouveaux ETF à comparer, avec ou sans catégorie.
+## Input data
+- **Reference set**: the categorised ETFs of the CSV (usable rows from the `data` module).
+- **Feature pipeline** of the current model (`features` module): ticker vectors, TF-IDF, embeddings if active.
+- The new ETFs to compare, with or without a category.
 
-## Fonctionnalités
+## Features
 
-### 1. Deux similarités, puis un score combiné
+### 1. Two similarities, then a combined score
 
-| Similarité | Calcul | Pourquoi |
+| Similarity | Computation | Why |
 |---|---|---|
-| **Composition** | Cosinus entre les vecteurs de poids des tickers | Symétrique : un petit ETF de 3 lignes contenues dans un grand ETF n'est pas jugé identique à lui, contrairement au recouvrement « rapporté à la plus petite couverture » |
-| **Texte** | Cosinus entre les embeddings si le modèle les utilise, sinon entre les vecteurs TF-IDF | Rapproche les ETF de même thème, même sans titres communs |
+| **Composition** | Cosine between the ticker weight vectors | Symmetric: a small 3-holding ETF contained in a large ETF is not judged identical to it, unlike the overlap "relative to the smallest coverage" |
+| **Text** | Cosine between the embeddings if the model uses them, otherwise between the TF-IDF vectors | Brings together ETFs with the same theme, even without common securities |
 
-- **Score combiné** = 0,5 × composition + 0,5 × texte (poids configurables).
-- Tous les voisins d'une même recherche sont notés sur la même échelle :
-  - si l'**ETF recherché** n'a pas de composition, tous les voisins sont notés sur le texte seul, et c'est indiqué ;
-  - si seul le **voisin** n'a pas de composition, sa similarité de composition vaut 0 dans le score combiné.
-  *(Correction du 25/10/2026 : la règle initiale, « texte seul si l'un des deux n'a pas de composition », plaçait
-  un ETF sans composition devant des ETF partageant les mêmes tickers, car son score n'était pas sur la même échelle.)*
+- **Combined score** = 0.5 × composition + 0.5 × text (configurable weights).
+- All neighbours of the same search are scored on the same scale:
+  - if the **searched ETF** has no composition, all neighbours are scored on text only, and this is indicated;
+  - if only the **neighbour** has no composition, its composition similarity counts as 0 in the combined score.
+  *(Correction of 2026-10-25: the initial rule, "text only if either of the two has no composition", ranked
+  an ETF without composition ahead of ETFs sharing the same tickers, because its score was not on the same scale.)*
 
-### 2. Recherche des voisins
-- `SimilarityIndex.build(reference_df, pipeline)` construit l'index ; `index.query(df, k=5)` renvoie pour chaque ETF ses `k` voisins.
-- Pour chaque voisin :
-  - nom et catégories ;
-  - score combiné, similarité de composition, similarité de texte ;
-  - **part du poids en commun** (recouvrement pondéré, en %) et les 5 principaux tickers partagés, pour expliquer le rapprochement de façon lisible.
-- Un ETF déjà présent dans la référence n'est jamais son propre voisin.
-- **Alerte quasi-doublon** : même règle que le module `data` (recouvrement ≥ 0,80 et au moins 3 tickers communs).
+### 2. Neighbour search
+- `SimilarityIndex.build(reference_df, pipeline)` builds the index; `index.query(df, k=5)` returns the `k` neighbours of every ETF.
+- For every neighbour:
+  - name and categories;
+  - combined score, composition similarity, text similarity;
+  - **share of the weight in common** (weighted overlap, in %) and the 5 main shared tickers, to explain the match in a readable way.
+- An ETF already present in the reference is never its own neighbour.
+- **Near-duplicate alert**: same rule as the `data` module (overlap ≥ 0.80 and at least 3 common tickers).
 
-### 3. Vote des voisins
-- `neighbor_vote(neighbors)` donne pour chaque catégorie un score : somme des scores des voisins qui l'ont, divisée par la somme de tous les scores.
-- Évaluation : `python -m etf_classifier.similarity.evaluate --csv …` construit l'index **sur l'entraînement seulement**, fait voter les voisins pour chaque ETF de test, et compare au modèle courant et à la référence triviale (F1 macro et micro, pour k = 5, 10 et 20). On saura ainsi si le vote aide, notamment sur les catégories rares.
+### 3. Neighbour vote
+- `neighbor_vote(neighbors)` gives a score for every category: sum of the scores of the neighbours that have it, divided by the sum of all scores.
+- Evaluation: `python -m etf_classifier.similarity.evaluate --csv …` builds the index **on training only**, has the neighbours vote for every test ETF, and compares with the current model and the trivial baseline (macro and micro F1, for k = 5, 10 and 20). This tells us whether the vote helps, especially on rare categories.
 
-### 4. Construction, sauvegarde, commande
-- L'index est construit par `model.train` sur toutes les lignes exploitables (entraînement + test), puis sauvegardé **dans le dossier du modèle** (`similarity.joblib`). Le modèle et son index restent toujours cohérents.
-- `python -m etf_classifier.similarity.search --csv nouveaux_etfs.csv [--model current] [--k 5]` écrit un CSV des voisins (un ETF × un voisin par ligne) et un résumé Markdown.
-- Les embeddings des nouveaux ETF passent par le cache et la confirmation de coût du module `features`.
+### 4. Building, saving, command
+- The index is built by `model.train` on all usable rows (training + test), then saved **in the model folder** (`similarity.joblib`). The model and its index always stay consistent.
+- `python -m etf_classifier.similarity.search --csv new_etfs.csv [--model current] [--k 5]` writes a CSV of neighbours (one ETF × one neighbour per line) and a Markdown summary.
+- Embeddings of new ETFs go through the cache and the cost confirmation of the `features` module.
 
 ## Tech Stack
-Aucune nouvelle dépendance (numpy, scipy, scikit-learn).
+No new dependency (numpy, scipy, scikit-learn).
 
 ## Structure
 ```
 src/etf_classifier/similarity/
-├── index.py       # SimilarityIndex : construction, recherche, explication, sauvegarde
-├── vote.py        # vote des voisins
-├── search.py      # CLI de recherche
-└── evaluate.py    # CLI d'évaluation (vote vs modèle vs référence triviale)
+├── index.py       # SimilarityIndex: building, search, explanation, saving
+├── vote.py        # neighbour vote
+├── search.py      # search CLI
+└── evaluate.py    # evaluation CLI (vote vs model vs trivial baseline)
 tests/similarity/
 ```
-Modification d'un module existant : `model.train` construit et sauvegarde l'index dans le dossier du modèle ; `model.registry` le recharge.
+Change to an existing module: `model.train` builds and saves the index in the model folder; `model.registry` reloads it.
 
-## Stratégie de test
-- Deux ETF de composition identique : similarité de composition égale à 1 et alerte quasi-doublon.
-- Un petit ETF contenu dans un grand : similarité de composition nettement inférieure à 1, alors que le recouvrement vaut 100 %.
-- Un ETF existant n'est jamais son propre voisin ; les voisins sont triés par score décroissant.
-- Composition vide : seul le texte compte, avec une mention.
-- Vote des voisins sur le jeu synthétique : nettement meilleur que la référence triviale.
-- Sauvegarde puis rechargement : mêmes voisins, mêmes scores.
-- Performance : 100 requêtes sur une référence de 10 000 ETF en moins de 10 s.
+## Test strategy
+- Two ETFs with identical compositions: composition similarity equal to 1 and near-duplicate alert.
+- A small ETF contained in a large one: composition similarity clearly below 1, whereas the overlap is 100 %.
+- An existing ETF is never its own neighbour; neighbours are sorted by decreasing score.
+- Empty composition: only the text counts, with a mention.
+- Neighbour vote on the synthetic dataset: clearly better than the trivial baseline.
+- Saving then reloading: same neighbours, same scores.
+- Performance: 100 queries on a reference of 10,000 ETFs in less than 10 s.
 
-## Limites
-- **Toujours :** expliquer chaque voisin (part du poids en commun, tickers partagés) ; exclure l'ETF lui-même ; évaluer le vote avec un index construit sur l'entraînement seul.
-- **Demander d'abord :** utiliser le vote pour modifier les prédictions du modèle ; changer la mesure de similarité.
-- **Jamais :** envoyer à Azure autre chose que le nom et la description.
+## Boundaries
+- **Always:** explain every neighbour (share of the weight in common, shared tickers); exclude the ETF itself; evaluate the vote with an index built on training only.
+- **Ask first:** using the vote to change the model's predictions; changing the similarity measure.
+- **Never:** send Azure anything other than the name and the description.
 
-## Critères de succès
-1. Pour un ETF de la fixture, les voisins proposés ont des catégories cohérentes, avec une explication lisible.
-2. Un quasi-doublon d'un ETF existant est signalé.
-3. Le rapport d'évaluation chiffre le vote des voisins face au modèle et à la référence triviale.
-4. Les tests passent sans réseau ; les performances sont tenues.
+## Success criteria
+1. For an ETF of the fixture, the proposed neighbours have consistent categories, with a readable explanation.
+2. A near-duplicate of an existing ETF is reported.
+3. The evaluation report quantifies the neighbour vote against the model and the trivial baseline.
+4. Tests pass without network; performance targets are met.
 
-## Décisions prises
-- Poids du score combiné : **0,5 composition / 0,5 texte** au départ, à ajuster après mesure du vote sur le test.
-- **5 voisins** affichés par défaut.
-- Le vote des voisins est d'abord **limité à une évaluation** ; son usage pour compléter le modèle (cas incertains) sera décidé après mesure.
+## Decisions made
+- Combined score weights: **0.5 composition / 0.5 text** to start with, to be adjusted after measuring the vote on the test set.
+- **5 neighbours** displayed by default.
+- The neighbour vote is first **limited to an evaluation**; its use to complement the model (uncertain cases) will be decided after measurement.

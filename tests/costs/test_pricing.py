@@ -22,9 +22,9 @@ def test_deployment_can_be_the_model_name_itself(pricing):
 
 
 def test_unknown_deployment_is_detected(pricing):
-    assert pricing.find_model("inconnu") is None
-    with pytest.raises(UnknownDeploymentError, match="inconnu"):
-        pricing.model_for("inconnu")
+    assert pricing.find_model("unknown-deployment") is None
+    with pytest.raises(UnknownDeploymentError, match="unknown-deployment"):
+        pricing.model_for("unknown-deployment")
 
 
 def test_missing_input_price_raises(tmp_path):
@@ -35,7 +35,7 @@ def test_missing_input_price_raises(tmp_path):
 
 def test_negative_price_raises(tmp_path):
     path = _write(tmp_path, 'currency: USD\nas_of: "2026-10-01"\nmodels:\n  m:\n    kind: embedding\n    tokenizer: cl100k_base\n    input_per_million: -1\n')
-    with pytest.raises(PricingError, match="négatif"):
+    with pytest.raises(PricingError, match="negative"):
         load_pricing(path)
 
 
@@ -55,7 +55,7 @@ def test_one_million_embedding_tokens_cost_0_13_dollar(pricing):
 
 def test_chat_cost_separates_cached_and_output_tokens(pricing):
     model = pricing.model_for("my-chat")
-    # 900 tokens d'entrée dont 400 en cache, 100 en sortie
+    # 900 input tokens of which 400 cached, 100 output tokens
     expected = (500 * 2.40 + 400 * 0.12 + 100 * 12.00) / 1_000_000
     assert cost_usd(model, input_tokens=900, cached_input_tokens=400, output_tokens=100) == pytest.approx(expected)
 

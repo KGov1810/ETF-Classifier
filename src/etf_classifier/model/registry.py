@@ -1,7 +1,7 @@
-"""Sauvegarde versionnée des modèles et registre du modèle courant.
+"""Versioned storage of the models and registry of the current model.
 
-Chaque modèle vit dans artifacts/models/<version>/ avec son propre pipeline de variables :
-l'application et le job quotidien chargent un seul dossier, sans risque de mélanger des versions.
+Each model lives in artifacts/models/<version>/ with its own feature pipeline: the application
+and the daily job load a single folder, with no risk of mixing versions.
 """
 
 import json
@@ -21,7 +21,7 @@ REGISTRY_FILE = "registry.json"
 
 
 class NoModelError(LookupError):
-    """Aucun modèle enregistré, ou version inconnue."""
+    """No model registered, or unknown version."""
 
 
 @dataclass
@@ -31,7 +31,7 @@ class ModelBundle:
     model: object
     pipeline: object
     metrics: dict
-    similarity: object | None = None  # index de similarité (absent des modèles plus anciens)
+    similarity: object | None = None  # similarity index (missing from older models)
 
 
 def _root(settings: dict) -> Path:
@@ -50,7 +50,7 @@ def _write_registry(settings: dict, registry: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(".tmp")
     temporary.write_text(json.dumps(registry, ensure_ascii=False, indent=2), encoding="utf-8")
-    os.replace(temporary, path)  # remplacement atomique : jamais de registre à moitié écrit
+    os.replace(temporary, path)  # atomic replacement: never a half-written registry
 
 
 def _new_version(settings: dict) -> str:
@@ -68,7 +68,7 @@ def current_version(settings: dict) -> str | None:
 
 def save_bundle(model, pipeline, metrics: dict, settings: dict, model_card: str,
                 version: str | None = None, similarity=None) -> Path:
-    """Écrit modèle + pipeline + metrics.json + MODEL_CARD.md ; le premier modèle devient courant."""
+    """Writes model + pipeline + metrics.json + MODEL_CARD.md; the first model becomes current."""
     version = version or _new_version(settings)
     path = _root(settings) / version
     path.mkdir(parents=True, exist_ok=False)
@@ -92,23 +92,23 @@ def save_bundle(model, pipeline, metrics: dict, settings: dict, model_card: str,
 
 
 def promote(version: str, settings: dict) -> None:
-    """Désigne une version existante comme modèle courant."""
+    """Makes an existing version the current model."""
     if not (_root(settings) / version / BUNDLE_FILE).exists():
-        raise NoModelError(f"Version de modèle inconnue : {version}")
+        raise NoModelError(f"Unknown model version: {version}")
     registry = _read_registry(settings)
     registry["current"] = version
     _write_registry(settings, registry)
 
 
 def load_bundle(version: str, settings: dict, embedder=None) -> ModelBundle:
-    """Charge une version (ou « current ») et rebranche l'embedder si le pipeline en utilise un."""
+    """Loads a version (or "current") and reattaches the embedder if the pipeline uses one."""
     if version == "current":
         version = current_version(settings)
         if version is None:
-            raise NoModelError("Aucun modèle courant : entraîner un modèle avec `python -m etf_classifier.model.train`")
+            raise NoModelError("No current model: train one with `python -m etf_classifier.model.train`")
     path = _root(settings) / version
     if not (path / BUNDLE_FILE).exists():
-        raise NoModelError(f"Version de modèle inconnue : {version}")
+        raise NoModelError(f"Unknown model version: {version}")
     content = joblib.load(path / BUNDLE_FILE)
     content["pipeline"].attach_embedder(embedder)
     metrics = json.loads((path / "metrics.json").read_text(encoding="utf-8"))

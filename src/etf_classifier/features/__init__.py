@@ -1,1 +1,1 @@
-"""Module features : transformation des ETF en matrices numériques (blocs de variables)."""
+"""features module: turning ETFs into numeric matrices (feature blocks)."""

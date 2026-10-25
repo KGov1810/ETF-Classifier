@@ -10,9 +10,9 @@ def test_metrics_computed_by_hand():
     y_true = np.array([[1, 0, 0], [0, 1, 0], [1, 1, 0]])
     y_pred = np.array([[1, 0, 0], [1, 1, 0], [1, 0, 0]])
     metrics = evaluate(y_true, y_pred, CLASSES)
-    # A : VP=2 FP=1 FN=0 → F1 0,8 ; B : VP=1 FP=0 FN=1 → F1 2/3 ; C ignorée (absente des deux côtés)
+    # A: TP=2 FP=1 FN=0 → F1 0.8; B: TP=1 FP=0 FN=1 → F1 2/3; C ignored (absent on both sides)
     assert metrics.f1_macro == pytest.approx((0.8 + 2 / 3) / 2)
-    # micro : VP=3 FP=1 FN=1 → F1 0,75
+    # micro: TP=3 FP=1 FN=1 → F1 0.75
     assert metrics.f1_micro == pytest.approx(0.75)
     assert metrics.subset_accuracy == pytest.approx(1 / 3)
     assert metrics.hamming_loss == pytest.approx(2 / 9)

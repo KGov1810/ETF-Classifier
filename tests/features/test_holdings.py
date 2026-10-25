@@ -62,7 +62,7 @@ def test_stats_block_is_scaled_and_named():
     matrix = block.transform(TRAIN)
     assert "stats:herfindahl" in block.feature_names()
     assert matrix.shape == (3, len(block.feature_names()))
-    assert np.allclose(matrix.toarray().mean(axis=0), 0.0, atol=1e-9)  # centré sur l'entraînement
+    assert np.allclose(matrix.toarray().mean(axis=0), 0.0, atol=1e-9)  # centred on the training set
 
 
 def test_stats_block_measures_unknown_tickers_against_the_training_vocabulary():

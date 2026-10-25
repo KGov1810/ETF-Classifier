@@ -1,1 +1,1 @@
-"""Module feedback : journal des validations, registre des catégories, import et suivi."""
+"""feedback module: validation journal, category registry, import and monitoring."""

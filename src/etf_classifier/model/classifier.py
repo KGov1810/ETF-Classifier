@@ -1,7 +1,7 @@
-"""Classifieur multi-étiquettes : une régression logistique par catégorie, seuils réglés par catégorie.
+"""Multi-label classifier: one logistic regression per category, thresholds tuned per category.
 
-Le réglage (force de régularisation C et seuils) se fait sur une validation interne tirée du jeu
-d'entraînement. tune() ne reçoit jamais le jeu de test : la fuite est impossible par construction.
+Tuning (regularisation strength C and thresholds) is done on an internal validation set drawn from
+the training set. tune() never receives the test set: leakage is impossible by construction.
 """
 
 import logging
@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class Prediction:
-    """Proposition pour un ETF : catégories retenues, scores triés, indicateur « incertain »."""
+    """Proposal for an ETF: selected categories, sorted scores, "uncertain" flag."""
 
     categories: list[str]
     scores: list[tuple[str, float]]
@@ -29,7 +29,7 @@ class Prediction:
 
 
 def best_threshold(y_true: np.ndarray, scores: np.ndarray, min_positives: int, default: float) -> float:
-    """Seuil qui maximise le F1 d'une catégorie ; valeur par défaut s'il y a trop peu d'exemples positifs."""
+    """Threshold that maximises the F1 of a category; default value if there are too few positive examples."""
     y_true, scores = np.asarray(y_true), np.asarray(scores)
     if y_true.sum() < min_positives:
         return default
@@ -44,7 +44,7 @@ def best_threshold(y_true: np.ndarray, scores: np.ndarray, min_positives: int, d
 
 
 def decide(probas: np.ndarray, thresholds: np.ndarray, max_categories: int) -> np.ndarray:
-    """Catégories retenues : au-dessus de leur seuil, au plus max_categories, au moins la meilleure."""
+    """Selected categories: above their threshold, at most max_categories, at least the best one."""
     probas = np.asarray(probas)
     decided = np.zeros(probas.shape, dtype=np.int8)
     for row, scores in enumerate(probas):
@@ -105,7 +105,7 @@ def _thresholds(model, y_val, probas, cfg) -> np.ndarray:
 
 
 def tune(train: pd.DataFrame, settings: dict, embedder=None) -> TuningResult:
-    """Choisit C (F1 macro) et les seuils sur une validation interne, puis réentraîne sur tout l'entraînement."""
+    """Chooses C (macro F1) and the thresholds on an internal validation set, then refits on the whole training set."""
     cfg = settings["model"]
     inner = make_split(train.reset_index(drop=True), cfg["validation_size"], cfg["seed"],
                        settings["split"]["rare_category_min"])
@@ -121,8 +121,8 @@ def tune(train: pd.DataFrame, settings: dict, embedder=None) -> TuningResult:
         model.thresholds = _thresholds(model, y_val, probas, cfg)
         scores[c] = evaluate(y_val, model.decide(probas, cfg["max_categories"]), classes).f1_macro
         thresholds_by_c[c] = dict(zip(classes, model.thresholds))
-    best_c = max(cfg["c_grid"], key=lambda c: (scores[c], -c))  # à égalité, la régularisation la plus forte
-    logger.info("Validation (F1 macro) par C : %s → C retenu = %s", scores, best_c)
+    best_c = max(cfg["c_grid"], key=lambda c: (scores[c], -c))  # on a tie, the strongest regularisation
+    logger.info("Validation (macro F1) per C: %s → selected C = %s", scores, best_c)
 
     pipeline = FeaturePipeline(settings, embedder).fit(train)
     final = MultiLabelClassifier(pipeline.labels.classes, best_c, cfg["seed"], cfg["max_iter"])

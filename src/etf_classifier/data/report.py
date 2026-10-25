@@ -1,6 +1,6 @@
-"""Rapport de qualité du jeu de données (ligne de commande + fichier Markdown).
+"""Data quality report (command line + Markdown file).
 
-Usage :
+Usage:
     python -m etf_classifier.data.report --csv data/raw/etfs.csv
 """
 
@@ -29,7 +29,7 @@ class Report:
 
 
 def _cell(value) -> str:
-    """Texte sûr pour une cellule de tableau Markdown."""
+    """Text that is safe inside a Markdown table cell."""
     return str(value).replace("|", "\\|").replace("\n", " ")
 
 
@@ -44,22 +44,23 @@ def _issues_section(title: str, issues: list, empty_text: str) -> list[str]:
     if not issues:
         return lines + [empty_text, ""]
     counts = Counter(issue.rule for issue in issues)
-    lines += [_table(["Règle", "Nombre"], [[RULE_LABELS[r], n] for r, n in counts.most_common()]), ""]
+    lines += [_table(["Rule", "Count"], [[RULE_LABELS[r], n] for r, n in counts.most_common()]), ""]
+
     def where(issue) -> str:
         line = issue.line if issue.line is not None else "?"
         return f"journal {line}" if issue.source == "validation" else str(line)
 
     detail = [[where(i), RULE_LABELS[i.rule], i.message, i.extract]
               for i in sorted(issues, key=lambda i: (i.line or 0))[:MAX_DETAIL_ROWS]]
-    lines += ["Détail (ligne du fichier, en-tête = ligne 1) :", "",
-              _table(["Ligne", "Règle", "Message", "Extrait"], detail), ""]
+    lines += ["Details (line in the file, header = line 1):", "",
+              _table(["Line", "Rule", "Message", "Extract"], detail), ""]
     if len(issues) > MAX_DETAIL_ROWS:
-        lines += [f"… et {len(issues) - MAX_DETAIL_ROWS} autres.", ""]
+        lines += [f"… and {len(issues) - MAX_DETAIL_ROWS} more.", ""]
     return lines
 
 
 def build_report(csv_path: str | Path, settings: dict) -> Report:
-    """Charge le CSV, calcule les statistiques et produit le rapport Markdown."""
+    """Loads the CSV, computes the statistics and produces the Markdown report."""
     prepared = prepare_dataset(csv_path, settings)
     data, log, dedup, split = prepared.data, prepared.log, prepared.dedup, prepared.split
 
@@ -83,109 +84,109 @@ def build_report(csv_path: str | Path, settings: dict) -> Report:
     }
 
     lines = [
-        "# Rapport de qualité des données",
+        "# Data quality report",
         "",
-        f"Fichier : `{Path(csv_path).name}` · généré le {datetime.now():%d/%m/%Y %H:%M}",
+        f"File: `{Path(csv_path).name}` · generated on {datetime.now():%Y-%m-%d %H:%M}",
         "",
-        "## Résumé",
+        "## Summary",
         "",
-        _table(["Indicateur", "Valeur"], [
-            ["Lignes lues", stats["total_rows"]],
-            ["Lignes exploitables", stats["valid_rows"]],
-            ["Lignes exclues", stats["excluded_rows"]],
-            ["Lignes avec avertissement", stats["rows_with_warnings"]],
+        _table(["Indicator", "Value"], [
+            ["Rows read", stats["total_rows"]],
+            ["Usable rows", stats["valid_rows"]],
+            ["Excluded rows", stats["excluded_rows"]],
+            ["Rows with warnings", stats["rows_with_warnings"]],
         ]),
         "",
     ]
-    lines += _issues_section("Exclusions", log.exclusions(), "Aucune ligne exclue.")
-    lines += _issues_section("Avertissements", log.warnings(), "Aucun avertissement.")
+    lines += _issues_section("Exclusions", log.exclusions(), "No excluded row.")
+    lines += _issues_section("Warnings", log.warnings(), "No warning.")
 
-    lines += ["## Catégories", "",
-              f"{stats['n_categories']} catégories distinctes, "
-              f"{stats['mean_categories_per_etf']:.2f} catégories par ETF en moyenne.", ""]
+    lines += ["## Categories", "",
+              f"{stats['n_categories']} distinct categories, "
+              f"{stats['mean_categories_per_etf']:.2f} categories per ETF on average.", ""]
     if category_counts.size:
-        lines += [_table(["Catégorie", "Nombre d'ETF"], [[c, int(n)] for c, n in category_counts.items()]), ""]
+        lines += [_table(["Category", "Number of ETFs"], [[c, int(n)] for c, n in category_counts.items()]), ""]
 
     coverage = data["coverage"] if len(data) else pd.Series([0.0])
-    lines += ["## Couverture des compositions", "",
-              _table(["Indicateur", "Valeur"], [
-                  ["Couverture minimale (somme des poids)", f"{coverage.min():.1f}"],
-                  ["Couverture médiane", f"{coverage.median():.1f}"],
-                  ["Couverture maximale", f"{coverage.max():.1f}"],
-                  ["Compositions vides", int((data["n_holdings"] == 0).sum()) if len(data) else 0],
-                  ["Nombre médian de lignes", f"{data['n_holdings'].median():.0f}" if len(data) else "0"],
+    lines += ["## Composition coverage", "",
+              _table(["Indicator", "Value"], [
+                  ["Minimum coverage (sum of weights)", f"{coverage.min():.1f}"],
+                  ["Median coverage", f"{coverage.median():.1f}"],
+                  ["Maximum coverage", f"{coverage.max():.1f}"],
+                  ["Empty compositions", int((data["n_holdings"] == 0).sum()) if len(data) else 0],
+                  ["Median number of holdings", f"{data['n_holdings'].median():.0f}" if len(data) else "0"],
               ]), ""]
 
     top_n = settings["report"]["top_holdings"]
-    lines += ["## Tickers les plus fréquents", "",
-              f"{stats['n_raw_tickers']} tickers distincts avant normalisation, "
-              f"{stats['n_tickers']} après.", ""]
+    lines += ["## Most frequent tickers", "",
+              f"{stats['n_raw_tickers']} distinct tickers before normalisation, "
+              f"{stats['n_tickers']} after.", ""]
     if tickers:
-        lines += [_table(["Ticker", "Nombre d'ETF"], [[t, n] for t, n in tickers.most_common(top_n)]), ""]
+        lines += [_table(["Ticker", "Number of ETFs"], [[t, n] for t, n in tickers.most_common(top_n)]), ""]
 
-    lines += ["## Tickers ressemblants", "",
-              "Même racine, suffixe différent : à vérifier, et à ajouter dans "
-              "`config/holding_aliases.csv` s'il s'agit du même titre.", ""]
+    lines += ["## Similar tickers", "",
+              "Same root, different suffix: check them, and add them to "
+              "`config/holding_aliases.csv` if they are the same security.", ""]
     if similar:
         rows = [[root, ", ".join(variants)] for root, variants in list(similar.items())[:MAX_DETAIL_ROWS]]
-        lines += [_table(["Racine", "Variantes"], rows), ""]
+        lines += [_table(["Root", "Variants"], rows), ""]
     else:
-        lines += ["Aucun.", ""]
+        lines += ["None.", ""]
 
-    lines += ["## Quasi-doublons", "",
-              _table(["Indicateur", "Valeur"], [
-                  ["Groupes", dedup.n_groups],
-                  ["Liens détectés", dedup.n_links],
-                  ["Taille du plus gros groupe", dedup.largest_group_size],
+    lines += ["## Near-duplicates", "",
+              _table(["Indicator", "Value"], [
+                  ["Groups", dedup.n_groups],
+                  ["Links found", dedup.n_links],
+                  ["Size of the largest group", dedup.largest_group_size],
               ]), ""]
     lines += [f"> ⚠️ {w}" for w in dedup.warnings] + ([""] if dedup.warnings else [])
     multi = group_sizes[group_sizes > 1].head(10)
     if len(multi):
         rows = [[g, int(n), ", ".join(data.loc[data["group_id"] == g, "name"].head(8))] for g, n in multi.items()]
-        lines += ["Plus gros groupes :", "", _table(["Groupe", "Taille", "ETF (8 premiers)"], rows), ""]
+        lines += ["Largest groups:", "", _table(["Group", "Size", "ETFs (first 8)"], rows), ""]
 
     summary = split.summary
-    lines += ["## Découpage entraînement/test", "",
-              _table(["Indicateur", "Valeur"], [
-                  ["ETF en entraînement", summary.n_train],
-                  ["ETF en test", summary.n_test],
-                  ["Part du test", f"{summary.test_share:.1%}"],
-                  ["Catégories absentes du test", ", ".join(summary.missing_in_test) or "aucune"],
-                  ["Catégories absentes de l'entraînement", ", ".join(summary.missing_in_train) or "aucune"],
+    lines += ["## Train/test split", "",
+              _table(["Indicator", "Value"], [
+                  ["ETFs in training", summary.n_train],
+                  ["ETFs in test", summary.n_test],
+                  ["Test share", f"{summary.test_share:.1%}"],
+                  ["Categories missing from test", ", ".join(summary.missing_in_test) or "none"],
+                  ["Categories missing from training", ", ".join(summary.missing_in_train) or "none"],
               ]), "",
-              f"Catégories rares (moins de {settings['split']['rare_category_min']} ETF) :", ""]
+              f"Rare categories (fewer than {settings['split']['rare_category_min']} ETFs):", ""]
     if summary.rare_categories:
-        lines += [_table(["Catégorie", "Nombre d'ETF"], [[c, n] for c, n in summary.rare_categories.items()]), ""]
+        lines += [_table(["Category", "Number of ETFs"], [[c, n] for c, n in summary.rare_categories.items()]), ""]
     else:
-        lines += ["Aucune.", ""]
+        lines += ["None.", ""]
 
     return Report(markdown="\n".join(lines), stats=stats)
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Point d'entrée en ligne de commande ; renvoie un code de sortie."""
-    parser = argparse.ArgumentParser(description="Rapport de qualité du CSV d'ETF")
-    parser.add_argument("--csv", required=True, help="Chemin du CSV d'ETF")
-    parser.add_argument("--config", help="Fichier de configuration (défaut : config/settings.yaml)")
-    parser.add_argument("--output", help="Fichier Markdown de sortie (défaut : reports/data_quality.md)")
+    """Command-line entry point; returns an exit code."""
+    parser = argparse.ArgumentParser(description="Quality report of the ETF CSV")
+    parser.add_argument("--csv", required=True, help="Path to the ETF CSV")
+    parser.add_argument("--config", help="Configuration file (default: config/settings.yaml)")
+    parser.add_argument("--output", help="Output Markdown file (default: reports/data_quality.md)")
     args = parser.parse_args(argv)
 
     settings = load_settings(args.config)
     csv_path = Path(args.csv)
     if not csv_path.is_file():
-        print(f"Erreur : fichier introuvable : {csv_path}", file=sys.stderr)
+        print(f"Error: file not found: {csv_path}", file=sys.stderr)
         return EXIT_FILE_NOT_FOUND
     try:
         report = build_report(csv_path, settings)
     except MissingColumnsError as exc:
-        print(f"Erreur : {exc}", file=sys.stderr)
+        print(f"Error: {exc}", file=sys.stderr)
         return EXIT_MISSING_COLUMNS
 
     output = Path(args.output) if args.output else resolve_path(settings["report"]["output_path"])
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(report.markdown, encoding="utf-8")
     print(report.markdown)
-    print(f"\nRapport écrit dans {output}")
+    print(f"\nReport written to {output}")
     return EXIT_OK
 
 

@@ -1,8 +1,8 @@
-"""Entraînement complet : réglage, évaluation unique sur le test, rapport, sauvegarde, promotion.
+"""Full training: tuning, single evaluation on the test set, report, saving, promotion.
 
-Usage :
-    python -m etf_classifier.model.train --csv data/raw/etfs.csv --no-azure        # référence locale
-    python -m etf_classifier.model.train --csv data/raw/etfs.csv --yes --promote   # avec embeddings
+Usage:
+    python -m etf_classifier.model.train --csv data/raw/etfs.csv --no-azure        # local baseline
+    python -m etf_classifier.model.train --csv data/raw/etfs.csv --yes --promote   # with embeddings
 """
 
 import argparse
@@ -40,7 +40,7 @@ class TrainingOutcome:
 
 
 def train_and_evaluate(prepared: PreparedDataset, settings: dict, embedder=None) -> TrainingOutcome:
-    """Règle le modèle sur l'entraînement seul, puis l'évalue une seule fois sur le test."""
+    """Tunes the model on the training set only, then evaluates it once on the test set."""
     start = time.perf_counter()
     cost_before = embedder.run_cost_usd if embedder else 0.0
     result = tune(prepared.split.train, settings, embedder)
@@ -64,28 +64,28 @@ def train_and_evaluate(prepared: PreparedDataset, settings: dict, embedder=None)
 
 def _model_card(version: str, outcome: TrainingOutcome, info: dict) -> str:
     m, b = outcome.metrics, outcome.baseline
-    lines = [f"# Fiche du modèle {version}", "",
-             "Classifieur multi-étiquettes d'ETF : une régression logistique par catégorie, seuils réglés par catégorie.", ""]
-    lines += [f"- **{k}** : {v}" for k, v in info.items()]
-    lines += ["", "## Performance (jeu de test)", "",
-              f"- F1 macro : {m.f1_macro:.3f} (référence triviale : {b.f1_macro:.3f})",
-              f"- F1 micro : {m.f1_micro:.3f} (référence triviale : {b.f1_micro:.3f})", "",
-              "## Limites", "",
-              "- Ne peut pas prédire une catégorie absente de l'entraînement.",
-              "- Les catégories rares ont un seuil par défaut quand la validation compte trop peu d'exemples.",
-              "- Les performances dépendent de la couverture des compositions (souvent partielles)."]
+    lines = [f"# Model card {version}", "",
+             "Multi-label ETF classifier: one logistic regression per category, thresholds tuned per category.", ""]
+    lines += [f"- **{k}**: {v}" for k, v in info.items()]
+    lines += ["", "## Performance (test set)", "",
+              f"- Macro F1: {m.f1_macro:.3f} (trivial baseline: {b.f1_macro:.3f})",
+              f"- Micro F1: {m.f1_micro:.3f} (trivial baseline: {b.f1_micro:.3f})", "",
+              "## Limitations", "",
+              "- Cannot predict a category that is missing from the training set.",
+              "- Rare categories use a default threshold when the validation set has too few examples.",
+              "- Performance depends on the coverage of the compositions (often partial)."]
     return "\n".join(lines) + "\n"
 
 
 def main(argv: list[str] | None = None, client=None, input_fn: Callable[[str], str] = input) -> int:
-    parser = argparse.ArgumentParser(description="Entraînement du classifieur multi-étiquettes")
-    parser.add_argument("--csv", required=True, help="Chemin du CSV d'ETF catégorisés")
-    parser.add_argument("--config", help="Fichier de configuration (défaut : config/settings.yaml)")
-    parser.add_argument("--no-azure", action="store_true", help="Blocs locaux uniquement (sans embeddings)")
-    parser.add_argument("--yes", action="store_true", help="Ne pas demander de confirmation avant la dépense Azure")
-    parser.add_argument("--promote", action="store_true", help="Désigner ce modèle comme modèle courant")
+    parser = argparse.ArgumentParser(description="Train the multi-label classifier")
+    parser.add_argument("--csv", required=True, help="Path to the categorised ETF CSV")
+    parser.add_argument("--config", help="Configuration file (default: config/settings.yaml)")
+    parser.add_argument("--no-azure", action="store_true", help="Local blocks only (no embeddings)")
+    parser.add_argument("--yes", action="store_true", help="Do not ask for confirmation before spending on Azure")
+    parser.add_argument("--promote", action="store_true", help="Make this model the current model")
     args = parser.parse_args(argv)
-    logging.basicConfig(level=logging.WARNING, format="%(levelname)s : %(message)s")
+    logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 
     settings = load_settings(args.config)
     if args.no_azure:
@@ -104,14 +104,14 @@ def main(argv: list[str] | None = None, client=None, input_fn: Callable[[str], s
     result = outcome.result
     first_model = current_version(settings) is None
     info = {
-        "ETF d'entraînement / de test": f"{len(prepared.split.train)} / {len(prepared.split.test)}",
-        "Empreinte du jeu d'entraînement": training_fingerprint(prepared.split.train),
-        "Blocs de variables": ", ".join(result.pipeline.active_blocks),
-        "C retenu (validation)": result.best_c,
-        "F1 macro de validation par C": ", ".join(f"{c} → {s:.3f}" for c, s in result.validation_scores.items()),
-        "Catégories apprises": len(result.model.classes),
-        "Durée d'entraînement": f"{outcome.seconds:.1f} s",
-        "Coût Azure de l'entraînement": f"{outcome.azure_cost_usd:.4f} $",
+        "Training / test ETFs": f"{len(prepared.split.train)} / {len(prepared.split.test)}",
+        "Training set fingerprint": training_fingerprint(prepared.split.train),
+        "Feature blocks": ", ".join(result.pipeline.active_blocks),
+        "Selected C (validation)": result.best_c,
+        "Validation macro F1 per C": ", ".join(f"{c} → {s:.3f}" for c, s in result.validation_scores.items()),
+        "Learned categories": len(result.model.classes),
+        "Training time": f"{outcome.seconds:.1f} s",
+        "Azure cost of training": f"${outcome.azure_cost_usd:.4f}",
     }
     thresholds = dict(zip(result.model.classes, result.model.thresholds.tolist()))
     metrics = {**outcome.metrics.to_dict(), "baseline": outcome.baseline.to_dict(), "best_c": result.best_c,
@@ -119,9 +119,9 @@ def main(argv: list[str] | None = None, client=None, input_fn: Callable[[str], s
                "blocks": result.pipeline.active_blocks, "unknown_categories": outcome.unknown_categories,
                "n_train": len(prepared.split.train), "n_test": len(prepared.split.test),
                "azure_cost_usd": outcome.azure_cost_usd}
-    # index de similarité sur toutes les lignes exploitables, rangé avec le modèle (toujours cohérents)
+    # similarity index over all usable rows, stored with the model (always consistent)
     similarity = SimilarityIndex.build(prepared.data, result.pipeline, settings)
-    info["Index de similarité"] = f"{len(prepared.data)} ETF, {similarity.size_mb:.1f} Mo"
+    info["Similarity index"] = f"{len(prepared.data)} ETFs, {similarity.size_mb:.1f} MB"
     path = save_bundle(result.model, result.pipeline, metrics, settings, "", similarity=similarity)
     version = path.name
     (path / "MODEL_CARD.md").write_text(_model_card(version, outcome, info), encoding="utf-8")
@@ -134,14 +134,14 @@ def main(argv: list[str] | None = None, client=None, input_fn: Callable[[str], s
         promote(version, settings)
 
     m, b = outcome.metrics, outcome.baseline
-    print(f"\nModèle {version} · blocs : {', '.join(result.pipeline.active_blocks)} · C = {result.best_c}")
-    print(f"F1 macro : {m.f1_macro:.3f} (référence triviale {b.f1_macro:.3f})")
-    print(f"F1 micro : {m.f1_micro:.3f} (référence triviale {b.f1_micro:.3f})")
+    print(f"\nModel {version} · blocks: {', '.join(result.pipeline.active_blocks)} · C = {result.best_c}")
+    print(f"Macro F1: {m.f1_macro:.3f} (trivial baseline {b.f1_macro:.3f})")
+    print(f"Micro F1: {m.f1_micro:.3f} (trivial baseline {b.f1_micro:.3f})")
     if embedder is not None:
-        print(f"Coût Azure de l'entraînement : {outcome.azure_cost_usd:.4f} $")
-    status = "modèle courant" if current_version(settings) == version else "non promu (utiliser --promote)"
-    print(f"Statut : {status}")
-    print(f"Rapport : {report_path}")
+        print(f"Azure cost of training: ${outcome.azure_cost_usd:.4f}")
+    status = "current model" if current_version(settings) == version else "not promoted (use --promote)"
+    print(f"Status: {status}")
+    print(f"Report: {report_path}")
     return EXIT_OK
 
 

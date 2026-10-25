@@ -1,16 +1,16 @@
-# Données réelles : jamais versionnées
+# Real data: never committed
 data/raw/*
 !data/raw/.gitkeep
 data/validations.csv*
 data/categories.csv*
 data/backups/
 
-# Journaux, cache d'embeddings et pipelines sauvegardés
+# Logs, embedding cache and saved pipelines
 logs/
 cache/
 artifacts/
 
-# Rapports générés
+# Generated reports
 reports/*
 !reports/.gitkeep
 
@@ -23,5 +23,5 @@ __pycache__/
 build/
 dist/
 
-# Secrets (clés Azure à venir)
+# Secrets (Azure keys)
 .env

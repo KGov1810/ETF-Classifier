@@ -1,8 +1,8 @@
-"""Index de similarité entre ETF : composition (cosinus des poids) et texte (embeddings ou TF-IDF).
+"""Similarity index between ETFs: composition (cosine of the weights) and text (embeddings or TF-IDF).
 
-La similarité de composition est un cosinus, donc symétrique : un petit ETF dont toutes les lignes
-figurent dans un grand ETF n'est pas jugé identique à lui. Le recouvrement pondéré (module data)
-sert seulement à expliquer le rapprochement et à signaler les quasi-doublons.
+The composition similarity is a cosine, hence symmetric: a small ETF whose holdings all appear in a
+large ETF is not considered identical to it. The weighted overlap (data module) is only used to
+explain the match and to flag near-duplicates.
 """
 
 import logging
@@ -37,11 +37,11 @@ class Neighbor:
 class QueryResult:
     neighbors: list[Neighbor]
     near_duplicate: Neighbor | None
-    text_only: bool  # l'ETF recherché n'a pas de composition : seul le texte compte
+    text_only: bool  # the queried ETF has no composition: only the text counts
 
 
 class SimilarityIndex:
-    """Vecteurs de référence et recherche des voisins. Le pipeline est fourni à chaque recherche."""
+    """Reference vectors and neighbour search. The pipeline is provided with every query."""
 
     def __init__(self):
         self.row_ids: np.ndarray = np.array([], dtype=int)
@@ -57,7 +57,7 @@ class SimilarityIndex:
         self.duplicate_rule = (0.8, 3)
         self.chunk = 256
 
-    # ---------- construction ----------
+    # ---------- building ----------
     @classmethod
     def build(cls, reference: pd.DataFrame, pipeline, settings: dict) -> "SimilarityIndex":
         cfg, dedup = settings["similarity"], settings["dedup"]
@@ -86,10 +86,10 @@ class SimilarityIndex:
         return "text_tfidf" if "text_tfidf" in names else None
 
     def _composition_vectors(self, compositions: list[dict[str, float]]) -> sparse.csr_matrix:
-        """Poids des tickers connus de l'index, divisés par la norme de TOUTE la composition.
+        """Weights of the tickers known to the index, divided by the norm of the WHOLE composition.
 
-        Un ETF dont une partie des lignes est inconnue de la référence garde ainsi une similarité
-        plus faible qu'un ETF entièrement couvert.
+        An ETF with some holdings unknown to the reference thus keeps a lower similarity than an
+        ETF that is fully covered.
         """
         rows, cols, values = [], [], []
         for row, comp in enumerate(compositions):
@@ -110,12 +110,12 @@ class SimilarityIndex:
         block = next(b for b in pipeline.blocks if b.name == self.text_source)
         return normalize(block.transform(data), norm="l2").tocsr().astype(np.float32)
 
-    # ---------- recherche ----------
+    # ---------- search ----------
     def query(self, data: pd.DataFrame, pipeline, k: int = 5, exclude_row_ids=None) -> list[QueryResult]:
-        """k voisins par ETF, triés par score combiné décroissant.
+        """k neighbours per ETF, sorted by decreasing combined score.
 
-        exclude_row_ids : identifiants de ligne des ETF recherchés (même ordre que data) qui font
-        partie de la référence ; chacun est exclu de ses propres voisins.
+        exclude_row_ids: row ids of the queried ETFs (same order as data) that are part of the
+        reference; each one is excluded from its own neighbours.
         """
         data = data.reset_index(drop=True)
         compositions = [dict(c) for c in data["composition"]]
@@ -141,9 +141,9 @@ class SimilarityIndex:
         wc, wt = self.weights
         query_has_comp = bool(composition)
         both = reference_has_comp & query_has_comp
-        # Tous les voisins d'une même recherche sont notés sur la même échelle :
-        # - recherche sans composition : texte seul pour tout le monde ;
-        # - voisin sans composition : sa similarité de composition vaut 0 dans le score combiné.
+        # All neighbours of a query are scored on the same scale:
+        # - query without a composition: text only for everyone;
+        # - neighbour without a composition: its composition similarity counts as 0 in the combined score.
         if self.text_source is None:
             scores = comp_sim.copy()
         elif not query_has_comp:
@@ -158,7 +158,7 @@ class SimilarityIndex:
         top = top[np.argsort(-scores[top], kind="stable")]
         neighbors = [self._explain(j, composition, scores[j], comp_sim[j], text_sim[j], not both[j]) for j in top]
         threshold, min_common = self.duplicate_rule
-        # même règle que le module data : recouvrement suffisant ET nombre minimal de tickers communs
+        # same rule as the data module: sufficient overlap AND minimum number of shared tickers
         duplicates = [n for n in neighbors if n.overlap_pct / 100 >= threshold - 1e-9
                       and self._common_count(composition, n) >= min_common]
         near_duplicate = max(duplicates, key=lambda n: n.overlap_pct) if duplicates else None
@@ -179,7 +179,7 @@ class SimilarityIndex:
             shared_holdings=shared[: self.n_shared], text_only=bool(text_only),
         )
 
-    # ---------- sauvegarde ----------
+    # ---------- saving ----------
     def save(self, path: str | Path) -> Path:
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)

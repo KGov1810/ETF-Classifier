@@ -1,176 +1,176 @@
-# Tâches : module `data`
+# Tasks: `data` module
 
-Définition de « terminé » pour chaque tâche : tests verts (`pytest tests/data -v`), aucune régression,
-code conforme au style de `SPEC-data.md`, aucun commit sans votre accord.
-
----
-
-## Tâche 1 : squelette du projet et configuration
-
-**Description :** créer l'arborescence de la spec, l'environnement Python, la configuration et un CSV fictif de test couvrant les cas limites.
-
-**Critères d'acceptation :**
-- [x] `pip install -r requirements.txt` puis `pytest` s'exécutent sans erreur
-- [x] `config/settings.yaml` contient les noms de colonnes, le séparateur `;`, l'encodage et tous les seuils de la spec
-- [x] `tests/data/fixtures/sample.csv` (≈ 20 lignes fictives) couvre chaque règle du tableau de qualité
-
-**Vérification :** `pytest -q` (0 test en échec) ; relecture de `settings.yaml`
-
-**Dépendances :** aucune
-
-**Fichiers :** `requirements.txt`, `pyproject.toml`, `.gitignore`, `config/settings.yaml`, `src/etf_classifier/__init__.py`, `src/etf_classifier/config.py`, `tests/data/fixtures/sample.csv`
-
-**Taille :** M
+Definition of "done" for every task: green tests (`pytest tests/data -v`), no regression,
+code consistent with the style of `SPEC-data.md`, no commit without your approval.
 
 ---
 
-## Tâche 2 : parsing de Composition/Category et `load_dataset()` minimal
+## Task 1: project skeleton and configuration
 
-**Description :** lire le CSV et convertir Composition en `dict[str, float]` et Category en `list[str]` avec `ast.literal_eval`. `load_dataset()` renvoie le DataFrame normalisé (`row_id`, `name`, `description`, `composition`, `categories`).
+**Description:** create the spec's folder tree, the Python environment, the configuration and a fictitious test CSV covering the edge cases.
 
-**Critères d'acceptation :**
-- [x] `[{'AAPL': 6.5}, {'MSFT': 6.1}]` donne `{'AAPL': 6.5, 'MSFT': 6.1}` ; un ticker présent deux fois voit ses poids additionnés
-- [x] Une cellule illisible lève une `ParsingError` avec un extrait de la cellule
-- [x] `load_dataset()` charge la fixture avec le séparateur `;` et l'encodage UTF-8
+**Acceptance criteria:**
+- [x] `pip install -r requirements.txt` then `pytest` run without error
+- [x] `config/settings.yaml` contains the column names, the `;` separator, the encoding and all the thresholds of the spec
+- [x] `tests/data/fixtures/sample.csv` (≈ 20 fictitious rows) covers every rule of the quality table
 
-**Vérification :** `pytest tests/data/test_parsing.py tests/data/test_loader.py -v`
+**Verification:** `pytest -q` (0 failing test); review of `settings.yaml`
 
-**Dépendances :** tâche 1
+**Dependencies:** none
 
-**Fichiers :** `src/etf_classifier/data/parsing.py`, `src/etf_classifier/data/loader.py`, `tests/data/test_parsing.py`, `tests/data/test_loader.py`
+**Files:** `requirements.txt`, `pyproject.toml`, `.gitignore`, `config/settings.yaml`, `src/etf_classifier/__init__.py`, `src/etf_classifier/config.py`, `tests/data/fixtures/sample.csv`
 
-**Taille :** M
-
----
-
-## Tâche 3 : règles de qualité, exclusions motivées, colonne `coverage`
-
-**Description :** appliquer les règles du tableau de qualité. Les lignes invalides sont exclues du jeu exploitable et consignées avec leur raison, les avertissements sont tracés, et la couverture (somme des poids) est calculée.
-
-**Critères d'acceptation :**
-- [x] Chaque règle de la spec a au moins un test (exclusion ou avertissement)
-- [x] `load_dataset()` renvoie le jeu valide et un objet `QualityLog` (row_id, règle, gravité, extrait)
-- [x] La colonne `coverage` est présente ; une somme > 105 génère un avertissement
-
-**Vérification :** `pytest tests/data/test_validation.py -v`
-
-**Dépendances :** tâche 2
-
-**Fichiers :** `src/etf_classifier/data/validation.py`, `src/etf_classifier/data/loader.py`, `tests/data/test_validation.py`
-
-**Taille :** S
+**Size:** M
 
 ---
 
-## Tâche 4 : rapport de qualité minimal (CLI + Markdown)
+## Task 2: Composition/Category parsing and minimal `load_dataset()`
 
-**Description :** commande `python -m etf_classifier.data.report --csv <chemin>` qui affiche et écrit dans `reports/data_quality.md` le nombre de lignes valides, en avertissement et exclues (avec raisons), le nombre de catégories, l'effectif par catégorie et le nombre moyen de catégories par ETF.
+**Description:** read the CSV and convert Composition into `dict[str, float]` and Category into `list[str]` with `ast.literal_eval`. `load_dataset()` returns the normalised DataFrame (`row_id`, `name`, `description`, `composition`, `categories`).
 
-**Critères d'acceptation :**
-- [x] La commande fonctionne sur la fixture et produit le fichier Markdown
-- [x] Les chiffres du rapport correspondent à ceux attendus pour la fixture (test)
-- [x] Code d'erreur clair si le fichier ou une colonne est absent
+**Acceptance criteria:**
+- [x] `[{'AAPL': 6.5}, {'MSFT': 6.1}]` gives `{'AAPL': 6.5, 'MSFT': 6.1}`; a ticker present twice has its weights added up
+- [x] An unreadable cell raises a `ParsingError` with an excerpt of the cell
+- [x] `load_dataset()` loads the fixture with the `;` separator and UTF-8 encoding
 
-**Vérification :** `pytest tests/data/test_report.py -v` ; lancement manuel sur la fixture
+**Verification:** `pytest tests/data/test_parsing.py tests/data/test_loader.py -v`
 
-**Dépendances :** tâche 3
+**Dependencies:** task 1
 
-**Fichiers :** `src/etf_classifier/data/report.py`, `tests/data/test_report.py`
+**Files:** `src/etf_classifier/data/parsing.py`, `src/etf_classifier/data/loader.py`, `tests/data/test_parsing.py`, `tests/data/test_loader.py`
 
-**Taille :** S
-
----
-
-## Point d'étape 1 : premier passage sur le CSV réel
-- [x] Tous les tests passent
-- [ ] Rapport généré sur le CSV réel
-- [ ] Revue avec vous : taux d'exclusion, formats inattendus, ajustements éventuels de la spec avant de continuer
+**Size:** M
 
 ---
 
-## Tâche 5 : normalisation des tickers et fichier d'alias
+## Task 3: quality rules, justified exclusions, `coverage` column
 
-**Description :** clé normalisée par ticker (majuscules, espaces) ; suffixes de place conservés, mais retirables par option ; application de `config/holding_aliases.csv` ; détection des tickers ressemblants pour le rapport.
+**Description:** apply the rules of the quality table. Invalid rows are excluded from the usable dataset and logged with their reason, warnings are traced, and the coverage (sum of the weights) is computed.
 
-**Critères d'acceptation :**
-- [x] `' aapl '` → `'AAPL'` ; `'AAPL US'` reste distinct de `'AAPL'` avec l'option désactivée, et fusionne avec l'option activée
-- [x] Un alias `GOOG;GOOGL` est appliqué ; le ticker d'origine reste accessible
-- [x] Les paires de tickers ressemblants (même racine, suffixe différent) sont listées
+**Acceptance criteria:**
+- [x] Every rule of the spec has at least one test (exclusion or warning)
+- [x] `load_dataset()` returns the valid dataset and a `QualityLog` object (row_id, rule, severity, excerpt)
+- [x] The `coverage` column is present; a sum > 105 generates a warning
 
-**Vérification :** `pytest tests/data/test_normalize.py -v`
+**Verification:** `pytest tests/data/test_validation.py -v`
 
-**Dépendances :** tâche 2
+**Dependencies:** task 2
 
-**Fichiers :** `src/etf_classifier/data/normalize.py`, `config/holding_aliases.csv`, `tests/data/test_normalize.py`
+**Files:** `src/etf_classifier/data/validation.py`, `src/etf_classifier/data/loader.py`, `tests/data/test_validation.py`
 
-**Taille :** S
-
----
-
-## Tâche 6 : détection des quasi-doublons
-
-**Description :** recouvrement `Σ min(wA, wB) / min(ΣwA, ΣwB)` calculé par index inversé et matrices creuses ; deux ETF sont liés si le recouvrement est ≥ 0,80 et s'ils ont au moins 3 tickers communs ; les groupes sont formés par composantes connexes (`group_id`).
-
-**Critères d'acceptation :**
-- [x] Deux trackers fictifs du même indice, l'un complet et l'autre limité aux 10 premières lignes, sont dans le même groupe
-- [x] Deux ETF partageant une seule grosse ligne ne sont pas regroupés
-- [x] 10 000 ETF synthétiques sont traités en moins de 60 s ; un avertissement est émis si un groupe dépasse 2 % du jeu
-
-**Vérification :** `pytest tests/data/test_dedup.py -v` (le test de performance est marqué `@pytest.mark.slow`)
-
-**Dépendances :** tâches 3 et 5
-
-**Fichiers :** `src/etf_classifier/data/dedup.py`, `tests/data/test_dedup.py`
-
-**Taille :** M
+**Size:** S
 
 ---
 
-## Point d'étape 2
-- [x] Tous les tests passent, y compris le test de performance
-- [ ] Revue avec vous des 10 plus gros groupes de quasi-doublons sur le CSV réel ; seuil confirmé ou ajusté
+## Task 4: minimal quality report (CLI + Markdown)
+
+**Description:** command `python -m etf_classifier.data.report --csv <path>` that displays and writes to `reports/data_quality.md` the number of valid rows, rows with warnings and excluded rows (with reasons), the number of categories, the count per category and the average number of categories per ETF.
+
+**Acceptance criteria:**
+- [x] The command works on the fixture and produces the Markdown file
+- [x] The report's figures match those expected for the fixture (test)
+- [x] Clear error code if the file or a column is missing
+
+**Verification:** `pytest tests/data/test_report.py -v`; manual run on the fixture
+
+**Dependencies:** task 3
+
+**Files:** `src/etf_classifier/data/report.py`, `tests/data/test_report.py`
+
+**Size:** S
 
 ---
 
-## Tâche 7 : découpage entraînement/test par groupe
-
-**Description :** `make_split(df, test_size=0.2, seed=42)`. Un groupe n'est jamais coupé en deux ; on cherche à couvrir des deux côtés chaque catégorie ayant au moins 2 groupes ; les catégories sous le seuil de rareté sont listées.
-
-**Critères d'acceptation :**
-- [x] Aucun `group_id` n'est présent à la fois dans l'entraînement et dans le test
-- [x] Même graine, même découpage (test de reproductibilité)
-- [x] Les catégories rares et les catégories absentes du test sont renvoyées dans un résumé
-
-**Vérification :** `pytest tests/data/test_split.py -v`
-
-**Dépendances :** tâche 6
-
-**Fichiers :** `src/etf_classifier/data/split.py`, `tests/data/test_split.py`
-
-**Taille :** S
+## Checkpoint 1: first pass on the real CSV
+- [x] All tests pass
+- [ ] Report generated on the real CSV
+- [ ] Review with you: exclusion rate, unexpected formats, possible spec adjustments before continuing
 
 ---
 
-## Tâche 8 : rapport complet et contrôle de non-modification du CSV source
+## Task 5: ticker normalisation and alias file
 
-**Description :** ajouter au rapport les groupes de quasi-doublons (nombre, plus gros groupe), les catégories rares, le résumé du découpage, les tickers ressemblants et les tickers les plus fréquents. Vérifier par empreinte (hash) que le CSV source n'est jamais modifié.
+**Description:** normalised key per ticker (upper case, spaces); exchange suffixes kept, but removable by option; application of `config/holding_aliases.csv`; detection of similar tickers for the report.
 
-**Critères d'acceptation :**
-- [x] Le rapport contient toutes les sections de la spec
-- [x] Un test vérifie que l'empreinte du CSV est identique avant et après une exécution complète
-- [x] Le rapport complet sur 10 000 ETF prend moins de 2 minutes
+**Acceptance criteria:**
+- [x] `' aapl '` → `'AAPL'`; `'AAPL US'` stays distinct from `'AAPL'` with the option disabled, and merges with the option enabled
+- [x] An alias `GOOG;GOOGL` is applied; the original ticker stays accessible
+- [x] Pairs of similar tickers (same root, different suffix) are listed
 
-**Vérification :** `pytest tests/data -v` ; lancement manuel sur le CSV réel
+**Verification:** `pytest tests/data/test_normalize.py -v`
 
-**Dépendances :** tâches 4, 5, 6 et 7
+**Dependencies:** task 2
 
-**Fichiers :** `src/etf_classifier/data/report.py`, `tests/data/test_report.py`, `tests/data/test_integrity.py`
+**Files:** `src/etf_classifier/data/normalize.py`, `config/holding_aliases.csv`, `tests/data/test_normalize.py`
 
-**Taille :** M
+**Size:** S
 
 ---
 
-## Point d'étape final
-- [ ] Les 4 critères de succès de `SPEC-data.md` sont remplis
-- [x] `load_dataset()` et `make_split()` sont utilisables directement par le module `features`
-- [ ] Revue avec vous avant de passer à la spec `features`
+## Task 6: near-duplicate detection
+
+**Description:** overlap `Σ min(wA, wB) / min(ΣwA, ΣwB)` computed with an inverted index and sparse matrices; two ETFs are linked if the overlap is ≥ 0.80 and they have at least 3 common tickers; groups are formed by connected components (`group_id`).
+
+**Acceptance criteria:**
+- [x] Two fictitious trackers of the same index, one complete and the other limited to the top 10 holdings, are in the same group
+- [x] Two ETFs sharing a single large holding are not grouped
+- [x] 10,000 synthetic ETFs are processed in less than 60 s; a warning is emitted if a group exceeds 2 % of the dataset
+
+**Verification:** `pytest tests/data/test_dedup.py -v` (the performance test is marked `@pytest.mark.slow`)
+
+**Dependencies:** tasks 3 and 5
+
+**Files:** `src/etf_classifier/data/dedup.py`, `tests/data/test_dedup.py`
+
+**Size:** M
+
+---
+
+## Checkpoint 2
+- [x] All tests pass, including the performance test
+- [ ] Review with you of the 10 largest near-duplicate groups on the real CSV; threshold confirmed or adjusted
+
+---
+
+## Task 7: train/test split by group
+
+**Description:** `make_split(df, test_size=0.2, seed=42)`. A group is never split in two; we try to cover on both sides every category with at least 2 groups; categories below the rarity threshold are listed.
+
+**Acceptance criteria:**
+- [x] No `group_id` is present both in training and in test
+- [x] Same seed, same split (reproducibility test)
+- [x] Rare categories and categories missing from the test set are returned in a summary
+
+**Verification:** `pytest tests/data/test_split.py -v`
+
+**Dependencies:** task 6
+
+**Files:** `src/etf_classifier/data/split.py`, `tests/data/test_split.py`
+
+**Size:** S
+
+---
+
+## Task 8: full report and check that the source CSV is not modified
+
+**Description:** add to the report the near-duplicate groups (number, largest group), the rare categories, the split summary, the similar tickers and the most frequent tickers. Check by fingerprint (hash) that the source CSV is never modified.
+
+**Acceptance criteria:**
+- [x] The report contains all the sections of the spec
+- [x] A test checks that the CSV fingerprint is identical before and after a full run
+- [x] The full report on 10,000 ETFs takes less than 2 minutes
+
+**Verification:** `pytest tests/data -v`; manual run on the real CSV
+
+**Dependencies:** tasks 4, 5, 6 and 7
+
+**Files:** `src/etf_classifier/data/report.py`, `tests/data/test_report.py`, `tests/data/test_integrity.py`
+
+**Size:** M
+
+---
+
+## Final checkpoint
+- [ ] The 4 success criteria of `SPEC-data.md` are met
+- [x] `load_dataset()` and `make_split()` can be used directly by the `features` module
+- [ ] Review with you before moving on to the `features` spec

@@ -1,4 +1,4 @@
-"""Métriques multi-étiquettes, identiques pour la référence triviale et pour le classifieur."""
+"""Multi-label metrics, identical for the trivial baseline and for the classifier."""
 
 from dataclasses import dataclass
 
@@ -35,44 +35,44 @@ def _table(headers: list[str], rows: list[list]) -> str:
 
 def render_report(version: str, metrics: Metrics, baseline: Metrics, top: dict, thresholds: dict[str, float],
                   unknown_categories: dict[str, int], info: dict) -> str:
-    """Rapport d'évaluation Markdown d'un modèle (jeu de test, évalué une seule fois)."""
-    rows = [["F1 macro (métrique principale)", f"{metrics.f1_macro:.3f}", f"{baseline.f1_macro:.3f}"],
-            ["F1 micro", f"{metrics.f1_micro:.3f}", f"{baseline.f1_micro:.3f}"],
-            ["F1 par ETF", f"{metrics.f1_samples:.3f}", f"{baseline.f1_samples:.3f}"],
-            ["Exactitude stricte", f"{metrics.subset_accuracy:.3f}", f"{baseline.subset_accuracy:.3f}"],
-            ["Hamming loss (plus bas = mieux)", f"{metrics.hamming_loss:.3f}", f"{baseline.hamming_loss:.3f}"]]
+    """Markdown evaluation report of a model (test set, evaluated only once)."""
+    rows = [["Macro F1 (main metric)", f"{metrics.f1_macro:.3f}", f"{baseline.f1_macro:.3f}"],
+            ["Micro F1", f"{metrics.f1_micro:.3f}", f"{baseline.f1_micro:.3f}"],
+            ["Per-ETF F1", f"{metrics.f1_samples:.3f}", f"{baseline.f1_samples:.3f}"],
+            ["Exact match", f"{metrics.subset_accuracy:.3f}", f"{baseline.subset_accuracy:.3f}"],
+            ["Hamming loss (lower is better)", f"{metrics.hamming_loss:.3f}", f"{baseline.hamming_loss:.3f}"]]
     lines = [
-        f"# Rapport d'évaluation : modèle {version}", "",
-        _table(["Information", "Valeur"], [[k, v] for k, v in info.items()]), "",
-        "## Comparaison à la référence triviale", "",
-        "La référence triviale prédit les catégories les plus fréquentes, sans regarder l'ETF.", "",
-        _table(["Métrique (jeu de test)", "Modèle", "Référence triviale"], rows), "",
-        "## Détail par catégorie", "",
+        f"# Evaluation report: model {version}", "",
+        _table(["Information", "Value"], [[k, v] for k, v in info.items()]), "",
+        "## Comparison with the trivial baseline", "",
+        "The trivial baseline predicts the most frequent categories, without looking at the ETF.", "",
+        _table(["Metric (test set)", "Model", "Trivial baseline"], rows), "",
+        "## Details per category", "",
     ]
     details = metrics.per_category.sort_values("support", ascending=False)
-    lines += [_table(["Catégorie", "Précision", "Rappel", "F1", "Effectif (test)", "Seuil"],
+    lines += [_table(["Category", "Precision", "Recall", "F1", "Support (test)", "Threshold"],
                      [[r.category, f"{r.precision:.2f}", f"{r.recall:.2f}", f"{r.f1:.2f}", int(r.support),
                        f"{thresholds.get(r.category, 0.5):.2f}"] for r in details.itertuples()]), ""]
-    lines += ["## Variables les plus influentes", "",
-              "Variables qui poussent le plus vers chaque catégorie (coefficients positifs).", ""]
-    lines += [_table(["Catégorie", "Variables"],
-                     [[c, ", ".join(name for name, _ in feats) or "aucune (catégorie constante)"]
+    lines += ["## Most influential features", "",
+              "Features that push most towards each category (positive coefficients).", ""]
+    lines += [_table(["Category", "Features"],
+                     [[c, ", ".join(name for name, _ in feats) or "none (constant category)"]
                       for c, feats in sorted(top.items())]), ""]
-    lines += ["## Catégories non apprenables", ""]
+    lines += ["## Categories that cannot be learned", ""]
     if unknown_categories:
-        lines += ["Présentes dans le test mais absentes de l'entraînement : le modèle ne peut pas les prédire.", "",
-                  _table(["Catégorie", "ETF concernés (test)"], [[c, n] for c, n in unknown_categories.items()]), ""]
+        lines += ["Present in the test set but missing from the training set: the model cannot predict them.", "",
+                  _table(["Category", "ETFs concerned (test)"], [[c, n] for c, n in unknown_categories.items()]), ""]
     else:
-        lines += ["Aucune.", ""]
+        lines += ["None.", ""]
     return "\n".join(lines)
 
 
 def evaluate(y_true: np.ndarray, y_pred: np.ndarray, classes: list[str]) -> Metrics:
-    """Calcule les métriques.
+    """Computes the metrics.
 
-    F1 macro : moyenne sur les catégories présentes dans les vraies valeurs OU dans les prédictions.
-    Une catégorie absente des deux côtés n'a rien à mesurer et n'est pas comptée ; une catégorie
-    prédite à tort mais absente des vraies valeurs compte (F1 = 0), car c'est une erreur réelle.
+    Macro F1: average over the categories present in the true labels OR in the predictions.
+    A category missing on both sides has nothing to measure and is not counted; a category
+    predicted wrongly but missing from the true labels counts (F1 = 0), as it is a real error.
     """
     y_true, y_pred = np.asarray(y_true), np.asarray(y_pred)
     active = np.flatnonzero((y_true.sum(axis=0) + y_pred.sum(axis=0)) > 0)

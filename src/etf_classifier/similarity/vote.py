@@ -1,6 +1,6 @@
-"""Vote des voisins : seconde méthode de catégorisation, comparée au modèle.
+"""Neighbour vote: a second categorisation method, compared with the model.
 
-Score d'une catégorie = somme des scores des voisins qui l'ont / somme des scores de tous les voisins.
+Score of a category = sum of the scores of the neighbours holding it / sum of the scores of all neighbours.
 """
 
 import numpy as np
@@ -9,7 +9,7 @@ from etf_classifier.similarity.index import Neighbor, QueryResult
 
 
 def neighbor_vote(neighbors: list[Neighbor]) -> dict[str, float]:
-    """Score de chaque catégorie présente chez les voisins, trié par score décroissant."""
+    """Score of each category present among the neighbours, sorted by decreasing score."""
     weights = [max(n.score, 0.0) for n in neighbors]
     total = sum(weights)
     votes: dict[str, float] = {}
@@ -20,7 +20,7 @@ def neighbor_vote(neighbors: list[Neighbor]) -> dict[str, float]:
 
 
 def vote_matrix(results: list[QueryResult], classes: list[str]) -> np.ndarray:
-    """Matrice des scores de vote (une ligne par ETF, une colonne par catégorie connue)."""
+    """Matrix of vote scores (one row per ETF, one column per known category)."""
     position = {c: j for j, c in enumerate(classes)}
     matrix = np.zeros((len(results), len(classes)))
     for row, result in enumerate(results):

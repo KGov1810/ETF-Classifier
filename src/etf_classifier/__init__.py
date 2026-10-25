@@ -1,1 +1,1 @@
-"""Catégorisation multi-étiquettes d'ETF."""
+"""Multi-label ETF categorisation."""

@@ -1,11 +1,11 @@
-"""Estimation du coût avant un appel Azure."""
+"""Cost estimate before an Azure call."""
 
 from dataclasses import dataclass
 
 from etf_classifier.costs.pricing import PricingTable, cost_usd
 from etf_classifier.costs.tokens import get_counter
 
-TOKENS_PER_MESSAGE = 4  # enveloppe approximative d'un message de chat (rôle, séparateurs)
+TOKENS_PER_MESSAGE = 4  # approximate overhead of a chat message (role, separators)
 
 
 @dataclass(frozen=True)
@@ -20,7 +20,7 @@ class CostEstimate:
 
 
 def estimate_embeddings(texts: list[str], deployment: str, pricing: PricingTable) -> CostEstimate:
-    """Tokens et coût pour calculer les embeddings d'un lot de textes."""
+    """Tokens and cost to compute the embeddings of a batch of texts."""
     model = pricing.model_for(deployment)
     counter = get_counter(model.tokenizer)
     tokens = sum(counter.count(text) for text in texts)
@@ -38,7 +38,7 @@ def estimate_embeddings(texts: list[str], deployment: str, pricing: PricingTable
 def estimate_chat(
     messages: list[dict] | str, deployment: str, pricing: PricingTable, expected_output_tokens: int
 ) -> CostEstimate:
-    """Coût d'un appel de chat : entrée comptée, sortie selon une hypothèse explicite."""
+    """Cost of a chat call: input counted, output based on an explicit assumption."""
     model = pricing.model_for(deployment)
     counter = get_counter(model.tokenizer)
     if isinstance(messages, str):
@@ -50,6 +50,6 @@ def estimate_chat(
         input_tokens=input_tokens,
         output_tokens=expected_output_tokens,
         cost_usd=cost_usd(model, input_tokens=input_tokens, output_tokens=expected_output_tokens),
-        approximate=True,  # la sortie est une hypothèse, et l'enveloppe des messages est approximative
+        approximate=True,  # the output is an assumption, and the message overhead is approximate
         pricing_as_of=pricing.as_of.isoformat(),
     )

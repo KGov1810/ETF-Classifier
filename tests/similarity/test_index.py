@@ -9,7 +9,7 @@ from etf_classifier.similarity.index import SimilarityIndex
 
 
 def test_vocabulary_covers_tickers_unknown_to_the_model(small_reference, sim_settings):
-    pipeline = FeaturePipeline(sim_settings).fit(small_reference.iloc[:2])  # le modèle ne voit pas NEM
+    pipeline = FeaturePipeline(sim_settings).fit(small_reference.iloc[:2])  # the model does not see NEM
     index = SimilarityIndex.build(small_reference, pipeline, sim_settings)
     assert "NEM" in index.vocabulary
 

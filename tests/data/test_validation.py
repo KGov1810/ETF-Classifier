@@ -23,11 +23,11 @@ def test_fixture_has_15_usable_rows_and_5_exclusions(validated):
 @pytest.mark.parametrize(
     "row_id, rule",
     [
-        (13, "composition_illisible"),
-        (14, "categories_illisibles"),
-        (15, "aucune_categorie"),
-        (16, "poids_negatif"),
-        (17, "poids_non_numerique"),
+        (13, "unreadable_composition"),
+        (14, "unreadable_categories"),
+        (15, "no_category"),
+        (16, "negative_weight"),
+        (17, "non_numeric_weight"),
     ],
 )
 def test_each_exclusion_rule_is_logged_with_its_row(validated, row_id, rule):
@@ -39,11 +39,11 @@ def test_each_exclusion_rule_is_logged_with_its_row(validated, row_id, rule):
 @pytest.mark.parametrize(
     "row_id, rule",
     [
-        (8, "composition_vide"),
-        (9, "description_vide"),
-        (10, "ticker_en_double"),
-        (11, "somme_poids_elevee"),
-        (12, "nom_en_double"),
+        (8, "empty_composition"),
+        (9, "empty_description"),
+        (10, "duplicate_ticker"),
+        (11, "weight_sum_too_high"),
+        (12, "duplicate_name"),
     ],
 )
 def test_each_warning_rule_keeps_the_row(validated, row_id, rule):
@@ -60,7 +60,7 @@ def test_exclusions_and_warnings_have_the_right_severity(validated):
 
 def test_logged_issue_carries_file_line_and_extract(validated):
     _, log = validated
-    issue = next(issue for issue in log.issues if issue.rule == "composition_illisible")
+    issue = next(issue for issue in log.issues if issue.rule == "unreadable_composition")
     assert issue.line == 15
     assert "AAPL" in issue.extract
 
@@ -85,12 +85,12 @@ def test_empty_composition_has_zero_coverage(validated):
 def test_malformed_line_is_an_exclusion(settings):
     data, log = validate_rows([], [{"line": 7, "extract": "Broken;x;y;z;w"}], settings)
     assert data.empty
-    assert log.exclusions()[0].rule == "ligne_mal_formee"
+    assert log.exclusions()[0].rule == "malformed_line"
     assert log.exclusions()[0].line == 7
 
 
 def test_log_counts_by_rule(validated):
     _, log = validated
     counts = log.counts()
-    assert counts[("exclusion", "poids_negatif")] == 1
-    assert counts[("avertissement", "nom_en_double")] == 1
+    assert counts[("exclusion", "negative_weight")] == 1
+    assert counts[("warning", "duplicate_name")] == 1

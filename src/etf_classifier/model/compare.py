@@ -1,6 +1,6 @@
-"""Comparaison d'expériences (combinaisons de blocs) sur exactement le même découpage.
+"""Comparison of experiments (block combinations) on exactly the same split.
 
-Usage :
+Usage:
     python -m etf_classifier.model.compare --csv data/raw/etfs.csv --experiments local,local+embeddings
 """
 
@@ -42,13 +42,13 @@ def _experiment_settings(settings: dict, blocks: dict[str, bool]) -> dict:
 
 
 def run_comparison(prepared: PreparedDataset, settings: dict, names: list[str], embedder=None) -> list[ExperimentResult]:
-    """Entraîne et évalue chaque expérience sur le même entraînement et le même test."""
+    """Trains and evaluates each experiment on the same training set and the same test set."""
     fingerprint = training_fingerprint(prepared.split.test)
     results = []
     for name in names:
         blocks = settings["model"]["experiments"][name]
         if blocks.get("embeddings") and embedder is None:
-            results.append(ExperimentResult(name, fingerprint, skipped_reason="non exécutée (Azure non configuré)"))
+            results.append(ExperimentResult(name, fingerprint, skipped_reason="not run (Azure not configured)"))
             continue
         outcome = train_and_evaluate(prepared, _experiment_settings(settings, blocks),
                                      embedder if blocks.get("embeddings") else None)
@@ -59,41 +59,41 @@ def run_comparison(prepared: PreparedDataset, settings: dict, names: list[str], 
 
 
 def render_comparison(results: list[ExperimentResult]) -> str:
-    rows = ["| Expérience | F1 macro | F1 micro | Variables | Durée | Coût Azure |", "|---|---|---|---|---|---|"]
+    rows = ["| Experiment | Macro F1 | Micro F1 | Features | Time | Azure cost |", "|---|---|---|---|---|---|"]
     baseline = next((r.baseline for r in results if r.baseline is not None), None)
     if baseline:
-        rows.append(f"| Référence triviale | {baseline.f1_macro:.3f} | {baseline.f1_micro:.3f} | 0 | – | 0 $ |")
+        rows.append(f"| Trivial baseline | {baseline.f1_macro:.3f} | {baseline.f1_micro:.3f} | 0 | – | $0 |")
     for r in results:
         if r.skipped_reason:
             rows.append(f"| {r.name} | {r.skipped_reason} | | | | |")
         else:
             rows.append(f"| {r.name} | {r.metrics.f1_macro:.3f} | {r.metrics.f1_micro:.3f} | {r.n_features} | "
-                        f"{r.seconds:.1f} s | {r.azure_cost_usd:.4f} $ |")
+                        f"{r.seconds:.1f} s | ${r.azure_cost_usd:.4f} |")
     fingerprint = results[0].test_fingerprint if results else "–"
     return "\n".join([
-        "# Comparaison des expériences", "",
-        f"Toutes les expériences sont évaluées sur le même jeu de test (empreinte `{fingerprint}`).",
-        "Métrique principale : F1 macro. Le coût Azure est marginal : les embeddings déjà en cache ne sont pas repayés.",
+        "# Experiment comparison", "",
+        f"All experiments are evaluated on the same test set (fingerprint `{fingerprint}`).",
+        "Main metric: macro F1. The Azure cost is marginal: embeddings already cached are not paid for again.",
         "", *rows, "",
     ])
 
 
 def main(argv: list[str] | None = None, client=None, input_fn: Callable[[str], str] = input) -> int:
-    parser = argparse.ArgumentParser(description="Comparaison d'expériences sur le même découpage")
-    parser.add_argument("--csv", required=True, help="Chemin du CSV d'ETF catégorisés")
-    parser.add_argument("--config", help="Fichier de configuration (défaut : config/settings.yaml)")
-    parser.add_argument("--experiments", default="local,local+embeddings", help="Liste séparée par des virgules")
-    parser.add_argument("--yes", action="store_true", help="Ne pas demander de confirmation avant la dépense Azure")
+    parser = argparse.ArgumentParser(description="Compare experiments on the same split")
+    parser.add_argument("--csv", required=True, help="Path to the categorised ETF CSV")
+    parser.add_argument("--config", help="Configuration file (default: config/settings.yaml)")
+    parser.add_argument("--experiments", default="local,local+embeddings", help="Comma-separated list")
+    parser.add_argument("--yes", action="store_true", help="Do not ask for confirmation before spending on Azure")
     args = parser.parse_args(argv)
-    logging.basicConfig(level=logging.WARNING, format="%(levelname)s : %(message)s")
+    logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 
     settings = load_settings(args.config)
     available = settings["model"]["experiments"]
     names = [n.strip() for n in args.experiments.split(",") if n.strip()]
     unknown = [n for n in names if n not in available]
     if unknown:
-        print(f"Erreur : expérience(s) inconnue(s) : {', '.join(unknown)}. "
-              f"Disponibles : {', '.join(available)}", file=sys.stderr)
+        print(f"Error: unknown experiment(s): {', '.join(unknown)}. "
+              f"Available: {', '.join(available)}", file=sys.stderr)
         return EXIT_UNKNOWN
 
     prepared = prepare_dataset(args.csv, settings)
@@ -110,7 +110,7 @@ def main(argv: list[str] | None = None, client=None, input_fn: Callable[[str], s
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(report, encoding="utf-8")
     print(report)
-    print(f"Rapport : {path}")
+    print(f"Report: {path}")
     return EXIT_OK
 
 
