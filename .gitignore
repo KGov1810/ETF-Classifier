@@ -4,6 +4,7 @@ data/raw/*
 data/validations.csv*
 data/categories.csv*
 data/backups/
+data/llm_justifications.jsonl*
 
 # Logs, embedding cache and saved pipelines
 logs/

@@ -122,9 +122,11 @@ def _do_validate(prefix: str, proposal, settings: dict, validator: str) -> None:
         name = str(state.get(f"{prefix}_new_name", "")).strip()
         if name:
             new_categories[name] = str(state.get(f"{prefix}_new_description", "")).strip()
+    llm = state.get(f"{prefix}_llm")
     try:
         record = services.validate(proposal, state.get(f"{prefix}_categories", []), validator, settings,
-                                   comment=state.get(f"{prefix}_comment", ""), new_categories=new_categories)
+                                   comment=state.get(f"{prefix}_comment", ""), new_categories=new_categories,
+                                   justification_id=llm.justification_id if llm else None)
         state[f"{prefix}_validated"] = record
         state.pop(f"{prefix}_validation_error", None)
     except services.AppError as exc:
@@ -136,8 +138,9 @@ def validation_form(prefix: str, proposal, settings: dict, validator: str) -> di
     st.subheader("Validate")
     record = st.session_state.get(f"{prefix}_validated")
     options = sorted(set(services.known_categories(settings)) | set(proposal.categories))
-    st.multiselect("Categories", options, default=proposal.categories, key=f"{prefix}_categories",
-                   disabled=record is not None)
+    # initial value set through the session state (not `default=`), so that "Apply the suggestions" can change it
+    st.session_state.setdefault(f"{prefix}_categories", list(proposal.categories))
+    st.multiselect("Categories", options, key=f"{prefix}_categories", disabled=record is not None)
     create = st.checkbox("Create a new category", key=f"{prefix}_create", disabled=record is not None)
     if create:
         st.text_input("New category", key=f"{prefix}_new_name")
@@ -158,5 +161,99 @@ def validation_form(prefix: str, proposal, settings: dict, validator: str) -> di
 
 def reset(prefix: str, *keys: str) -> None:
     """Forgets the proposal and validation state of a screen."""
-    for key in (*keys, "proposal", "validated", "validation_error", "cost_confirmed", "request", "warnings"):
+    for key in (*keys, "proposal", "validated", "validation_error", "cost_confirmed", "request", "warnings",
+                "categories", "create", "new_name", "new_description", "comment", "llm", "llm_estimate", "llm_error"):
         st.session_state.pop(f"{prefix}_{key}", None)
+
+
+# --- LLM justification ---------------------------------------------------------------------------
+
+VERDICT_LABELS = {"fits": "Fits", "doubtful": "Doubtful", "does_not_fit": "Does not fit"}
+
+
+@st.cache_resource(show_spinner=False)
+def _cached_justifier(config_path: str | None):
+    return services.llm_justifier(load_settings(config_path))
+
+
+def _apply(prefix: str) -> None:
+    """Callback of "Apply the suggestions": runs before the widgets are drawn again."""
+    state = st.session_state
+    justification = state[f"{prefix}_llm"].justification
+    state[f"{prefix}_categories"] = services.apply_suggestions(state.get(f"{prefix}_categories", []), justification)
+    if justification.new_category:
+        state[f"{prefix}_create"] = True
+        state[f"{prefix}_new_name"] = justification.new_category["name"]
+        state[f"{prefix}_new_description"] = justification.new_category["description"]
+
+
+def _request_explanation(prefix: str, proposal, settings: dict, justifier) -> None:
+    state = st.session_state
+    state.pop(f"{prefix}_llm_error", None)
+    try:
+        estimate = services.llm_estimate(justifier, proposal, settings)
+        if estimate.cached:  # already answered: free, no confirmation needed
+            state[f"{prefix}_llm"] = services.llm_justify(justifier, proposal, settings)
+        else:
+            state[f"{prefix}_llm_estimate"] = estimate
+    except services.AppError as exc:
+        state[f"{prefix}_llm_error"] = str(exc)
+
+
+def _confirm_explanation(prefix: str, proposal, settings: dict, justifier) -> None:
+    state = st.session_state
+    state.pop(f"{prefix}_llm_estimate", None)
+    try:
+        state[f"{prefix}_llm"] = services.llm_justify(justifier, proposal, settings, confirmed=True)
+    except services.AppError as exc:
+        state[f"{prefix}_llm_error"] = str(exc)
+
+
+def justification_section(prefix: str, proposal, settings: dict) -> None:
+    """"Explain with GPT-6.1 Sol" button, cost confirmation and answer panel."""
+    state = st.session_state
+    st.subheader("Second opinion")
+    justifier = _cached_justifier(os.environ.get(CONFIG_ENV))
+    result = state.get(f"{prefix}_llm")
+    if result is None:
+        st.button("Explain with GPT-6.1 Sol", key=f"{prefix}_explain", disabled=not justifier.available,
+                  on_click=_request_explanation, args=(prefix, proposal, settings, justifier))
+        if not justifier.available:
+            st.caption(f"Unavailable: {justifier.unavailable_reason}")
+        estimate = state.get(f"{prefix}_llm_estimate")
+        if estimate is not None:
+            cost = estimate.cost
+            st.info(f"GPT-6.1 Sol reads the ETF, its 10 largest holdings, the proposal, the closest ETFs and the "
+                    f"known categories: estimated cost ${cost.cost_usd:.4f} (approximate).")
+            st.button("Confirm and explain", key=f"{prefix}_explain_confirm", type="primary",
+                      on_click=_confirm_explanation, args=(prefix, proposal, settings, justifier))
+        if error := state.get(f"{prefix}_llm_error"):
+            st.error(error)
+        return
+
+    j = result.justification
+    show_justification(j)
+    origin = "from the cache, no cost" if result.cached else f"cost ${result.cost_usd:.4f}"
+    st.caption(f"Confidence: {j.confidence}. Answer {origin}." + (" " + " ".join(j.notes) if j.notes else ""))
+    has_suggestions = j.suggested_additions or j.suggested_removals or j.new_category
+    if has_suggestions and state.get(f"{prefix}_validated") is None:
+        st.button("Apply the suggestions", key=f"{prefix}_apply", on_click=_apply, args=(prefix,))
+
+
+def show_justification(j) -> None:
+    """Summary, inconsistency, verdicts, suggestions and new category of a justification."""
+    st.markdown(j.summary)
+    if j.inconsistency:
+        st.warning(f"Inconsistency: {j.inconsistency}")
+    if j.categories:
+        st.dataframe(pd.DataFrame([{"Category": c["category"],
+                                    "Verdict": VERDICT_LABELS.get(c["verdict"], c["verdict"]),
+                                    "Reason": c["reason"]} for c in j.categories]),
+                     hide_index=True, width="stretch")
+    if j.suggested_additions:
+        st.markdown("Suggested additions: " + ", ".join(f"**{c}**" for c in j.suggested_additions))
+    if j.suggested_removals:
+        st.markdown("Suggested removals: " + ", ".join(f"**{c}**" for c in j.suggested_removals))
+    if j.new_category:
+        st.markdown(f"Possible new category: **{j.new_category['name']}**. {j.new_category['description']} "
+                    f"{j.new_category['reason']}".strip())

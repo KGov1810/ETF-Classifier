@@ -30,16 +30,16 @@ Reference: `SPEC-llm-justify.md` (approved on 2026-10-25) · Detailed tasks: `ta
 ## Task list
 
 ### Phase A: core
-- [ ] L1: settings, prompt and context, answer schema and checks
-- [ ] L2: Azure chat client, estimate, call, cost record, cache
-- [ ] L3: justification store (append, link to a validation, read)
+- [x] L1: settings, prompt and context, answer schema and checks
+- [x] L2: Azure chat client, estimate, call, cost record, cache
+- [x] L3: justification store (append, link to a validation, read)
 
 ### Checkpoint A
-- [ ] Tests green with the fake client; no call without confirmation; second identical request served by the cache
+- [x] Tests green with the fake client; no call without confirmation; second identical request served by the cache
 
 ### Phase B: interface
-- [ ] L4: button, confirmation, answer panel and "Apply the suggestions" (*Single ETF* and *Batch*), link at validation
-- [ ] L5: justification in the *History* screen, README
+- [x] L4: button, confirmation, answer panel and "Apply the suggestions" (*Single ETF* and *Batch*), link at validation
+- [x] L5: justification in the *History* screen, README
 
 ### Final checkpoint
 - [ ] The 5 success criteria of `SPEC-llm-justify.md`
@@ -55,6 +55,20 @@ Reference: `SPEC-llm-justify.md` (approved on 2026-10-25) · Detailed tasks: `ta
 | A description contains text that tries to steer the model | Low | ETF data marked as data in the system message; suggestions checked against the known categories; the validator decides |
 | The model invents a category | Medium | Moved to "new category" or dropped, never shown as existing |
 | Real Azure behaviour not testable here | Medium | Fake client in every test; your manual try at the final checkpoint |
+
+## Status (2026-10-25)
+
+L1 to L5 coded and tested with a fake chat client (no network).
+Corrections during the work:
+- `data/llm_justifications.jsonl*` was not covered by `.gitignore` (the spec assumed it was): rule added.
+- the category selection of the validation form is now initialised through the session state (no `default=`),
+  so that "Apply the suggestions" can change it without a Streamlit warning.
+- full test suite hang found and fixed: the new `tests/llm/test_store.py` had the same module name as
+  `tests/feedback/test_store.py` (renamed `test_justification_store.py`), and `AppTest` left the last page as `__main__`,
+  which the `spawn` workers of the feedback concurrency test re-ran at start-up (restored after each app test);
+  the concurrency test now fails after 120 s instead of hanging if a worker cannot start.
+410 green tests across the project.
+Remaining: your try with the real GPT-6.1 Sol deployment.
 
 ## Open questions
 

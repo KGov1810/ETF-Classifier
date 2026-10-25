@@ -55,5 +55,6 @@ for message in st.session_state.get(f"{PREFIX}_warnings", []):
 left, right = st.columns([3, 2], gap="large")
 with left:
     components.result_panel(proposal, settings)
+    components.justification_section(PREFIX, proposal, settings)
 with right:
     components.validation_form(PREFIX, proposal, settings, validator)

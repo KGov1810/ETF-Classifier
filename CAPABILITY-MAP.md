@@ -43,3 +43,5 @@ measured steps.
   No budget constraint, but every Azure call goes through `costs` (estimate + actual tracking, in USD).
   Prices live in a dated configuration file and are never hard-coded.
 - Repository language: English (decision of 2026-10-25).
+- `llm-justify` may send the ETF's top holdings, the proposal, the closest ETFs and the known categories to Azure
+  (decision of 2026-10-25, this module only); the other modules still send only the name and the description.

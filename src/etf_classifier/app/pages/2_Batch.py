@@ -8,7 +8,8 @@ import streamlit as st
 from etf_classifier.app import components, services
 
 PREFIX = "batch"
-FORM_KEYS = ("categories", "create", "new_name", "new_description", "comment", "validated", "validation_error")
+FORM_KEYS = ("categories", "create", "new_name", "new_description", "comment", "validated", "validation_error",
+             "llm", "llm_estimate", "llm_error")
 
 st.set_page_config(page_title="Batch · ETF Classifier", layout="wide")
 settings = components.app_settings()
@@ -117,6 +118,7 @@ with st.expander("Correct the composition before validating"):
 left, right = st.columns([3, 2], gap="large")
 with left:
     components.result_panel(proposal, settings)
+    components.justification_section(PREFIX, proposal, settings)
 with right:
     record = components.validation_form(PREFIX, proposal, settings, validator)
     if record is not None:

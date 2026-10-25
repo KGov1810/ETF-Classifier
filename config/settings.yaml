@@ -109,3 +109,13 @@ retraining:
   min_comparison_etfs: 20        # below this, no automatic promotion
   history_path: "artifacts/models/retraining_history.csv"
   log_path: "logs/retraining.log"
+
+llm:
+  deployment: "gpt-6.1-sol"          # overridden by AZURE_OPENAI_CHAT_DEPLOYMENT (must appear in config/pricing.yaml)
+  max_holdings: 10                   # largest holdings sent to the model
+  max_neighbors: 5                   # closest ETFs sent to the model
+  expected_output_tokens: 1500       # used for the cost estimate; reasoning tokens included
+  max_completion_tokens: 4000
+  max_retries: 3
+  justifications_path: "data/llm_justifications.jsonl"
+  cache_path: "cache/llm.sqlite"

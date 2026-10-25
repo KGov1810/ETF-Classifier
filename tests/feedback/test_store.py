@@ -42,7 +42,8 @@ def _worker(args):
 
 def test_concurrent_writers_lose_and_mix_nothing(fb_settings):
     with mp.get_context("spawn").Pool(4) as pool:
-        pool.map(_worker, [(fb_settings, w, 15) for w in range(4)])
+        # timeout: a worker that cannot start (e.g. import error) must fail the test, not hang it
+        pool.map_async(_worker, [(fb_settings, w, 15) for w in range(4)]).get(timeout=120)
     journal = FeedbackStore(fb_settings).read_journal()
     assert len(journal) == 60
     assert journal["ValidationId"].is_unique

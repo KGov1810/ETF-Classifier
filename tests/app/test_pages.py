@@ -246,3 +246,15 @@ def test_monitoring_page_without_retraining_runs(trained_settings, use_settings)
     use_settings(trained_settings)
     at = _app("pages/4_Monitoring.py").run()
     assert "No retraining run yet" in _texts(at, "info")
+
+
+def test_batch_queue_offers_the_llm_explanation(azure_configured, trained_settings, use_settings, sample_csv):
+    use_settings(trained_settings)
+    at = _upload_batch(_app("pages/2_Batch.py").run(), sample_csv)
+    at.button(key="batch_explain").click()
+    at.run()
+    at.button(key="batch_explain_confirm").click()
+    at.run()
+    assert not at.exception
+    assert len(azure_configured.calls) == 1
+    assert at.button(key="batch_apply")

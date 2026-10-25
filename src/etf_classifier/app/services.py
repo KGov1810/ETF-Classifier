@@ -218,16 +218,24 @@ def known_categories(settings: dict) -> list[str]:
 
 
 def validate(proposal: Proposal, categories: list[str], validator: str, settings: dict, comment: str = "",
-             new_categories: dict[str, str] | None = None) -> dict:
-    """Records the validation of a proposal; new_categories = {name: description} of categories to create."""
+             new_categories: dict[str, str] | None = None, justification_id: str | None = None) -> dict:
+    """Records the validation of a proposal; new_categories = {name: description} of categories to create.
+
+    justification_id: LLM justification shown before validating, linked to the validation.
+    """
     if not str(validator or "").strip():
         raise AppError("Choose a validator before validating.")
     new_categories = new_categories or {}
     etf = {"name": proposal.name, "description": proposal.description, "composition": proposal.composition}
-    return _feedback_call(lambda: _store(settings).record_validation(
+    record = _feedback_call(lambda: _store(settings).record_validation(
         etf, list(categories) + [c for c in new_categories if c not in categories], validator,
         predicted_categories=proposal.categories, model_version=proposal.model_version, comment=comment,
         create_categories=bool(new_categories), category_descriptions=new_categories))
+    if justification_id:
+        from etf_classifier.llm.store import JustificationStore
+
+        JustificationStore(settings).link(justification_id, record["ValidationId"])
+    return record
 
 
 def cancel(validation_id: str, validator: str, comment: str, settings: dict) -> dict:
@@ -349,3 +357,66 @@ def retraining_runs(settings: dict, limit: int = 10) -> pd.DataFrame:
     columns = ["started_at", "outcome", "current_version", "candidate_version", "current_f1_macro",
                "candidate_f1_macro", "azure_cost_usd", "reasons"]
     return history.iloc[::-1].head(limit)[columns].reset_index(drop=True)
+
+
+# --- LLM justification ---------------------------------------------------------------------------
+
+
+def category_descriptions(settings: dict) -> dict[str, str]:
+    """Known categories with their description (empty for most historical ones)."""
+    from etf_classifier.feedback.categories import CategoryRegistry
+
+    known = known_categories(settings)  # initialises the registry from the original CSV if needed
+    registry = CategoryRegistry(settings).read()
+    descriptions = dict(zip(registry["category"], registry["description"]))
+    return {name: descriptions.get(name, "") for name in known}
+
+
+def llm_justifier(settings: dict, client=None):
+    from etf_classifier.llm.justify import Justifier
+
+    return Justifier(settings, client=client)
+
+
+def _llm_call(action):
+    from etf_classifier.llm.justify import LLMUnavailable
+    from etf_classifier.llm.prompts import AnswerError
+
+    try:
+        return action()
+    except (LLMUnavailable, AnswerError) as exc:
+        raise AppError(str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001 - Azure or network failure: shown to the user, never hidden
+        raise AppError(f"The call to Azure OpenAI failed: {exc}") from exc
+
+
+def llm_estimate(justifier, proposal: Proposal, settings: dict):
+    """Estimated cost of the justification (and whether it is already cached, hence free)."""
+    return _llm_call(lambda: justifier.estimate(proposal, category_descriptions(settings)))
+
+
+def llm_justify(justifier, proposal: Proposal, settings: dict, confirmed: bool = False):
+    """Justification of a proposal; Azure is only called with confirmed=True (or not at all when cached)."""
+    return _llm_call(lambda: justifier.justify(proposal, category_descriptions(settings), confirmed=confirmed))
+
+
+def apply_suggestions(selection: list[str], justification) -> list[str]:
+    """Current selection + suggested additions − suggested removals (order kept, no duplicates)."""
+    result = [c for c in selection if c not in justification.suggested_removals]
+    result += [c for c in justification.suggested_additions if c not in result]
+    return result
+
+
+def justification_for_validation(settings: dict, validation_id: str) -> dict | None:
+    from etf_classifier.llm.store import JustificationStore
+
+    return JustificationStore(settings).for_validation(validation_id)
+
+
+def stored_justification(stored: dict):
+    """Justification object from a line of data/llm_justifications.jsonl."""
+    from etf_classifier.llm.prompts import Justification
+
+    answer = dict(stored["answer"])
+    answer.setdefault("notes", [])
+    return Justification(**answer)

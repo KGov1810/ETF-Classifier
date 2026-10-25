@@ -107,7 +107,7 @@ src/etf_classifier/llm/
 tests/llm/
 ```
 Changes to existing modules: `app` (button, answer panel, apply suggestions, history), `.env.example`, `settings.yaml`, `.gitignore`
-(`data/llm_justifications.jsonl` is already covered by `data/`; checked).
+(`data/llm_justifications.jsonl*` added: it was not covered by the existing rules).
 
 ## Code style
 Same as the previous modules. The Azure client is injected, as for the embeddings, so that every test runs with a fake client.

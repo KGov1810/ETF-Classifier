@@ -41,6 +41,18 @@ st.dataframe(history, hide_index=True, width="stretch",
              column_config={"Cancelled": st.column_config.CheckboxColumn("Cancelled"),
                             "CancellationComment": "Cancellation comment"})
 
+st.subheader("LLM justification")
+ids = list(history["ValidationId"])
+titles = {row.ValidationId: f"{row.Name} ({row.ValidatedBy}, {row.ValidatedAt})" for row in history.itertuples()}
+shown = st.selectbox("Validation to inspect", ids, format_func=titles.get, key=f"{PREFIX}_justification_id")
+stored = services.justification_for_validation(settings, shown)
+if stored is None:
+    st.caption("No LLM justification was requested before this validation.")
+else:
+    components.show_justification(services.stored_justification(stored))
+    st.caption(f"GPT-6.1 Sol ({stored['deployment']}), prompt {stored['prompt_version']}, {stored['created_at']}, "
+               f"confidence {stored['answer']['confidence']}.")
+
 st.subheader("Cancel a validation")
 st.write("The validation stays in the journal with a cancellation line; the ETF leaves the reference "
          "dataset at the next retraining.")

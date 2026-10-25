@@ -19,7 +19,7 @@ measured against a simple baseline.
 | `similarity` | Closest ETFs, near-duplicate alert, neighbour vote | ✅ Done |
 | `feedback` | Validation journal, category registry, import and monitoring | ✅ Done |
 | `app` | Streamlit interface | ✅ Done |
-| `llm-justify` | LLM justification (Azure OpenAI) | — |
+| `llm-justify` | LLM justification (Azure OpenAI) | ✅ Done |
 | `retraining` | Daily retraining | ✅ Done |
 
 See `CAPABILITY-MAP.md` for the architecture and the build order, and the `SPEC-<module>.md` files for the details of each module.
@@ -169,6 +169,21 @@ If the model uses Azure embeddings, the estimated cost is shown and must be conf
 After the daily retraining, the new current model is picked up automatically (or use *Reload the model*).
 v1 runs locally; sharing it on the team's network will be documented later.
 
+## LLM justification (GPT-6.1 Sol)
+
+In the *Single ETF* and *Batch* screens, **Explain with GPT-6.1 Sol** asks the language model for a second opinion on the
+proposal: a verdict and a reason for each proposed category, existing categories to add or remove, a possible new
+category, and an alert when the description and the holdings contradict each other.
+
+- The estimated cost is shown and must be confirmed before every call; the same request is never paid twice (cache).
+- **Apply the suggestions** updates the selection (and pre-fills a suggested new category); the validator still decides.
+- Sent to Azure: the ETF name and description, its 10 largest holdings, the proposed categories and scores, the 5 closest
+  ETFs and the list of known categories. Never: validator names, the journal or secrets.
+- Every answer is kept in `data/llm_justifications.jsonl` (not committed), linked to the validation that followed it;
+  the *History* screen shows it. Costs appear in the cost report under the `llm-justify` module.
+- Set the name of your chat deployment in `.env` (`AZURE_OPENAI_CHAT_DEPLOYMENT`); it must also appear in
+  `config/pricing.yaml`. If your deployment refuses structured outputs, the app falls back to JSON mode automatically.
+
 ## Daily retraining
 
 ```bash
@@ -230,6 +245,7 @@ src/etf_classifier/similarity/ similarity module
 src/etf_classifier/feedback/  feedback module
 src/etf_classifier/app/       Streamlit interface
 src/etf_classifier/retraining/ daily retraining
+src/etf_classifier/llm/       LLM justification
 scripts/                      Windows Task Scheduler scripts
 logs/ cache/ artifacts/       logs, cache and pipelines (not committed)
 tests/                        tests and fictitious CSV
