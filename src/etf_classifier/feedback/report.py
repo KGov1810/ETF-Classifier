@@ -15,6 +15,7 @@ from datetime import date
 
 import pandas as pd
 
+from etf_classifier.common import markdown_table
 from etf_classifier.config import load_settings, resolve_path
 from etf_classifier.data.parsing import parse_categories
 from etf_classifier.feedback.store import ACCEPTED, CANCELLATION, CORRECTED, FeedbackStore
@@ -77,26 +78,25 @@ def build_feedback_report(settings: dict, since: date | None = None) -> Feedback
         return f"{value:.0%}" if value is not None else "–"
 
     lines += [f"Period: since {since or 'the start'}", "",
-              "| Indicator | Value |", "|---|---|",
-              f"| Active validations | {len(active)} |",
-              f"| Cancellations | {n_cancelled} |",
-              f"| Acceptance rate without change | {pct(rate)} (over {n_proposed} proposal(s)) |", ""]
+              markdown_table(["Indicator", "Value"], [
+                  ["Active validations", len(active)],
+                  ["Cancellations", n_cancelled],
+                  ["Acceptance rate without change", f"{pct(rate)} (over {n_proposed} proposal(s))"]]), ""]
     for who in alerts:
         label = "all validators" if who == "global" else who
         lines.append(f"> ⚠️ Bias risk for {label}: at least {threshold:.0%} of the proposals accepted without "
                      f"change (≥ {minimum} validations). Check that the proposals are actually reviewed.")
     if alerts:
         lines.append("")
-    lines += ["## By validator", "", "| Validator | Validations | With proposal | Acceptance rate |",
-              "|---|---|---|---|"]
-    lines += [f"| {v} | {s['n_validations']} | {s['n_with_proposal']} | {pct(s['acceptance_rate'])} |"
-              for v, s in sorted(by_validator.items())]
-    lines += ["", "## By day", "", "| Day | Validations |", "|---|---|"]
-    lines += [f"| {day} | {n} |" for day, n in active["ValidatedAt"].str[:10].value_counts().sort_index().items()]
-    lines += ["", "## Validator corrections (model weaknesses)", "",
-              "| Category | Added by validators | Removed by validators |", "|---|---|---|"]
-    for category in sorted(set(added) | set(removed)):
-        lines.append(f"| {category} | {added.get(category, 0)} | {removed.get(category, 0)} |")
+    by_day = active["ValidatedAt"].str[:10].value_counts().sort_index()
+    lines += ["## By validator", "",
+              markdown_table(["Validator", "Validations", "With proposal", "Acceptance rate"],
+                             [[v, s["n_validations"], s["n_with_proposal"], pct(s["acceptance_rate"])]
+                              for v, s in sorted(by_validator.items())]),
+              "", "## By day", "", markdown_table(["Day", "Validations"], [[d, n] for d, n in by_day.items()]),
+              "", "## Validator corrections (model weaknesses)", "",
+              markdown_table(["Category", "Added by validators", "Removed by validators"],
+                             [[c, added.get(c, 0), removed.get(c, 0)] for c in sorted(set(added) | set(removed))])]
     lines += ["", "## Created categories", "", ", ".join(stats["created_categories"]) or "None.", ""]
     return FeedbackReport("\n".join(lines), stats)
 

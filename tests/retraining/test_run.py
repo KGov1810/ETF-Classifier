@@ -115,3 +115,14 @@ def test_rerun_after_a_refused_candidate_is_skipped(isolated_settings, tmp_path)
     assert read_history(isolated_settings).iloc[-1]["outcome"] == "not_promoted"
     _run(isolated_settings, tmp_path)  # nothing changed since the refused candidate: no new training
     assert read_history(isolated_settings).iloc[-1]["outcome"] == "skipped"
+
+
+def test_dry_run_with_a_current_model_never_promotes(isolated_settings, tmp_path):
+    isolated_settings["retraining"]["min_comparison_etfs"] = 0
+    _run(isolated_settings, tmp_path)
+    first = current_version(isolated_settings)
+    _validate(isolated_settings)
+    assert _run(isolated_settings, tmp_path, "--dry-run") == EXIT_OK
+    last = read_history(isolated_settings).iloc[-1]
+    assert last["outcome"] == "not_promoted" and "Dry run" in last["reasons"]
+    assert current_version(isolated_settings) == first

@@ -32,7 +32,10 @@ def app_settings() -> dict:
 
 @st.cache_resource(show_spinner="Loading the model…")
 def _cached_model(config_path: str | None, version: str):
-    """One model per process and per version: a newly promoted model is picked up automatically."""
+    """One model per process and per version: a newly promoted model is picked up automatically.
+
+    `version` is only part of the cache key (the current model is read from the registry).
+    """
     return services.load_current_model(load_settings(config_path))
 
 

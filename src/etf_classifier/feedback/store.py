@@ -49,7 +49,7 @@ def _read_reference(path: str, mtime_ns: int, size: int, encoding: str, separato
     """Names and categories of the original CSV, without going through the data module.
 
     Cached on (path, modification time, size): the interface asks for the categories on every click,
-    and reading 10,000 rows takes about 0.1 s.
+    and reading 10,000 rows takes about 0.1 s. `mtime_ns` and `size` are only part of the cache key.
     """
     names, categories = set(), set()
     with open(path, encoding=encoding, newline="") as handle:

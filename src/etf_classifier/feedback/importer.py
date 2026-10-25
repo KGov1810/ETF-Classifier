@@ -10,9 +10,11 @@ Usage:
 import argparse
 import csv
 import sys
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
+from etf_classifier.common import markdown_table
 from etf_classifier.config import load_settings, resolve_path
 from etf_classifier.data.parsing import ParsingError, parse_categories
 from etf_classifier.feedback.checks import ValidationError
@@ -22,9 +24,67 @@ REQUIRED_COLUMNS = ["Name", "Description", "Composition", "Category"]
 EXIT_OK, EXIT_BAD_FILE, EXIT_STORE = 0, 2, 3
 
 
-def _created_categories(store: FeedbackStore) -> set[str]:
-    """Categories created by the validators (excluding historical ones)."""
-    return set(store.registry.created()["category"])
+@dataclass
+class ImportResult:
+    accepted: list[tuple[int, str, str]] = field(default_factory=list)         # (line, ETF, decision)
+    refused: list[tuple[int, str, list[str]]] = field(default_factory=list)    # (line, ETF, reasons)
+    created: list[str] = field(default_factory=list)                           # categories created
+    error: str = ""  # journal unavailable: the import stopped (lines already recorded stay recorded)
+
+
+def read_rows(path: Path) -> list[tuple[int, dict]]:
+    """(line number, row) of the validated CSV; raises ValueError if a required column is missing."""
+    with path.open(encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle, delimiter=";")
+        missing = [c for c in REQUIRED_COLUMNS if c not in (reader.fieldnames or [])]
+        if missing:
+            raise ValueError(f"missing columns: {', '.join(missing)}")
+        return [(reader.line_num, row) for row in reader]
+
+
+def import_rows(rows: list[tuple[int, dict]], store: FeedbackStore, validated_by: str,
+                create_categories: bool = False) -> ImportResult:
+    """Records every valid line with the same checks as a single validation; refused lines keep their reason."""
+    result = ImportResult()
+    created_before = set(store.registry.created()["category"])
+    for line, row in rows:
+        name = (row.get("Name") or "").strip()
+        try:
+            categories = parse_categories(row.get("Category") or "")
+            predicted_raw = (row.get("PredictedCategories") or "").strip()
+            predicted = parse_categories(predicted_raw) if predicted_raw else None
+        except ParsingError as exc:
+            result.refused.append((line, name, [str(exc)]))
+            continue
+        if not categories:
+            result.refused.append((line, name, ["validated category missing (empty Category column)"]))
+            continue
+        try:
+            record = store.record_validation(
+                {"name": name, "description": row.get("Description", ""), "composition": row.get("Composition", "")},
+                categories, validated_by=validated_by, predicted_categories=predicted,
+                model_version=(row.get("ModelVersion") or "").strip() or None, create_categories=create_categories,
+            )
+            result.accepted.append((line, name, record["Decision"]))
+        except ValidationError as exc:
+            result.refused.append((line, name, exc.errors))
+        except FeedbackError as exc:
+            result.error = str(exc)
+            break
+    result.created = sorted(set(store.registry.created()["category"]) - created_before)
+    return result
+
+
+def render_import_report(file_name: str, result: ImportResult) -> str:
+    lines = [f"# Validation import: {file_name}", "",
+             f"{len(result.accepted)} validation(s) recorded · {len(result.refused)} line(s) refused · "
+             f"{len(result.created)} category(ies) created", ""]
+    if result.created:
+        lines += [f"Created categories: {', '.join(result.created)}", ""]
+    if result.refused:
+        rows = [[line, name, "; ".join(errors)] for line, name, errors in result.refused]
+        lines += ["## Refused lines", "", markdown_table(["Line", "ETF", "Reason"], rows), ""]
+    return "\n".join(lines)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -40,54 +100,17 @@ def main(argv: list[str] | None = None) -> int:
     if not path.is_file():
         print(f"Error: file not found: {path}", file=sys.stderr)
         return EXIT_BAD_FILE
-    with path.open(encoding="utf-8", newline="") as handle:
-        reader = csv.DictReader(handle, delimiter=";")
-        missing = [c for c in REQUIRED_COLUMNS if c not in (reader.fieldnames or [])]
-        if missing:
-            print(f"Error: missing columns: {', '.join(missing)}", file=sys.stderr)
-            return EXIT_BAD_FILE
-        rows = [(reader.line_num, row) for row in reader]
+    try:
+        rows = read_rows(path)
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return EXIT_BAD_FILE
 
-    store = FeedbackStore(settings)
-    categories_before = _created_categories(store)
-    accepted, refused = [], []
-    for line, row in rows:
-        name = (row.get("Name") or "").strip()
-        try:
-            categories = parse_categories(row.get("Category") or "")
-            predicted_raw = (row.get("PredictedCategories") or "").strip()
-            predicted = parse_categories(predicted_raw) if predicted_raw else None
-        except ParsingError as exc:
-            refused.append((line, name, [str(exc)]))
-            continue
-        if not categories:
-            refused.append((line, name, ["validated category missing (empty Category column)"]))
-            continue
-        try:
-            record = store.record_validation(
-                {"name": name, "description": row.get("Description", ""), "composition": row.get("Composition", "")},
-                categories, validated_by=args.by, predicted_categories=predicted,
-                model_version=(row.get("ModelVersion") or "").strip() or None,
-                create_categories=args.create_categories,
-            )
-            accepted.append((line, name, record["Decision"]))
-        except ValidationError as exc:
-            refused.append((line, name, exc.errors))
-        except FeedbackError as exc:
-            print(f"Error: {exc} ({len(accepted)} line(s) already recorded)", file=sys.stderr)
-            return EXIT_STORE
-    created = sorted(_created_categories(store) - categories_before)
-
-    lines = [f"# Validation import: {path.name}", "",
-             f"{len(accepted)} validation(s) recorded · {len(refused)} line(s) refused · "
-             f"{len(created)} category(ies) created", ""]
-    if created:
-        lines += [f"Created categories: {', '.join(created)}", ""]
-    if refused:
-        lines += ["## Refused lines", "", "| Line | ETF | Reason |", "|---|---|---|"]
-        lines += [f"| {line} | {name} | {'; '.join(errors)} |" for line, name, errors in refused]
-        lines.append("")
-    report = "\n".join(lines)
+    result = import_rows(rows, FeedbackStore(settings), args.by, args.create_categories)
+    if result.error:
+        print(f"Error: {result.error} ({len(result.accepted)} line(s) already recorded)", file=sys.stderr)
+        return EXIT_STORE
+    report = render_import_report(path.name, result)
     target = resolve_path(settings["model"]["reports_dir"]) / f"feedback_import_{datetime.now():%Y%m%d-%H%M%S}.md"
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(report, encoding="utf-8")

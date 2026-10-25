@@ -11,6 +11,7 @@ import sys
 from dataclasses import dataclass
 from typing import Callable
 
+from etf_classifier.common import markdown_table
 from etf_classifier.config import load_settings, resolve_path
 from etf_classifier.data.loader import PreparedDataset, prepare_dataset
 from etf_classifier.features.embeddings import CommandStopped, embedder_for_command
@@ -59,22 +60,23 @@ def run_comparison(prepared: PreparedDataset, settings: dict, names: list[str],
 
 
 def render_comparison(results: list[ExperimentResult]) -> str:
-    rows = ["| Experiment | Macro F1 | Micro F1 | Features | Time | Azure cost |", "|---|---|---|---|---|---|"]
+    rows = []
     baseline = next((r.baseline for r in results if r.baseline is not None), None)
     if baseline:
-        rows.append(f"| Trivial baseline | {baseline.f1_macro:.3f} | {baseline.f1_micro:.3f} | 0 | – | $0 |")
+        rows.append(["Trivial baseline", f"{baseline.f1_macro:.3f}", f"{baseline.f1_micro:.3f}", 0, "–", "$0"])
     for r in results:
         if r.skipped_reason:
-            rows.append(f"| {r.name} | {r.skipped_reason} | | | | |")
+            rows.append([r.name, r.skipped_reason, "", "", "", ""])
         else:
-            rows.append(f"| {r.name} | {r.metrics.f1_macro:.3f} | {r.metrics.f1_micro:.3f} | {r.n_features} | "
-                        f"{r.seconds:.1f} s | ${r.azure_cost_usd:.4f} |")
+            rows.append([r.name, f"{r.metrics.f1_macro:.3f}", f"{r.metrics.f1_micro:.3f}", r.n_features,
+                         f"{r.seconds:.1f} s", f"${r.azure_cost_usd:.4f}"])
+    table = markdown_table(["Experiment", "Macro F1", "Micro F1", "Features", "Time", "Azure cost"], rows)
     fingerprint = results[0].test_fingerprint if results else "–"
     return "\n".join([
         "# Experiment comparison", "",
         f"All experiments are evaluated on the same test set (fingerprint `{fingerprint}`).",
         "Main metric: macro F1. The Azure cost is marginal: embeddings already cached are not paid for again.",
-        "", *rows, "",
+        "", table, "",
     ])
 
 

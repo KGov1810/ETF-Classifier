@@ -99,7 +99,7 @@ class TuningResult:
     n_validation: int
 
 
-def _thresholds(model, y_val, probas, cfg) -> np.ndarray:
+def _thresholds(y_val, probas, cfg) -> np.ndarray:
     return np.array([best_threshold(y_val[:, j], probas[:, j], cfg["min_positives_for_threshold"],
                                     cfg["default_threshold"]) for j in range(y_val.shape[1])])
 
@@ -118,7 +118,7 @@ def tune(train: pd.DataFrame, settings: dict, embedder=None) -> TuningResult:
     for c in cfg["c_grid"]:
         model = MultiLabelClassifier(classes, c, cfg["seed"], cfg["max_iter"]).fit(x_fit, y_fit)
         probas = model.predict_proba(x_val)
-        model.thresholds = _thresholds(model, y_val, probas, cfg)
+        model.thresholds = _thresholds(y_val, probas, cfg)
         scores[c] = evaluate(y_val, model.decide(probas, cfg["max_categories"]), classes).f1_macro
         thresholds_by_c[c] = dict(zip(classes, model.thresholds))
     best_c = max(cfg["c_grid"], key=lambda c: (scores[c], -c))  # on a tie, the strongest regularisation

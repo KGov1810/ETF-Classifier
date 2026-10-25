@@ -133,11 +133,11 @@ class SimilarityIndex:
                         else np.zeros_like(comp_sim))
             for offset in range(stop - start):
                 i = start + offset
-                results.append(self._neighbors_of(i, compositions[i], comp_sim[offset], text_sim[offset],
+                results.append(self._neighbors_of(compositions[i], comp_sim[offset], text_sim[offset],
                                                   reference_has_comp, position.get(exclude[i]), k))
         return results
 
-    def _neighbors_of(self, i, composition, comp_sim, text_sim, reference_has_comp, self_position, k) -> QueryResult:
+    def _neighbors_of(self, composition, comp_sim, text_sim, reference_has_comp, self_position, k) -> QueryResult:
         wc, wt = self.weights
         query_has_comp = bool(composition)
         both = reference_has_comp & query_has_comp
@@ -159,14 +159,10 @@ class SimilarityIndex:
         neighbors = [self._explain(j, composition, scores[j], comp_sim[j], text_sim[j], not both[j]) for j in top]
         threshold, min_common = self.duplicate_rule
         # same rule as the data module: sufficient overlap AND minimum number of shared tickers
-        duplicates = [n for n in neighbors if n.overlap_pct / 100 >= threshold - 1e-9
-                      and self._common_count(composition, n) >= min_common]
+        duplicates = [n for j, n in zip(top, neighbors) if n.overlap_pct / 100 >= threshold - 1e-9
+                      and len(set(composition) & set(self.compositions[j])) >= min_common]
         near_duplicate = max(duplicates, key=lambda n: n.overlap_pct) if duplicates else None
         return QueryResult(neighbors, near_duplicate, not query_has_comp)
-
-    def _common_count(self, composition: dict, neighbor: Neighbor) -> int:
-        position = int(np.flatnonzero(self.row_ids == neighbor.row_id)[0])
-        return len(set(composition) & set(self.compositions[position]))
 
     def _explain(self, j, composition, score, comp_sim, text_sim, text_only) -> Neighbor:
         reference = self.compositions[j]

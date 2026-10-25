@@ -14,6 +14,7 @@ from typing import Callable
 
 import numpy as np
 
+from etf_classifier.common import markdown_table
 from etf_classifier.config import load_settings, resolve_path
 from etf_classifier.data.loader import PreparedDataset, prepare_dataset
 from etf_classifier.features.embeddings import CommandStopped, embedder_for_command
@@ -59,8 +60,9 @@ def render(outcome: EvaluationOutcome) -> str:
     lines = ["# Neighbour vote evaluation", "",
              f"Same test set for every method (fingerprint `{outcome.test_fingerprint}`). "
              "The index only contains training ETFs.", "",
-             "| Method | Macro F1 | Micro F1 | Per-ETF F1 |", "|---|---|---|---|"]
-    lines += [f"| {label} | {m.f1_macro:.3f} | {m.f1_micro:.3f} | {m.f1_samples:.3f} |" for label, m in outcome.rows]
+             markdown_table(["Method", "Macro F1", "Micro F1", "Per-ETF F1"],
+                            [[label, f"{m.f1_macro:.3f}", f"{m.f1_micro:.3f}", f"{m.f1_samples:.3f}"]
+                             for label, m in outcome.rows])]
     return "\n".join(lines) + "\n"
 
 

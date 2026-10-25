@@ -31,7 +31,7 @@ if uploaded is None:
 content = uploaded.getvalue()
 fingerprint = hashlib.sha256(content).hexdigest()
 if state.get(f"{PREFIX}_fingerprint") != fingerprint:  # new file: forget the previous queue
-    for key in [k for k in state.keys() if str(k).startswith(f"{PREFIX}_") and k != f"{PREFIX}_file"]:
+    for key in [k for k in state if str(k).startswith(f"{PREFIX}_") and k != f"{PREFIX}_file"]:
         del state[key]
     state[f"{PREFIX}_fingerprint"] = fingerprint
 

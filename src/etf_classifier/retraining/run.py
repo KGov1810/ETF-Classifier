@@ -10,6 +10,7 @@ import argparse
 import logging
 import sys
 import time
+from dataclasses import dataclass
 
 import pandas as pd
 
@@ -63,6 +64,41 @@ def _report(started: str, outcome: str, info: dict, checks: list, per_category: 
     return "\n".join(lines) + "\n"
 
 
+@dataclass
+class _Comparison:
+    checks: list[tuple[bool, str]]
+    per_category: pd.DataFrame
+    new_categories: list[str]
+    description: str   # how the comparison set was built, for the report
+    record: dict       # history columns filled by the comparison
+
+
+def _compare_with_current(trained, prepared, current_bundle, settings: dict, embedder) -> _Comparison:
+    """Scores both models on the test ETFs the current model never saw, then applies the promotion rule."""
+    candidate_bundle = load_bundle(trained.version, settings, embedder)
+    comparison = comparison_set(prepared.split.test, current_bundle)
+    shared, new_categories, _ = shared_categories(current_bundle, candidate_bundle)
+    n = len(comparison.data)
+    if n and shared:
+        current_scores = score(current_bundle, comparison.data, shared, settings)
+        candidate_scores = score(candidate_bundle, comparison.data, shared, settings)
+    else:
+        current_scores, candidate_scores = _empty_scores(), _empty_scores()
+    decision = decide(current_scores, candidate_scores, trained.outcome.metrics.f1_macro,
+                      trained.outcome.baseline.f1_macro, n, settings["retraining"])
+    if comparison.whole_test_set:
+        description = (f"{n} ETF(s): whole test set (the current model predates this module and may have seen "
+                       "some of them, which favours it)")
+    else:
+        description = (f"{n} ETF(s); {comparison.n_seen_excluded} test ETF(s) excluded because the current model "
+                       "trained on them")
+    per_category = current_scores.per_category.merge(candidate_scores.per_category, on="category",
+                                                     suffixes=("_current", "_candidate"))
+    record = {"comparison_etfs": n, "current_f1_macro": f"{current_scores.f1_macro:.3f}",
+              "candidate_f1_macro": f"{candidate_scores.f1_macro:.3f}"}
+    return _Comparison(decision.checks, per_category, new_categories, description, record)
+
+
 def retrain(settings: dict, force: bool = False, dry_run: bool = False, client=None) -> dict:
     """One run under the job lock; returns the history record (raises on failure)."""
     started = utc_timestamp()
@@ -79,9 +115,11 @@ def retrain(settings: dict, force: bool = False, dry_run: bool = False, client=N
         current_bundle = load_bundle(current, settings, embedder) if current else None
 
         record["dataset_fingerprint"] = fingerprint
-        already_trained = fingerprint in {current_bundle.metrics.get("dataset_fingerprint") if current_bundle else None,
-                                          last_trained_fingerprint(settings)}
-        if current_bundle is not None and not force and already_trained:
+        # nothing changed since the current model, or since the last candidate (even a refused one)
+        trained_on = {last_trained_fingerprint(settings)}
+        if current_bundle is not None:
+            trained_on.add(current_bundle.metrics.get("dataset_fingerprint"))
+        if current_bundle is not None and not force and fingerprint in trained_on:
             record.update(outcome=SKIPPED, reasons="No new or cancelled validation since the last training.",
                           duration_seconds=f"{time.perf_counter() - t0:.1f}")
             logger.info("Skipped: dataset unchanged (%s)", fingerprint)
@@ -96,42 +134,23 @@ def retrain(settings: dict, force: bool = False, dry_run: bool = False, client=N
                 "Candidate macro F1 on its test set": f"{trained.outcome.metrics.f1_macro:.3f} "
                                                       f"(trivial baseline {trained.outcome.baseline.f1_macro:.3f})",
                 "Azure cost": f"${trained.outcome.azure_cost_usd:.4f}"}
-        checks, per_category, new_categories = [], None, []
-
-        if current_bundle is None:
-            outcome = NOT_PROMOTED if dry_run else PROMOTED
-            reasons = "Dry run: never promoted." if dry_run else "First model: it becomes the current model."
-            checks.append((not dry_run, reasons))
+        per_category, new_categories = None, []
+        if current_bundle is None:  # a first model is already current (make_current_if_first), unless dry run
+            checks = [] if dry_run else [(True, "First model: it becomes the current model.")]
         else:
-            candidate_bundle = load_bundle(trained.version, settings, embedder)
-            comparison = comparison_set(prepared.split.test, current_bundle)
-            shared, new_categories, _ = shared_categories(current_bundle, candidate_bundle)
-            n = len(comparison.data)
-            if n and shared:
-                current_scores = score(current_bundle, comparison.data, shared, settings)
-                candidate_scores = score(candidate_bundle, comparison.data, shared, settings)
-            else:
-                current_scores, candidate_scores = _empty_scores(), _empty_scores()
-            decision = decide(current_scores, candidate_scores, trained.outcome.metrics.f1_macro,
-                              trained.outcome.baseline.f1_macro, n, settings["retraining"])
-            checks = decision.checks
-            per_category = current_scores.per_category.merge(candidate_scores.per_category, on="category",
-                                                             suffixes=("_current", "_candidate"))
-            info["Comparison set"] = (f"{n} ETF(s); {comparison.n_seen_excluded} test ETF(s) excluded because "
-                                      "the current model trained on them")
-            if comparison.whole_test_set:
-                info["Comparison set"] = (f"{n} ETF(s): whole test set (the current model predates this module "
-                                          "and may have seen some of them, which favours it)")
-            record.update(comparison_etfs=n, current_f1_macro=f"{current_scores.f1_macro:.3f}",
-                          candidate_f1_macro=f"{candidate_scores.f1_macro:.3f}")
-            if decision.promote and not dry_run:
-                promote(trained.version, settings)
-                outcome, reasons = PROMOTED, "All promotion checks passed."
-            else:
-                outcome = NOT_PROMOTED
-                reasons = "; ".join(decision.reasons) if not decision.promote else "Dry run: never promoted."
-                if dry_run:
-                    checks = checks + [(False, "Dry run: never promoted.")]
+            comparison = _compare_with_current(trained, prepared, current_bundle, settings, embedder)
+            checks, per_category, new_categories = comparison.checks, comparison.per_category, comparison.new_categories
+            info["Comparison set"] = comparison.description
+            record.update(comparison.record)
+        if dry_run:
+            checks = [*checks, (False, "Dry run: never promoted.")]
+        promoted = all(ok for ok, _ in checks)
+        if promoted and current_bundle is not None:
+            promote(trained.version, settings)
+        failed = [text for ok, text in checks if not ok]
+        outcome = PROMOTED if promoted else NOT_PROMOTED
+        reasons = "; ".join(failed) if failed else (checks[0][1] if current_bundle is None
+                                                    else "All promotion checks passed.")
 
         record.update(outcome=outcome, reasons=reasons, duration_seconds=f"{time.perf_counter() - t0:.1f}")
         report_path = resolve_path(settings["model"]["reports_dir"]) / f"retraining_{trained.version}.md"

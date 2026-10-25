@@ -56,3 +56,28 @@ def test_missing_columns_give_an_error_code(tmp_path, config, capsys):
     path.write_text("Name;Category\nX;['Gold']\n", encoding="utf-8")
     assert main(["--csv", str(path), "--by", "Kevin", "--config", config]) == 2
     assert "Composition" in capsys.readouterr().err
+
+
+def test_import_rows_can_be_used_without_the_command_line(store):
+    from etf_classifier.feedback.importer import import_rows
+
+    rows = [(2, {"Name": "Gold One", "Description": "d", "Composition": "[{'NEM': 5.0}]", "Category": "['Gold']",
+                 "PredictedCategories": "['Gold']"}),
+            (3, {"Name": "No Category", "Description": "d", "Composition": "[]", "Category": "[]"})]
+    result = import_rows(rows, store, "Kevin")
+    assert result.accepted == [(2, "Gold One", "accepted")]
+    assert result.refused[0][:2] == (3, "No Category")
+    assert result.created == [] and result.error == ""
+
+
+def test_import_stops_cleanly_when_the_journal_is_unavailable(store, monkeypatch):
+    from etf_classifier.feedback.importer import import_rows
+    from etf_classifier.feedback.store import FeedbackError
+
+    def locked(*_, **__):
+        raise FeedbackError("Another record is being saved: try again in a few seconds.")
+
+    monkeypatch.setattr(store, "record_validation", locked)
+    rows = [(2, {"Name": "Gold One", "Description": "d", "Composition": "[{'NEM': 5.0}]", "Category": "['Gold']"})]
+    result = import_rows(rows, store, "Kevin")
+    assert result.accepted == [] and "try again" in result.error
