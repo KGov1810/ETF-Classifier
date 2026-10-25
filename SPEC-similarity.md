@@ -31,7 +31,11 @@ mesure), l'interface (module `app`).
 | **Texte** | Cosinus entre les embeddings si le modèle les utilise, sinon entre les vecteurs TF-IDF | Rapproche les ETF de même thème, même sans titres communs |
 
 - **Score combiné** = 0,5 × composition + 0,5 × texte (poids configurables).
-- Si l'un des deux ETF a une composition vide, seul le texte compte (poids renormalisés), et c'est indiqué.
+- Tous les voisins d'une même recherche sont notés sur la même échelle :
+  - si l'**ETF recherché** n'a pas de composition, tous les voisins sont notés sur le texte seul, et c'est indiqué ;
+  - si seul le **voisin** n'a pas de composition, sa similarité de composition vaut 0 dans le score combiné.
+  *(Correction du 25/10/2026 : la règle initiale, « texte seul si l'un des deux n'a pas de composition », plaçait
+  un ETF sans composition devant des ETF partageant les mêmes tickers, car son score n'était pas sur la même échelle.)*
 
 ### 2. Recherche des voisins
 - `SimilarityIndex.build(reference_df, pipeline)` construit l'index ; `index.query(df, k=5)` renvoie pour chaque ETF ses `k` voisins.

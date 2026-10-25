@@ -13,8 +13,10 @@ from pathlib import Path
 import joblib
 
 from etf_classifier.config import resolve_path
+from etf_classifier.similarity.index import SimilarityIndex
 
 BUNDLE_FILE = "bundle.joblib"
+SIMILARITY_FILE = "similarity.joblib"
 REGISTRY_FILE = "registry.json"
 
 
@@ -29,6 +31,7 @@ class ModelBundle:
     model: object
     pipeline: object
     metrics: dict
+    similarity: object | None = None  # index de similarité (absent des modèles plus anciens)
 
 
 def _root(settings: dict) -> Path:
@@ -64,12 +67,14 @@ def current_version(settings: dict) -> str | None:
 
 
 def save_bundle(model, pipeline, metrics: dict, settings: dict, model_card: str,
-                version: str | None = None) -> Path:
+                version: str | None = None, similarity=None) -> Path:
     """Écrit modèle + pipeline + metrics.json + MODEL_CARD.md ; le premier modèle devient courant."""
     version = version or _new_version(settings)
     path = _root(settings) / version
     path.mkdir(parents=True, exist_ok=False)
     joblib.dump({"model": model, "pipeline": pipeline}, path / BUNDLE_FILE)
+    if similarity is not None:
+        similarity.save(path / SIMILARITY_FILE)
     (path / "metrics.json").write_text(json.dumps(metrics, ensure_ascii=False, indent=2, default=str),
                                        encoding="utf-8")
     (path / "MODEL_CARD.md").write_text(model_card, encoding="utf-8")
@@ -107,4 +112,5 @@ def load_bundle(version: str, settings: dict, embedder=None) -> ModelBundle:
     content = joblib.load(path / BUNDLE_FILE)
     content["pipeline"].attach_embedder(embedder)
     metrics = json.loads((path / "metrics.json").read_text(encoding="utf-8"))
-    return ModelBundle(version, path, content["model"], content["pipeline"], metrics)
+    similarity = SimilarityIndex.load(path / SIMILARITY_FILE) if (path / SIMILARITY_FILE).exists() else None
+    return ModelBundle(version, path, content["model"], content["pipeline"], metrics, similarity)

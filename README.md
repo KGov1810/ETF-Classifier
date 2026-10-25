@@ -16,7 +16,7 @@ chacune mesurée par rapport à une référence simple.
 | `costs` | Estimation et suivi des coûts Azure OpenAI (USD) | ✅ Fait |
 | `features` | Vectorisation du texte, de la composition et embeddings Azure | ✅ Fait |
 | `model` | Classifieur multi-étiquettes, évaluation, versionnement | ✅ Fait |
-| `similarity` | ETF les plus proches | — |
+| `similarity` | ETF les plus proches, alerte quasi-doublon, vote des voisins | ✅ Fait |
 | `feedback` | Enregistrement des validations dans le CSV | — |
 | `app` | Interface Streamlit | — |
 | `llm-justify` | Justification par LLM (Azure OpenAI) | — |
@@ -119,6 +119,17 @@ python -m etf_classifier.model.predict --csv nouveaux_etfs.csv                  
 - Rapports dans `reports/` : `model_<version>.md` (métriques, détail par catégorie, variables les plus influentes), `model_comparison.md`.
 - `predict` écrit pour chaque ETF les catégories retenues (au moins 1, au plus 5), les scores et un indicateur « incertain ».
 
+## Trouver les ETF les plus proches
+
+```bash
+python -m etf_classifier.similarity.search --csv nouveaux_etfs.csv --k 5    # voisins expliqués + alerte quasi-doublon
+python -m etf_classifier.similarity.evaluate --csv data/raw/etfs.csv        # vote des voisins vs modèle vs référence
+```
+
+- Score combiné : 0,5 × similarité de composition (cosinus des poids) + 0,5 × similarité de texte (embeddings ou TF-IDF).
+- Chaque voisin est expliqué : part du poids en commun et principaux tickers partagés.
+- L'index est construit par `model.train` et rangé dans le dossier du modèle (`similarity.joblib`).
+
 ## Tests
 
 ```bash
@@ -142,6 +153,7 @@ src/etf_classifier/data/      module data
 src/etf_classifier/costs/     module costs
 src/etf_classifier/features/  module features
 src/etf_classifier/model/     module model
+src/etf_classifier/similarity/ module similarity
 logs/ cache/ artifacts/       journaux, cache et pipelines (non versionnés)
 tests/data/              tests et CSV fictif
 tasks/                   plan et tâches

@@ -23,6 +23,7 @@ from etf_classifier.model.classifier import TuningResult, tune
 from etf_classifier.model.evaluate import Metrics, evaluate, render_report
 from etf_classifier.model.explain import top_features
 from etf_classifier.model.registry import current_version, promote, save_bundle
+from etf_classifier.similarity.index import SimilarityIndex
 
 EXIT_OK, EXIT_CANCELLED = 0, 1
 
@@ -118,7 +119,10 @@ def main(argv: list[str] | None = None, client=None, input_fn: Callable[[str], s
                "blocks": result.pipeline.active_blocks, "unknown_categories": outcome.unknown_categories,
                "n_train": len(prepared.split.train), "n_test": len(prepared.split.test),
                "azure_cost_usd": outcome.azure_cost_usd}
-    path = save_bundle(result.model, result.pipeline, metrics, settings, "")
+    # index de similarité sur toutes les lignes exploitables, rangé avec le modèle (toujours cohérents)
+    similarity = SimilarityIndex.build(prepared.data, result.pipeline, settings)
+    info["Index de similarité"] = f"{len(prepared.data)} ETF, {similarity.size_mb:.1f} Mo"
+    path = save_bundle(result.model, result.pipeline, metrics, settings, "", similarity=similarity)
     version = path.name
     (path / "MODEL_CARD.md").write_text(_model_card(version, outcome, info), encoding="utf-8")
     report = render_report(version, outcome.metrics, outcome.baseline, outcome.top, thresholds,

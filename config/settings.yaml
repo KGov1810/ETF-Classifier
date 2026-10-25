@@ -75,3 +75,11 @@ model:
     text_only: {text_tfidf: true, holdings: false, composition_stats: false, embeddings: false}
     holdings_only: {text_tfidf: false, holdings: true, composition_stats: true, embeddings: false}
     embeddings_only: {text_tfidf: false, holdings: false, composition_stats: false, embeddings: true}
+
+similarity:
+  composition_weight: 0.5      # poids de la similarité de composition dans le score combiné
+  text_weight: 0.5             # poids de la similarité de texte
+  n_neighbors: 5               # voisins affichés par défaut
+  n_shared_holdings: 5         # tickers partagés affichés pour expliquer un rapprochement
+  eval_k: [5, 10, 20]          # nombres de voisins évalués pour le vote
+  query_chunk: 256             # requêtes traitées par paquet (mémoire)
