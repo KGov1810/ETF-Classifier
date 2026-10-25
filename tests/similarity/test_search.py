@@ -9,9 +9,9 @@ from etf_classifier.similarity.search import main as search_main
 
 
 @pytest.fixture
-def config(sim_settings, tmp_path):
+def config(isolated_settings, tmp_path):
     path = tmp_path / "settings.yaml"
-    path.write_text(yaml.safe_dump(sim_settings, allow_unicode=True), encoding="utf-8")
+    path.write_text(yaml.safe_dump(isolated_settings, allow_unicode=True), encoding="utf-8")
     return str(path)
 
 
@@ -58,8 +58,8 @@ def test_without_any_model_a_clear_message_is_shown(new_etfs_csv, config, capsys
     assert "No current model" in capsys.readouterr().err
 
 
-def test_model_without_index_asks_to_retrain(sample_csv, new_etfs_csv, config, sim_settings, capsys):
+def test_model_without_index_asks_to_retrain(sample_csv, new_etfs_csv, config, isolated_settings, capsys):
     train_main(["--csv", str(sample_csv), "--config", config, "--no-azure"])
-    (load_bundle("current", sim_settings).path / "similarity.joblib").unlink()
+    (load_bundle("current", isolated_settings).path / "similarity.joblib").unlink()
     assert search_main(["--csv", str(new_etfs_csv), "--config", config]) == 4
     assert "retrain" in capsys.readouterr().err

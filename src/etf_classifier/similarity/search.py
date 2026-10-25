@@ -13,13 +13,13 @@ from typing import Callable
 
 import pandas as pd
 
+from etf_classifier.common import markdown_table
 from etf_classifier.config import load_settings, resolve_path
 from etf_classifier.data.loader import load_dataset
-from etf_classifier.features.build import announce_embedding_plan, confirm_spending
-from etf_classifier.features.embeddings import create_embedder
+from etf_classifier.features.embeddings import CommandStopped, embedder_for_command
 from etf_classifier.model.registry import NoModelError, load_bundle
 
-EXIT_OK, EXIT_CANCELLED, EXIT_NO_MODEL, EXIT_NO_AZURE, EXIT_NO_INDEX = 0, 1, 2, 3, 4
+EXIT_OK, EXIT_NO_MODEL, EXIT_NO_INDEX = 0, 2, 4  # 1 = cancelled, 3 = Azure not configured
 
 
 def _summary(names: list[str], results, version: str) -> str:
@@ -32,12 +32,11 @@ def _summary(names: list[str], results, version: str) -> str:
                       f"categories: {', '.join(dup.categories)}", ""]
         if result.text_only:
             lines += ["No composition: matched on the text only.", ""]
-        lines += ["| Rank | ETF | Categories | Score | Weight in common | Shared tickers |", "|---|---|---|---|---|---|"]
-        for rank, n in enumerate(result.neighbors, start=1):
-            shared = ", ".join(t for t, _ in n.shared_holdings) or "–"
-            lines.append(f"| {rank} | {n.name} | {', '.join(n.categories)} | {n.score:.2f} | "
-                         f"{n.overlap_pct:.0f}% | {shared} |")
-        lines.append("")
+        rows = [[rank, n.name, ", ".join(n.categories), f"{n.score:.2f}", f"{n.overlap_pct:.0f}%",
+                 ", ".join(t for t, _ in n.shared_holdings) or "–"]
+                for rank, n in enumerate(result.neighbors, start=1)]
+        lines += [markdown_table(["Rank", "ETF", "Categories", "Score", "Weight in common", "Shared tickers"], rows),
+                  ""]
     return "\n".join(lines)
 
 
@@ -64,16 +63,13 @@ def main(argv: list[str] | None = None, client=None, input_fn: Callable[[str], s
         return EXIT_NO_INDEX
 
     data = load_dataset(args.csv, settings, require_categories=False).data.reset_index(drop=True)
-    if bundle.pipeline.uses_embeddings:
-        embedder = create_embedder(settings, client=client)
-        if embedder is None:
-            print("Error: this model uses Azure embeddings, but Azure OpenAI is not configured "
-                  "(see .env.example).", file=sys.stderr)
-            return EXIT_NO_AZURE
+    try:
+        embedder = embedder_for_command(settings, data, args.yes, input_fn, client,
+                                        enabled=bundle.pipeline.uses_embeddings, required=True)
+    except CommandStopped as stop:
+        return stop.exit_code
+    if embedder is not None:
         bundle.pipeline.attach_embedder(embedder)
-        plan, cost = announce_embedding_plan(settings, data, embedder)
-        if not confirm_spending(plan, cost, args.yes, input_fn):
-            return EXIT_CANCELLED
 
     k = args.k or settings["similarity"]["n_neighbors"]
     results = bundle.similarity.query(data, bundle.pipeline, k=k)

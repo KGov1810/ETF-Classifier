@@ -20,7 +20,8 @@ class FakeEmbeddingsAPI:
         data = [SimpleNamespace(index=i, embedding=fake_vector(text, dimensions)) for i, text in enumerate(input)]
         tokens = sum(max(1, len(text) // 4) for text in input)
         # order deliberately reversed: the client must put the vectors back in index order
-        return SimpleNamespace(data=list(reversed(data)), usage=SimpleNamespace(prompt_tokens=tokens, total_tokens=tokens))
+        usage = SimpleNamespace(prompt_tokens=tokens, total_tokens=tokens)
+        return SimpleNamespace(data=list(reversed(data)), usage=usage)
 
 
 class FakeAzureClient:

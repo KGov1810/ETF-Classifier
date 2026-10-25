@@ -13,8 +13,8 @@ def _query_df(**fields):
 
 
 @pytest.fixture
-def index(small_reference, small_pipeline, sim_settings):
-    return SimilarityIndex.build(small_reference, small_pipeline, sim_settings)
+def index(small_reference, small_pipeline, isolated_settings):
+    return SimilarityIndex.build(small_reference, small_pipeline, isolated_settings)
 
 
 def test_identical_composition_gives_similarity_1_and_a_near_duplicate_alert(index, small_pipeline):
@@ -26,13 +26,13 @@ def test_identical_composition_gives_similarity_1_and_a_near_duplicate_alert(ind
     assert result.near_duplicate.name in {"World A", "World B"}
 
 
-def test_small_etf_contained_in_a_large_one_is_not_identical(small_pipeline, sim_settings):
+def test_small_etf_contained_in_a_large_one_is_not_identical(small_pipeline, isolated_settings):
     large = {f"T{i}": 10.0 for i in range(10)}
     reference = pd.DataFrame([{"row_id": 0, "name": "Large", "description": "broad",
                                "composition": large, "categories": ["A"]}])
-    index = SimilarityIndex.build(reference, FeaturePipeline(sim_settings).fit(reference), sim_settings)
+    index = SimilarityIndex.build(reference, FeaturePipeline(isolated_settings).fit(reference), isolated_settings)
     query = _query_df(composition={"T0": 10.0, "T1": 10.0, "T2": 10.0})
-    neighbor = index.query(query, index_pipeline(reference, sim_settings), k=1)[0].neighbors[0]
+    neighbor = index.query(query, index_pipeline(reference, isolated_settings), k=1)[0].neighbors[0]
     assert neighbor.overlap_pct == pytest.approx(100.0)
     assert neighbor.composition_similarity < 0.6
 
@@ -76,10 +76,10 @@ def test_unknown_tickers_lower_the_composition_similarity(index, small_pipeline)
 
 
 @pytest.mark.slow
-def test_100_queries_on_10000_etfs_in_less_than_10_seconds(make_synthetic, sim_settings):
+def test_100_queries_on_10000_etfs_in_less_than_10_seconds(make_synthetic, isolated_settings):
     reference = make_synthetic(10_000, seed=4).assign(row_id=lambda d: range(len(d)))
-    pipeline = FeaturePipeline(sim_settings).fit(reference)
-    index = SimilarityIndex.build(reference, pipeline, sim_settings)
+    pipeline = FeaturePipeline(isolated_settings).fit(reference)
+    index = SimilarityIndex.build(reference, pipeline, isolated_settings)
     queries = make_synthetic(100, seed=5)
     start = time.perf_counter()
     index.query(queries, pipeline, k=5)

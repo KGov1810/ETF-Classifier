@@ -10,10 +10,10 @@ import argparse
 import logging
 import sys
 import time
-from datetime import datetime, timezone
 
 import pandas as pd
 
+from etf_classifier.common import markdown_table, utc_timestamp
 from etf_classifier.config import load_settings, resolve_path
 from etf_classifier.data.loader import prepare_dataset
 from etf_classifier.features.embeddings import create_embedder
@@ -54,10 +54,10 @@ def _report(started: str, outcome: str, info: dict, checks: list, per_category: 
         per_category = per_category[(per_category["support_current"] > 0) | (per_category["f1_current"] > 0)
                                     | (per_category["f1_candidate"] > 0)]
     if per_category is not None and not per_category.empty:
-        lines += ["", "## Per category (comparison set)", "", "| Category | Support | Current F1 | Candidate F1 |",
-                  "|---|---|---|---|"]
-        lines += [f"| {r.category} | {int(r.support_current)} | {r.f1_current:.2f} | {r.f1_candidate:.2f} |"
-                  for r in per_category.itertuples()]
+        rows = [[r.category, int(r.support_current), f"{r.f1_current:.2f}", f"{r.f1_candidate:.2f}"]
+                for r in per_category.itertuples()]
+        lines += ["", "## Per category (comparison set)", "",
+                  markdown_table(["Category", "Support", "Current F1", "Candidate F1"], rows)]
     if new_categories:
         lines += ["", "## New categories (not compared)", "", ", ".join(new_categories)]
     return "\n".join(lines) + "\n"
@@ -65,7 +65,7 @@ def _report(started: str, outcome: str, info: dict, checks: list, per_category: 
 
 def retrain(settings: dict, force: bool = False, dry_run: bool = False, client=None) -> dict:
     """One run under the job lock; returns the history record (raises on failure)."""
-    started = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    started = utc_timestamp()
     t0 = time.perf_counter()
     record = {"started_at": started}
     with job_lock(settings):
@@ -150,7 +150,7 @@ def main(argv: list[str] | None = None, client=None) -> int:
     args = parser.parse_args(argv)
     settings = load_settings(args.config)
     handler = _setup_logging(settings)
-    started = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    started = utc_timestamp()
     try:
         record = retrain(settings, force=args.force, dry_run=args.dry_run, client=client)
     except RetrainingBusy as exc:
@@ -169,7 +169,8 @@ def main(argv: list[str] | None = None, client=None) -> int:
     append_run(settings, record)
     print(f"{record['outcome']}: {record.get('reasons', '')}")
     if record.get("candidate_version"):
-        print(f"Report: {resolve_path(settings['model']['reports_dir']) / ('retraining_' + record['candidate_version'] + '.md')}")
+        report = resolve_path(settings["model"]["reports_dir"]) / f"retraining_{record['candidate_version']}.md"
+        print(f"Report: {report}")
     return EXIT_OK
 
 

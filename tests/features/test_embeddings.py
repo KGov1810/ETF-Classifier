@@ -2,7 +2,6 @@ import csv
 import logging
 
 import numpy as np
-import pytest
 
 from etf_classifier.features.embeddings import create_embedder, embedding_text
 
@@ -96,3 +95,40 @@ def test_category_is_never_part_of_the_embedded_text():
 def test_top_tickers_option_adds_the_largest_holdings():
     text = embedding_text("X", "Y.", {"A": 1.0, "B": 9.0}, include_top_tickers=True)
     assert text.endswith("Top holdings: B, A.")
+
+
+def _etfs():
+    import pandas as pd
+
+    return pd.DataFrame([{"name": "Gold ETF", "description": "Gold miners", "composition": {"NEM": 5.0},
+                          "categories": ["Gold"]}])
+
+
+def test_command_helper_returns_nothing_when_embeddings_are_disabled(azure_settings, fake_client):
+    from etf_classifier.features.embeddings import embedder_for_command
+
+    assert embedder_for_command(azure_settings, _etfs(), False, input, fake_client, enabled=False) is None
+    assert fake_client.calls == []
+
+
+def test_command_helper_stops_when_the_user_refuses_the_cost(azure_settings, fake_client, capsys):
+    import pytest
+
+    from etf_classifier.features.embeddings import EXIT_CANCELLED, CommandStopped, embedder_for_command
+
+    with pytest.raises(CommandStopped) as stop:
+        embedder_for_command(azure_settings, _etfs(), False, lambda prompt: "n", fake_client)
+    assert stop.value.exit_code == EXIT_CANCELLED and fake_client.calls == []
+    assert "estimated cost" in capsys.readouterr().out
+
+
+def test_command_helper_requires_azure_when_the_model_uses_it(azure_settings, no_azure_env, monkeypatch):
+    import pytest
+
+    from etf_classifier.features.embeddings import EXIT_NO_AZURE, CommandStopped, embedder_for_command
+
+    monkeypatch.setattr("etf_classifier.azure.load_dotenv", lambda *a, **k: None)
+    assert embedder_for_command(azure_settings, _etfs(), True, input) is None  # optional: carries on without
+    with pytest.raises(CommandStopped) as stop:
+        embedder_for_command(azure_settings, _etfs(), True, input, required=True)
+    assert stop.value.exit_code == EXIT_NO_AZURE

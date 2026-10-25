@@ -6,6 +6,8 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import f1_score, hamming_loss, precision_recall_fscore_support
 
+from etf_classifier.common import markdown_table
+
 
 @dataclass
 class Metrics:
@@ -27,12 +29,6 @@ class Metrics:
         }
 
 
-def _table(headers: list[str], rows: list[list]) -> str:
-    lines = ["| " + " | ".join(headers) + " |", "|" + "---|" * len(headers)]
-    lines += ["| " + " | ".join(str(v).replace("|", "\\|") for v in row) + " |" for row in rows]
-    return "\n".join(lines)
-
-
 def render_report(version: str, metrics: Metrics, baseline: Metrics, top: dict, thresholds: dict[str, float],
                   unknown_categories: dict[str, int], info: dict) -> str:
     """Markdown evaluation report of a model (test set, evaluated only once)."""
@@ -43,25 +39,26 @@ def render_report(version: str, metrics: Metrics, baseline: Metrics, top: dict, 
             ["Hamming loss (lower is better)", f"{metrics.hamming_loss:.3f}", f"{baseline.hamming_loss:.3f}"]]
     lines = [
         f"# Evaluation report: model {version}", "",
-        _table(["Information", "Value"], [[k, v] for k, v in info.items()]), "",
+        markdown_table(["Information", "Value"], [[k, v] for k, v in info.items()]), "",
         "## Comparison with the trivial baseline", "",
         "The trivial baseline predicts the most frequent categories, without looking at the ETF.", "",
-        _table(["Metric (test set)", "Model", "Trivial baseline"], rows), "",
+        markdown_table(["Metric (test set)", "Model", "Trivial baseline"], rows), "",
         "## Details per category", "",
     ]
     details = metrics.per_category.sort_values("support", ascending=False)
-    lines += [_table(["Category", "Precision", "Recall", "F1", "Support (test)", "Threshold"],
+    lines += [markdown_table(["Category", "Precision", "Recall", "F1", "Support (test)", "Threshold"],
                      [[r.category, f"{r.precision:.2f}", f"{r.recall:.2f}", f"{r.f1:.2f}", int(r.support),
                        f"{thresholds.get(r.category, 0.5):.2f}"] for r in details.itertuples()]), ""]
     lines += ["## Most influential features", "",
               "Features that push most towards each category (positive coefficients).", ""]
-    lines += [_table(["Category", "Features"],
+    lines += [markdown_table(["Category", "Features"],
                      [[c, ", ".join(name for name, _ in feats) or "none (constant category)"]
                       for c, feats in sorted(top.items())]), ""]
     lines += ["## Categories that cannot be learned", ""]
     if unknown_categories:
         lines += ["Present in the test set but missing from the training set: the model cannot predict them.", "",
-                  _table(["Category", "ETFs concerned (test)"], [[c, n] for c, n in unknown_categories.items()]), ""]
+                  markdown_table(["Category", "ETFs concerned (test)"],
+                                 [[c, n] for c, n in unknown_categories.items()]), ""]
     else:
         lines += ["None.", ""]
     return "\n".join(lines)

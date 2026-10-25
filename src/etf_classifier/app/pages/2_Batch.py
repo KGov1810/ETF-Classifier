@@ -90,7 +90,7 @@ n_uncertain = sum(p.uncertain for p in proposals)
 if step >= len(order):
     st.success(f"Batch finished: {len(done)} validated, {len(skipped)} skipped.")
     if skipped:
-        st.caption("Skipped ETFs: " + ", ".join(proposals[i].name for i in sorted(skipped)))
+        st.caption("Skipped ETFs: " + components.md_escape(", ".join(proposals[i].name for i in sorted(skipped))))
     st.stop()
 
 index = order[step]
@@ -98,9 +98,9 @@ proposal = proposals[index]
 st.progress(step / len(order))
 st.caption(f"ETF {step + 1} / {len(order)}. {n_uncertain} uncertain in the batch; "
            f"{len(done)} validated, {len(skipped)} skipped so far.")
-st.header(proposal.name)
+st.header(components.md_escape(proposal.name))
 if proposal.description:
-    st.write(proposal.description)
+    st.markdown(components.md_escape(proposal.description))
 
 with st.expander("Correct the composition before validating"):
     current = pd.DataFrame(list(proposal.composition.items()), columns=[services.TICKER_COLUMN, services.WEIGHT_COLUMN])

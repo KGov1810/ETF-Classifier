@@ -4,15 +4,33 @@ Pages call these functions and only display what they return, so every behaviour
 of the app is tested with pytest, without a browser.
 """
 
+import logging
 import math
+import tempfile
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import pandas as pd
 
-from etf_classifier.data.loader import load_records
+from etf_classifier.config import resolve_path
+from etf_classifier.costs.pricing import load_pricing
+from etf_classifier.costs.report import build_cost_report
+from etf_classifier.data.loader import MissingColumnsError, load_records, read_raw_rows
+from etf_classifier.data.parsing import format_composition
 from etf_classifier.data.validation import RULE_LABELS
+from etf_classifier.features.embeddings import EmbeddingsBlock, create_embedder, plan_embeddings
+from etf_classifier.feedback.categories import CategoryRegistry
+from etf_classifier.feedback.checks import ValidationError
+from etf_classifier.feedback.report import build_feedback_report
+from etf_classifier.feedback.store import CANCELLATION, FeedbackError, FeedbackStore
+from etf_classifier.llm.justify import Justifier, LLMUnavailable
+from etf_classifier.llm.prompts import AnswerError, Justification
+from etf_classifier.llm.store import JustificationStore
+from etf_classifier.model.registry import NoModelError, load_bundle
+from etf_classifier.retraining.history import read_history
 
 TICKER_COLUMN, WEIGHT_COLUMN = "Ticker", "Weight (%)"
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -62,8 +80,8 @@ def _raw_composition(holdings: pd.DataFrame) -> tuple[str, list[str]]:
         if _is_blank(weight):
             errors.append(f"Row {position}: weight missing for ticker {str(ticker).strip()}.")
             continue
-        items.append({str(ticker).strip().upper(): _weight_value(weight)})
-    return str(items), errors
+        items.append((str(ticker).strip().upper(), _weight_value(weight)))
+    return format_composition(items), errors
 
 
 def _describe(issue) -> str:
@@ -127,9 +145,6 @@ class Proposal:
 
 def load_current_model(settings: dict, client=None):
     """Current model, with the Azure embedder attached when its pipeline uses embeddings."""
-    from etf_classifier.features.embeddings import create_embedder
-    from etf_classifier.model.registry import NoModelError, load_bundle
-
     try:
         bundle = load_bundle("current", settings)
     except NoModelError as exc:
@@ -144,8 +159,6 @@ def load_current_model(settings: dict, client=None):
 
 
 def _embedder(bundle):
-    from etf_classifier.features.embeddings import EmbeddingsBlock
-
     for block in bundle.pipeline.blocks:
         if isinstance(block, EmbeddingsBlock):
             return block.embedder
@@ -154,8 +167,6 @@ def _embedder(bundle):
 
 def estimate(data: pd.DataFrame, bundle, settings: dict):
     """Cost of the embeddings still to compute (EmbeddingPlan), or None for a model without embeddings."""
-    from etf_classifier.features.build import plan_embeddings
-
     if not bundle.pipeline.uses_embeddings:
         return None
     return plan_embeddings(settings, data, _embedder(bundle))
@@ -191,17 +202,8 @@ def propose(data: pd.DataFrame, bundle, settings: dict, confirmed: bool = False)
 # --- Validation, cancellation, history -----------------------------------------------------------
 
 
-def _store(settings: dict):
-    from etf_classifier.feedback.store import FeedbackStore
-
-    return FeedbackStore(settings)
-
-
 def _feedback_call(action):
     """Runs a journal operation and turns its refusals into messages for the interface."""
-    from etf_classifier.feedback.checks import ValidationError
-    from etf_classifier.feedback.store import FeedbackError
-
     try:
         return action()
     except ValidationError as exc:
@@ -214,7 +216,7 @@ def _feedback_call(action):
 
 def known_categories(settings: dict) -> list[str]:
     """Categories that can be selected in the validation form, sorted."""
-    return sorted(_feedback_call(lambda: _store(settings).known_categories()))
+    return sorted(_feedback_call(lambda: FeedbackStore(settings).known_categories()))
 
 
 def validate(proposal: Proposal, categories: list[str], validator: str, settings: dict, comment: str = "",
@@ -227,14 +229,16 @@ def validate(proposal: Proposal, categories: list[str], validator: str, settings
         raise AppError("Choose a validator before validating.")
     new_categories = new_categories or {}
     etf = {"name": proposal.name, "description": proposal.description, "composition": proposal.composition}
-    record = _feedback_call(lambda: _store(settings).record_validation(
+    record = _feedback_call(lambda: FeedbackStore(settings).record_validation(
         etf, list(categories) + [c for c in new_categories if c not in categories], validator,
         predicted_categories=proposal.categories, model_version=proposal.model_version, comment=comment,
         create_categories=bool(new_categories), category_descriptions=new_categories))
     if justification_id:
-        from etf_classifier.llm.store import JustificationStore
-
-        JustificationStore(settings).link(justification_id, record["ValidationId"])
+        try:
+            JustificationStore(settings).link(justification_id, record["ValidationId"])
+        except Exception as exc:  # noqa: BLE001 - the validation is saved: report, never hide it behind a crash
+            logger.warning("Justification %s not linked to %s: %s", justification_id, record["ValidationId"], exc)
+            record = {**record, "warning": f"Validation saved, but the LLM justification could not be linked: {exc}"}
     return record
 
 
@@ -244,7 +248,7 @@ def cancel(validation_id: str, validator: str, comment: str, settings: dict) -> 
         raise AppError("Choose a validator before cancelling.")
     if not str(comment or "").strip():
         raise AppError("A comment is required to cancel a validation.")
-    return _feedback_call(lambda: _store(settings).cancel_validation(validation_id, validator, comment))
+    return _feedback_call(lambda: FeedbackStore(settings).cancel_validation(validation_id, validator, comment))
 
 
 HISTORY_COLUMNS = ["ValidationId", "ValidatedAt", "Name", "Category", "PredictedCategories", "Decision",
@@ -254,9 +258,7 @@ HISTORY_COLUMNS = ["ValidationId", "ValidatedAt", "Name", "Category", "Predicted
 def history(settings: dict, since=None, validator: str | None = None, decision: str | None = None,
             name: str | None = None) -> pd.DataFrame:
     """Validations, newest first, with cancelled ones flagged (cancellation lines are not listed)."""
-    from etf_classifier.feedback.store import CANCELLATION
-
-    store = _store(settings)
+    store = FeedbackStore(settings)
     if not store.journal_path.exists():
         return pd.DataFrame(columns=HISTORY_COLUMNS)
     journal = _feedback_call(store.read_journal)
@@ -290,11 +292,6 @@ class BatchLoad:
 
 def load_batch(content: bytes, settings: dict) -> BatchLoad:
     """Reads an uploaded CSV of new ETFs (Name;Description;Composition, Category optional)."""
-    import tempfile
-    from pathlib import Path
-
-    from etf_classifier.data.loader import MissingColumnsError, read_raw_rows
-
     with tempfile.TemporaryDirectory() as folder:
         path = Path(folder) / "batch.csv"
         path.write_bytes(content)
@@ -328,11 +325,6 @@ def queue_order(proposals: list, uncertain_first: bool) -> list[int]:
 
 def monitoring(settings: dict, since=None):
     """(feedback report, Azure cost report) over the period: the same reports as the commands."""
-    from etf_classifier.config import resolve_path
-    from etf_classifier.costs.pricing import load_pricing
-    from etf_classifier.costs.report import build_cost_report
-    from etf_classifier.feedback.report import build_feedback_report
-
     feedback = _feedback_call(lambda: build_feedback_report(settings, since))
     cfg = settings["costs"]
     costs = build_cost_report(resolve_path(cfg["usage_log_path"]), load_pricing(resolve_path(cfg["pricing_path"])),
@@ -351,8 +343,6 @@ def without_title(markdown: str) -> str:
 
 def retraining_runs(settings: dict, limit: int = 10) -> pd.DataFrame:
     """Last daily retraining runs, newest first."""
-    from etf_classifier.retraining.history import read_history
-
     history = read_history(settings)
     columns = ["started_at", "outcome", "current_version", "candidate_version", "current_f1_macro",
                "candidate_f1_macro", "azure_cost_usd", "reasons"]
@@ -364,8 +354,6 @@ def retraining_runs(settings: dict, limit: int = 10) -> pd.DataFrame:
 
 def category_descriptions(settings: dict) -> dict[str, str]:
     """Known categories with their description (empty for most historical ones)."""
-    from etf_classifier.feedback.categories import CategoryRegistry
-
     known = known_categories(settings)  # initialises the registry from the original CSV if needed
     registry = CategoryRegistry(settings).read()
     descriptions = dict(zip(registry["category"], registry["description"]))
@@ -373,15 +361,10 @@ def category_descriptions(settings: dict) -> dict[str, str]:
 
 
 def llm_justifier(settings: dict, client=None):
-    from etf_classifier.llm.justify import Justifier
-
     return Justifier(settings, client=client)
 
 
 def _llm_call(action):
-    from etf_classifier.llm.justify import LLMUnavailable
-    from etf_classifier.llm.prompts import AnswerError
-
     try:
         return action()
     except (LLMUnavailable, AnswerError) as exc:
@@ -408,15 +391,11 @@ def apply_suggestions(selection: list[str], justification) -> list[str]:
 
 
 def justification_for_validation(settings: dict, validation_id: str) -> dict | None:
-    from etf_classifier.llm.store import JustificationStore
-
     return JustificationStore(settings).for_validation(validation_id)
 
 
 def stored_justification(stored: dict):
     """Justification object from a line of data/llm_justifications.jsonl."""
-    from etf_classifier.llm.prompts import Justification
-
     answer = dict(stored["answer"])
     answer.setdefault("notes", [])
     return Justification(**answer)

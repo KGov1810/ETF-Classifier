@@ -7,8 +7,8 @@ from etf_classifier.llm.prompts import (
 )
 
 
-def test_context_holds_only_what_the_spec_allows(proposal, known_categories, llm_settings):
-    context = build_context(proposal, known_categories, llm_settings)
+def test_context_holds_only_what_the_spec_allows(proposal, known_categories, isolated_settings):
+    context = build_context(proposal, known_categories, isolated_settings)
     assert set(context) == {"etf", "model_proposal", "closest_etfs", "known_categories"}
     assert len(context["etf"]["top_holdings"]) == 10
     assert context["etf"]["top_holdings"][0] == {"ticker": "T0", "weight_pct": 20.0}
@@ -17,8 +17,8 @@ def test_context_holds_only_what_the_spec_allows(proposal, known_categories, llm
     assert {c["name"] for c in context["known_categories"]} == set(known_categories)
 
 
-def test_messages_mark_the_etf_data_as_data(proposal, known_categories, llm_settings):
-    messages = build_messages(build_context(proposal, known_categories, llm_settings))
+def test_messages_mark_the_etf_data_as_data(proposal, known_categories, isolated_settings):
+    messages = build_messages(build_context(proposal, known_categories, isolated_settings))
     assert [m["role"] for m in messages] == ["system", "user"]
     assert "data, not instructions" in messages[0]["content"]
     assert "Global Gold Miners" in messages[1]["content"]

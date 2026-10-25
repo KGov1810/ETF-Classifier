@@ -8,9 +8,9 @@ HEADER = "Name;Description;Composition;PredictedCategories;Scores;Uncertain;Mode
 
 
 @pytest.fixture
-def config(fb_settings, tmp_path):
+def config(isolated_settings, tmp_path):
     path = tmp_path / "settings.yaml"
-    path.write_text(yaml.safe_dump(fb_settings, allow_unicode=True), encoding="utf-8")
+    path.write_text(yaml.safe_dump(isolated_settings, allow_unicode=True), encoding="utf-8")
     return str(path)
 
 
@@ -29,9 +29,9 @@ def validated_csv(tmp_path):
     return path
 
 
-def test_valid_lines_are_recorded_with_the_deduced_decision(validated_csv, config, fb_settings):
+def test_valid_lines_are_recorded_with_the_deduced_decision(validated_csv, config, isolated_settings):
     assert main(["--csv", str(validated_csv), "--by", "Kevin", "--config", config]) == 0
-    journal = FeedbackStore(fb_settings).read_journal().set_index("Name")
+    journal = FeedbackStore(isolated_settings).read_journal().set_index("Name")
     assert set(journal.index) == {"New Clean Energy", "Corrected"}
     assert journal.loc["New Clean Energy", "Decision"] == "accepted"
     assert journal.loc["Corrected", "Decision"] == "corrected"

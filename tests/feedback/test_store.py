@@ -40,18 +40,18 @@ def _worker(args):
                                  "composition": {"AAPL": 1.0 + i}}, ["US Equity"], validated_by=f"user{worker}")
 
 
-def test_concurrent_writers_lose_and_mix_nothing(fb_settings):
+def test_concurrent_writers_lose_and_mix_nothing(isolated_settings):
     with mp.get_context("spawn").Pool(4) as pool:
         # timeout: a worker that cannot start (e.g. import error) must fail the test, not hang it
-        pool.map_async(_worker, [(fb_settings, w, 15) for w in range(4)]).get(timeout=120)
-    journal = FeedbackStore(fb_settings).read_journal()
+        pool.map_async(_worker, [(isolated_settings, w, 15) for w in range(4)]).get(timeout=120)
+    journal = FeedbackStore(isolated_settings).read_journal()
     assert len(journal) == 60
     assert journal["ValidationId"].is_unique
     assert set(journal["Name"]) == {f"W{w}-{i}" for w in range(4) for i in range(15)}
     assert all(journal["Category"] == "['US Equity']")
 
 
-def test_unavailable_lock_raises_a_clear_error_without_writing(store, new_etf, fb_settings):
+def test_unavailable_lock_raises_a_clear_error_without_writing(store, new_etf, isolated_settings):
     store.lock_timeout = 0.2
     with FileLock(str(store.journal_path) + ".lock"):
         with pytest.raises(FeedbackError, match="try again"):

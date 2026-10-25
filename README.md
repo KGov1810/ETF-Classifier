@@ -237,6 +237,8 @@ config/                       configuration and ticker aliases
 data/raw/                     real CSV (not committed)
 data/validations.csv          validation journal (not committed)
 reports/                      generated reports (not committed)
+src/etf_classifier/common.py  shared helpers (UTC timestamps, Markdown tables, append-only CSV)
+src/etf_classifier/azure.py   Azure OpenAI client shared by the embeddings and the LLM
 src/etf_classifier/data/      data module
 src/etf_classifier/costs/     costs module
 src/etf_classifier/features/  features module
@@ -248,6 +250,7 @@ src/etf_classifier/retraining/ daily retraining
 src/etf_classifier/llm/       LLM justification
 scripts/                      Windows Task Scheduler scripts
 logs/ cache/ artifacts/       logs, cache and pipelines (not committed)
-tests/                        tests and fictitious CSV
+tests/                        tests and fictitious CSV (shared fixtures in tests/conftest.py)
+tests/support/                fake Azure clients and synthetic dataset used by the tests
 tasks/                        plans and tasks
 ```

@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from etf_classifier.common import markdown_table
 from etf_classifier.config import load_settings, resolve_path
 from etf_classifier.costs.pricing import PricingTable, load_pricing
 from etf_classifier.costs.tracker import LOG_SEPARATOR
@@ -21,12 +22,6 @@ from etf_classifier.costs.tracker import LOG_SEPARATOR
 class CostReport:
     markdown: str
     stats: dict
-
-
-def _table(headers: list[str], rows: list[list]) -> str:
-    lines = ["| " + " | ".join(headers) + " |", "|" + "---|" * len(headers)]
-    lines += ["| " + " | ".join(str(v) for v in row) + " |" for row in rows]
-    return "\n".join(lines)
 
 
 def _money(value: float) -> str:
@@ -83,7 +78,7 @@ def build_cost_report(log_path: str | Path, pricing: PricingTable, since: date |
         **by,
     }
 
-    lines += ["## Total", "", _table(["Indicator", "Value"], [
+    lines += ["## Total", "", markdown_table(["Indicator", "Value"], [
         ["Total cost", _money(stats["total_usd"])],
         ["Calls", stats["n_calls"]],
         ["Input tokens", f"{stats['input_tokens']:,}".replace(",", " ")],
@@ -95,7 +90,8 @@ def build_cost_report(log_path: str | Path, pricing: PricingTable, since: date |
     for title, key, header in [("By day", "by_day", "Day"), ("By module", "by_module", "Module"),
                                ("By operation", "by_operation", "Operation"),
                                ("By deployment", "by_deployment", "Deployment")]:
-        lines += [f"## {title}", "", _table([header, "Cost"], [[k, _money(v)] for k, v in stats[key].items()]), ""]
+        rows = [[k, _money(v)] for k, v in stats[key].items()]
+        lines += [f"## {title}", "", markdown_table([header, "Cost"], rows), ""]
     return CostReport("\n".join(lines), stats)
 
 

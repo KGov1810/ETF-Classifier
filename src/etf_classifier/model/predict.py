@@ -15,11 +15,11 @@ import pandas as pd
 
 from etf_classifier.config import load_settings, resolve_path
 from etf_classifier.data.loader import load_dataset
-from etf_classifier.features.build import announce_embedding_plan, confirm_spending
-from etf_classifier.features.embeddings import create_embedder
+from etf_classifier.data.parsing import format_composition
+from etf_classifier.features.embeddings import CommandStopped, embedder_for_command
 from etf_classifier.model.registry import NoModelError, load_bundle
 
-EXIT_OK, EXIT_CANCELLED, EXIT_NO_MODEL, EXIT_NO_AZURE = 0, 1, 2, 3
+EXIT_OK, EXIT_NO_MODEL = 0, 2  # 1 = cancelled, 3 = Azure not configured (see features.embeddings)
 
 
 def main(argv: list[str] | None = None, client=None, input_fn: Callable[[str], str] = input) -> int:
@@ -41,16 +41,13 @@ def main(argv: list[str] | None = None, client=None, input_fn: Callable[[str], s
 
     loaded = load_dataset(args.csv, settings, require_categories=False)
     data = loaded.data.reset_index(drop=True)
-    if bundle.pipeline.uses_embeddings:
-        embedder = create_embedder(settings, client=client)
-        if embedder is None:
-            print("Error: this model uses Azure embeddings, but Azure OpenAI is not configured "
-                  "(see .env.example).", file=sys.stderr)
-            return EXIT_NO_AZURE
+    try:
+        embedder = embedder_for_command(settings, data, args.yes, input_fn, client,
+                                        enabled=bundle.pipeline.uses_embeddings, required=True)
+    except CommandStopped as stop:
+        return stop.exit_code
+    if embedder is not None:
         bundle.pipeline.attach_embedder(embedder)
-        plan, cost = announce_embedding_plan(settings, data, embedder)
-        if not confirm_spending(plan, cost, args.yes, input_fn):
-            return EXIT_CANCELLED
 
     cfg = settings["model"]
     predictions = bundle.model.predict(bundle.pipeline.transform(data).matrix,
@@ -59,7 +56,7 @@ def main(argv: list[str] | None = None, client=None, input_fn: Callable[[str], s
     output = pd.DataFrame({
         "Name": data["name"],
         "Description": data["description"],
-        "Composition": [str([{t: w} for t, w in comp.items()]) for comp in data["composition_raw"]],
+        "Composition": [format_composition(comp) for comp in data["composition_raw"]],
         "PredictedCategories": [str(p.categories) for p in predictions],
         "Scores": [str([{c: round(s, 4)} for c, s in p.scores[: cfg["max_categories"]]]) for p in predictions],
         "Uncertain": [p.uncertain for p in predictions],

@@ -17,6 +17,7 @@ from etf_classifier.similarity.index import SimilarityIndex
 
 BUNDLE_FILE = "bundle.joblib"
 SIMILARITY_FILE = "similarity.joblib"
+TRAIN_NAMES_FILE = "train_names.json"  # names of the training ETFs (fair comparison in retraining)
 REGISTRY_FILE = "registry.json"
 
 

@@ -6,15 +6,16 @@ fake client and make no network call.
 """
 
 import logging
-import os
+import sys
 from dataclasses import dataclass
+from typing import Callable
 
 import numpy as np
 import pandas as pd
-from dotenv import load_dotenv
 from scipy import sparse
 
-from etf_classifier.config import PROJECT_ROOT, resolve_path
+from etf_classifier.azure import azure_client, deployment_name
+from etf_classifier.config import resolve_path
 from etf_classifier.costs.estimate import CostEstimate, estimate_embeddings
 from etf_classifier.costs.pricing import PricingTable, UnknownDeploymentError, load_pricing
 from etf_classifier.costs.tokens import get_counter
@@ -26,7 +27,6 @@ logger = logging.getLogger(__name__)
 
 TOP_TICKERS = 10
 EMPTY_TEXT = "[empty]"  # Azure rejects an empty text
-ENV_VARIABLES = ("AZURE_OPENAI_ENDPOINT", "AZURE_OPENAI_API_KEY", "AZURE_OPENAI_API_VERSION")
 DEFAULT_TOKENIZER = "cl100k_base"
 
 
@@ -102,7 +102,8 @@ class AzureEmbedder:
             vectors = [item.embedding for item in sorted(response.data, key=lambda item: item.index)]
             matrix = np.asarray(vectors, dtype=np.float32)
             if matrix.shape != (len(batch), self.dimensions):
-                raise ValueError(f"Unexpected Azure response: {matrix.shape} instead of {(len(batch), self.dimensions)}")
+                expected = (len(batch), self.dimensions)
+                raise ValueError(f"Unexpected Azure response: {matrix.shape} instead of {expected}")
             norms = np.linalg.norm(matrix, axis=1, keepdims=True)
             matrix = matrix / np.where(norms > 0, norms, 1.0)
             computed = {self._key(t): v for t, v in zip(batch, matrix)}
@@ -120,24 +121,15 @@ class AzureEmbedder:
 
 def create_embedder(settings: dict, client=None) -> AzureEmbedder | None:
     """Builds the embedder from the configuration and .env; None if Azure is not configured."""
-    load_dotenv(PROJECT_ROOT / ".env", override=False)
     emb = settings["features"]["embeddings"]
+    client = client if client is not None else azure_client(emb["max_retries"])
     if client is None:
-        missing = [name for name in ENV_VARIABLES if not os.environ.get(name)]
-        if missing:
-            logger.info("Azure OpenAI not configured (missing variables: %s): see .env.example", ", ".join(missing))
-            return None
-        from openai import AzureOpenAI
-
-        client = AzureOpenAI(azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
-                             api_key=os.environ["AZURE_OPENAI_API_KEY"],
-                             api_version=os.environ["AZURE_OPENAI_API_VERSION"],
-                             max_retries=emb["max_retries"])
+        return None
     costs = settings["costs"]
     pricing = load_pricing(resolve_path(costs["pricing_path"]))
     return AzureEmbedder(
         client=client,
-        deployment=os.environ.get("AZURE_OPENAI_EMBEDDING_DEPLOYMENT") or emb["deployment"],
+        deployment=deployment_name("AZURE_OPENAI_EMBEDDING_DEPLOYMENT", emb["deployment"]),
         dimensions=emb["dimensions"],
         batch_size=emb["batch_size"],
         max_tokens=emb["max_tokens"],
@@ -188,3 +180,67 @@ class EmbeddingsBlock:
 
     def feature_names(self) -> list[str]:
         return [f"emb:{i}" for i in range(self.dimensions)]
+
+
+# --- Command-line helpers: cost announcement and confirmation before spending ---------------------
+
+EXIT_CANCELLED, EXIT_NO_AZURE = 1, 3  # exit codes shared by every command that may call Azure
+
+
+class CommandStopped(Exception):
+    """A command stops before any Azure call (exit_code: 1 = cancelled, 3 = Azure not configured)."""
+
+    def __init__(self, exit_code: int):
+        super().__init__(exit_code)
+        self.exit_code = exit_code
+
+
+def plan_embeddings(settings: dict, data, embedder) -> EmbeddingPlan:
+    """What computing the embeddings of these ETFs would cost (cache deducted), without calling Azure."""
+    texts = EmbeddingsBlock(None, embedder.dimensions,
+                            settings["features"]["embeddings"]["include_top_tickers"]).texts(data)
+    return embedder.plan(texts)
+
+
+def announce_embedding_plan(settings: dict, data, embedder) -> tuple[EmbeddingPlan, str]:
+    """Shows what computing the embeddings would cost (cache deducted), without calling Azure."""
+    plan = plan_embeddings(settings, data, embedder)
+    cost = f"${plan.estimate.cost_usd:.4f}" if plan.estimate else "unknown (deployment missing from the price list)"
+    approx = " (approximate)" if plan.estimate and plan.estimate.approximate else ""
+    tokens = plan.estimate.input_tokens if plan.estimate else "?"
+    print(f"Embeddings: {plan.n_to_compute} text(s) to compute, {plan.n_cached} already cached · "
+          f"{tokens} tokens · estimated cost {cost}{approx}")
+    return plan, cost
+
+
+def confirm_spending(plan: EmbeddingPlan, cost: str, assume_yes: bool, input_fn: Callable[[str], str]) -> bool:
+    """Asks for confirmation before spending on Azure (unless there is nothing to compute or assume_yes)."""
+    if not plan.n_to_compute or assume_yes:
+        return True
+    answer = input_fn(f"Confirm the estimated spending of {cost}? [y/N] ").strip().lower()
+    if answer in {"y", "yes"}:
+        return True
+    print("Cancelled: no Azure call made.")
+    return False
+
+
+def embedder_for_command(settings: dict, data, assume_yes: bool, input_fn: Callable[[str], str], client=None,
+                         enabled: bool = True, required: bool = False) -> AzureEmbedder | None:
+    """Embedder for a command: announces the cost of the texts not cached yet and asks for confirmation.
+
+    None if the embeddings are disabled, or if Azure is not configured and not required.
+    Raises CommandStopped when the user cancels, or when a required Azure configuration is missing.
+    """
+    if not enabled:
+        return None
+    embedder = create_embedder(settings, client=client)
+    if embedder is None:
+        if required:
+            print("Error: this model uses Azure embeddings, but Azure OpenAI is not configured "
+                  "(see .env.example).", file=sys.stderr)
+            raise CommandStopped(EXIT_NO_AZURE)
+        return None
+    plan, cost = announce_embedding_plan(settings, data, embedder)
+    if not confirm_spending(plan, cost, assume_yes, input_fn):
+        raise CommandStopped(EXIT_CANCELLED)
+    return embedder

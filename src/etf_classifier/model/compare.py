@@ -13,13 +13,12 @@ from typing import Callable
 
 from etf_classifier.config import load_settings, resolve_path
 from etf_classifier.data.loader import PreparedDataset, prepare_dataset
-from etf_classifier.features.build import announce_embedding_plan, confirm_spending
-from etf_classifier.features.embeddings import create_embedder
+from etf_classifier.features.embeddings import CommandStopped, embedder_for_command
 from etf_classifier.features.pipeline import training_fingerprint
 from etf_classifier.model.evaluate import Metrics
 from etf_classifier.model.train import train_and_evaluate
 
-EXIT_OK, EXIT_CANCELLED, EXIT_UNKNOWN = 0, 1, 2
+EXIT_OK, EXIT_UNKNOWN = 0, 2  # 1 = cancelled (see features.embeddings)
 
 
 @dataclass
@@ -41,7 +40,8 @@ def _experiment_settings(settings: dict, blocks: dict[str, bool]) -> dict:
     return exp
 
 
-def run_comparison(prepared: PreparedDataset, settings: dict, names: list[str], embedder=None) -> list[ExperimentResult]:
+def run_comparison(prepared: PreparedDataset, settings: dict, names: list[str],
+                   embedder=None) -> list[ExperimentResult]:
     """Trains and evaluates each experiment on the same training set and the same test set."""
     fingerprint = training_fingerprint(prepared.split.test)
     results = []
@@ -97,13 +97,11 @@ def main(argv: list[str] | None = None, client=None, input_fn: Callable[[str], s
         return EXIT_UNKNOWN
 
     prepared = prepare_dataset(args.csv, settings)
-    embedder = None
-    if any(available[n].get("embeddings") for n in names):
-        embedder = create_embedder(settings, client=client)
-        if embedder is not None:
-            plan, cost = announce_embedding_plan(settings, prepared.data, embedder)
-            if not confirm_spending(plan, cost, args.yes, input_fn):
-                return EXIT_CANCELLED
+    try:
+        embedder = embedder_for_command(settings, prepared.data, args.yes, input_fn, client,
+                                        enabled=any(available[n].get("embeddings") for n in names))
+    except CommandStopped as stop:
+        return stop.exit_code
 
     report = render_comparison(run_comparison(prepared, settings, names, embedder))
     path = resolve_path(settings["model"]["reports_dir"]) / "model_comparison.md"

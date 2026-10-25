@@ -17,18 +17,16 @@ from typing import Callable
 
 from etf_classifier.config import load_settings, resolve_path
 from etf_classifier.data.loader import PreparedDataset, prepare_dataset
-from etf_classifier.features.build import announce_embedding_plan, confirm_spending
-from etf_classifier.features.embeddings import create_embedder
+from etf_classifier.features.embeddings import CommandStopped, embedder_for_command
 from etf_classifier.features.pipeline import dataset_fingerprint, training_fingerprint
 from etf_classifier.model.baseline import FrequencyBaseline
 from etf_classifier.model.classifier import TuningResult, tune
 from etf_classifier.model.evaluate import Metrics, evaluate, render_report
 from etf_classifier.model.explain import top_features
-from etf_classifier.model.registry import current_version, promote, save_bundle
+from etf_classifier.model.registry import TRAIN_NAMES_FILE, current_version, promote, save_bundle
 from etf_classifier.similarity.index import SimilarityIndex
 
-EXIT_OK, EXIT_CANCELLED = 0, 1
-TRAIN_NAMES_FILE = "train_names.json"
+EXIT_OK = 0  # 1 = cancelled (see features.embeddings)
 
 
 @dataclass
@@ -151,13 +149,11 @@ def main(argv: list[str] | None = None, client=None, input_fn: Callable[[str], s
         settings = copy.deepcopy(settings)
         settings["features"]["blocks"]["embeddings"]["enabled"] = False
     prepared = prepare_dataset(args.csv, settings)
-    embedder = None
-    if settings["features"]["blocks"]["embeddings"]["enabled"]:
-        embedder = create_embedder(settings, client=client)
-        if embedder is not None:
-            plan, cost = announce_embedding_plan(settings, prepared.data, embedder)
-            if not confirm_spending(plan, cost, args.yes, input_fn):
-                return EXIT_CANCELLED
+    try:
+        embedder = embedder_for_command(settings, prepared.data, args.yes, input_fn, client,
+                                        enabled=settings["features"]["blocks"]["embeddings"]["enabled"])
+    except CommandStopped as stop:
+        return stop.exit_code
 
     trained = train_and_save(prepared, settings, embedder, promote_model=args.promote)
     outcome, version, report_path = trained.outcome, trained.version, trained.report_path

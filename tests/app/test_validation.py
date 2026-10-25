@@ -116,8 +116,8 @@ def test_history_filters(trained_settings):
     assert services.history(trained_settings, since=tomorrow).empty
 
 
-def test_history_of_an_empty_journal_is_empty(app_settings):
-    assert services.history(app_settings).empty
+def test_history_of_an_empty_journal_is_empty(isolated_settings):
+    assert services.history(isolated_settings).empty
 
 
 def test_monitoring_reports_match_the_cli_reports(trained_settings):
@@ -135,20 +135,21 @@ def test_monitoring_reports_match_the_cli_reports(trained_settings):
     assert costs.stats == expected.stats
 
 
-def test_monitoring_without_journal_or_cost_log(app_settings):
-    feedback, costs = services.monitoring(app_settings)
+def test_monitoring_without_journal_or_cost_log(isolated_settings):
+    feedback, costs = services.monitoring(isolated_settings)
     assert feedback.stats["n_validations"] == 0
     assert "No Azure call" in costs.markdown
 
 
-def test_retraining_runs_newest_first(app_settings):
+def test_retraining_runs_newest_first(isolated_settings):
     from etf_classifier.retraining.history import append_run
 
-    append_run(app_settings, {"started_at": "2026-10-25T10:00:00Z", "outcome": "promoted", "candidate_version": "v1"})
-    append_run(app_settings, {"started_at": "2026-10-26T10:00:00Z", "outcome": "skipped", "reasons": "No change"})
-    runs = services.retraining_runs(app_settings)
+    append_run(isolated_settings, {"started_at": "2026-10-25T10:00:00Z", "outcome": "promoted",
+                                   "candidate_version": "v1"})
+    append_run(isolated_settings, {"started_at": "2026-10-26T10:00:00Z", "outcome": "skipped", "reasons": "No change"})
+    runs = services.retraining_runs(isolated_settings)
     assert list(runs["outcome"]) == ["skipped", "promoted"]
 
 
-def test_no_retraining_run_yet(app_settings):
-    assert services.retraining_runs(app_settings).empty
+def test_no_retraining_run_yet(isolated_settings):
+    assert services.retraining_runs(isolated_settings).empty

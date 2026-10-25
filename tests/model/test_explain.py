@@ -3,9 +3,9 @@ from etf_classifier.model.classifier import tune
 from etf_classifier.model.explain import top_features
 
 
-def test_influential_features_are_the_category_signatures(synthetic_data, model_settings):
+def test_influential_features_are_the_category_signatures(synthetic_data, isolated_settings):
     split = make_split(synthetic_data, test_size=0.2, seed=1)
-    result = tune(split.train, model_settings)
+    result = tune(split.train, isolated_settings)
     names = result.pipeline.transform(split.train.head(1)).feature_names
     top = top_features(result.model, names, k=10)
     gold_signature = {"text:gold", "text:bullion", "text:miners", "holding:NEM", "holding:GOLD",

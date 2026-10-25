@@ -28,16 +28,16 @@ def test_unknown_category_is_refused_without_explicit_creation(store, new_etf):
         store.record_validation(new_etf, ["Hydrogen"], validated_by="Kevin")
 
 
-def test_created_category_is_registered_with_author_and_date(store, new_etf, fb_settings):
+def test_created_category_is_registered_with_author_and_date(store, new_etf, isolated_settings):
     store.record_validation(new_etf, ["Hydrogen"], validated_by="Kevin", create_categories=True)
-    registry = CategoryRegistry(fb_settings).read()
+    registry = CategoryRegistry(isolated_settings).read()
     row = registry.set_index("category").loc["Hydrogen"]
     assert row["created_by"] == "Kevin" and row["source"] == "created" and row["created_at"]
 
 
-def test_registry_starts_with_the_historical_categories(store, new_etf, fb_settings):
+def test_registry_starts_with_the_historical_categories(store, new_etf, isolated_settings):
     store.record_validation(new_etf, ["Clean Energy"], validated_by="Kevin")
-    registry = CategoryRegistry(fb_settings).read()
+    registry = CategoryRegistry(isolated_settings).read()
     historical = set(registry.loc[registry["source"] == "historical", "category"])
     assert {"Global Equity", "Gold", "Clean Energy"} <= historical
 
@@ -68,3 +68,21 @@ def test_decision_is_deduced_from_the_proposal(store, new_etf, predicted, valida
     record = store.record_validation(new_etf, validated, validated_by="Kevin", predicted_categories=predicted,
                                      model_version="20261025-120000")
     assert record["Decision"] == decision
+
+
+def test_reference_csv_is_read_once_until_it_changes(isolated_settings, tmp_path, sample_csv):
+    import shutil
+
+    from etf_classifier.feedback.store import FeedbackStore, _read_reference
+
+    reference = tmp_path / "reference.csv"
+    shutil.copy(sample_csv, reference)
+    isolated_settings["feedback"]["reference_csv"] = str(reference)
+    _read_reference.cache_clear()
+    FeedbackStore(isolated_settings).known_categories()
+    FeedbackStore(isolated_settings).known_categories()  # a new store (as in every app rerun): no new read
+    assert _read_reference.cache_info().misses == 1
+    with reference.open("a", encoding="utf-8") as handle:
+        handle.write('Space ETF;Space companies;"[{\'RKLB\': 5.0}]";"[\'Space\']"\n')
+    assert "Space" in FeedbackStore(isolated_settings).known_categories()
+    assert _read_reference.cache_info().misses == 2

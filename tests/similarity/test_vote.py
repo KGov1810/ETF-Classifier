@@ -24,11 +24,11 @@ def test_vote_with_zero_scores_does_not_divide_by_zero():
     assert neighbor_vote([_neighbor(0.0, ["Gold"])]) == {"Gold": 0.0}
 
 
-def test_neighbor_vote_clearly_beats_the_baseline(make_synthetic, sim_settings):
+def test_neighbor_vote_clearly_beats_the_baseline(make_synthetic, isolated_settings):
     data = make_synthetic(400, seed=0).assign(row_id=lambda d: range(len(d)))
     split = make_split(data, test_size=0.2, seed=1)
-    pipeline = FeaturePipeline(sim_settings).fit(split.train)
-    index = SimilarityIndex.build(split.train, pipeline, sim_settings)
+    pipeline = FeaturePipeline(isolated_settings).fit(split.train)
+    index = SimilarityIndex.build(split.train, pipeline, isolated_settings)
     classes = pipeline.labels.classes
     scores = vote_matrix(index.query(split.test, pipeline, k=10), classes)
     from etf_classifier.model.classifier import decide
@@ -40,8 +40,8 @@ def test_neighbor_vote_clearly_beats_the_baseline(make_synthetic, sim_settings):
     assert vote_f1 > baseline + 0.4
 
 
-def test_save_then_load_gives_the_same_neighbors(small_reference, small_pipeline, sim_settings, tmp_path):
-    index = SimilarityIndex.build(small_reference, small_pipeline, sim_settings)
+def test_save_then_load_gives_the_same_neighbors(small_reference, small_pipeline, isolated_settings, tmp_path):
+    index = SimilarityIndex.build(small_reference, small_pipeline, isolated_settings)
     index.save(tmp_path / "similarity.joblib")
     reloaded = SimilarityIndex.load(tmp_path / "similarity.joblib")
     before = index.query(small_reference, small_pipeline, k=2, exclude_row_ids=small_reference["row_id"])

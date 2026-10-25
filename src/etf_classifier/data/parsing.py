@@ -87,3 +87,16 @@ def parse_categories(raw: str) -> list[str]:
         if label and label not in categories:
             categories.append(label)
     return categories
+
+
+def format_composition(composition) -> str:
+    """Composition in the CSV format, "[{'AAPL': 6.5}, {'MSFT': 6.1}]": the inverse of parse_composition.
+
+    Accepts a dict or (ticker, weight) pairs. Numeric weights become plain floats (str() of a numpy float
+    would not be readable back); text weights are kept so that the quality rules can report them.
+    A string is assumed to be already formatted.
+    """
+    if isinstance(composition, str):
+        return composition.strip()
+    items = composition.items() if isinstance(composition, dict) else composition
+    return str([{str(ticker): weight if isinstance(weight, str) else float(weight)} for ticker, weight in items])

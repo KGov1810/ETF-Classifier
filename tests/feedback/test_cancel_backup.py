@@ -40,7 +40,7 @@ def test_one_backup_per_day(store, new_etf):
     assert len(backups) == 1  # the journal existed from the 2nd validation on, a single backup today
 
 
-def test_old_backups_are_pruned(store, new_etf, fb_settings):
+def test_old_backups_are_pruned(store, new_etf, isolated_settings):
     store.backups_kept = 3
     store.backups_dir.mkdir(parents=True)
     start = datetime(2026, 1, 1, tzinfo=timezone.utc)

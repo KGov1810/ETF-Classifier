@@ -1,11 +1,11 @@
 """Run history (one CSV line per daily run) and the job lock that prevents two runs at the same time."""
 
-import csv
 from contextlib import contextmanager
 
 import pandas as pd
 from filelock import FileLock, Timeout
 
+from etf_classifier.common import append_csv_rows, read_csv_table
 from etf_classifier.config import resolve_path
 
 HISTORY_COLUMNS = ["started_at", "outcome", "current_version", "candidate_version", "comparison_etfs",
@@ -40,14 +40,7 @@ def job_lock(settings: dict):
 
 def append_run(settings: dict, record: dict) -> None:
     """Appends one run to the history (missing columns are left empty)."""
-    path = _history_path(settings)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    new_file = not path.exists() or path.stat().st_size == 0
-    with path.open("a", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=HISTORY_COLUMNS, delimiter=";", extrasaction="ignore")
-        if new_file:
-            writer.writeheader()
-        writer.writerow({column: record.get(column, "") for column in HISTORY_COLUMNS})
+    append_csv_rows(_history_path(settings), HISTORY_COLUMNS, [record])
 
 
 def last_trained_fingerprint(settings: dict) -> str | None:
@@ -59,8 +52,4 @@ def last_trained_fingerprint(settings: dict) -> str | None:
 
 def read_history(settings: dict) -> pd.DataFrame:
     """Every run, in chronological order."""
-    path = _history_path(settings)
-    if not path.exists() or path.stat().st_size == 0:
-        return pd.DataFrame(columns=HISTORY_COLUMNS)
-    history = pd.read_csv(path, sep=";", dtype=str, keep_default_na=False, encoding="utf-8")
-    return history.reindex(columns=HISTORY_COLUMNS, fill_value="")
+    return read_csv_table(_history_path(settings), HISTORY_COLUMNS)

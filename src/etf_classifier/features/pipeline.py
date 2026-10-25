@@ -109,9 +109,6 @@ class FeaturePipeline:
         combined = sparse.hstack(weighted, format="csr") if weighted else sparse.csr_matrix((len(data), 0))
         return FeatureSet(blocks=matrices, matrix=combined.astype(np.float32), feature_names=names)
 
-    def fit_transform(self, train: pd.DataFrame) -> FeatureSet:
-        return self.fit(train).transform(train)
-
     def transform_labels(self, data: pd.DataFrame) -> np.ndarray:
         return self.labels.transform(data)
 

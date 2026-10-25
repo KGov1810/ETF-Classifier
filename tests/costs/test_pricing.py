@@ -27,20 +27,23 @@ def test_unknown_deployment_is_detected(pricing):
         pricing.model_for("unknown-deployment")
 
 
+HEADER = 'currency: USD\nas_of: "2026-10-01"\nmodels:\n  m:\n'
+
+
 def test_missing_input_price_raises(tmp_path):
-    path = _write(tmp_path, 'currency: USD\nas_of: "2026-10-01"\nmodels:\n  m:\n    kind: embedding\n    tokenizer: cl100k_base\n')
+    path = _write(tmp_path, HEADER + "    kind: embedding\n    tokenizer: cl100k_base\n")
     with pytest.raises(PricingError, match="input_per_million"):
         load_pricing(path)
 
 
 def test_negative_price_raises(tmp_path):
-    path = _write(tmp_path, 'currency: USD\nas_of: "2026-10-01"\nmodels:\n  m:\n    kind: embedding\n    tokenizer: cl100k_base\n    input_per_million: -1\n')
+    path = _write(tmp_path, HEADER + "    kind: embedding\n    tokenizer: cl100k_base\n    input_per_million: -1\n")
     with pytest.raises(PricingError, match="negative"):
         load_pricing(path)
 
 
 def test_chat_model_requires_an_output_price(tmp_path):
-    path = _write(tmp_path, 'currency: USD\nas_of: "2026-10-01"\nmodels:\n  m:\n    kind: chat\n    tokenizer: o200k_base\n    input_per_million: 1\n')
+    path = _write(tmp_path, HEADER + "    kind: chat\n    tokenizer: o200k_base\n    input_per_million: 1\n")
     with pytest.raises(PricingError, match="output_per_million"):
         load_pricing(path)
 

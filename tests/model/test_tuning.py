@@ -14,9 +14,9 @@ def test_tune_only_receives_the_training_set():
 
 
 @pytest.fixture
-def tuned(synthetic_data, model_settings):
+def tuned(synthetic_data, isolated_settings):
     split = make_split(synthetic_data, test_size=0.2, seed=1)
-    return split, tune(split.train, model_settings)
+    return split, tune(split.train, isolated_settings)
 
 
 def test_tuned_model_clearly_beats_the_baseline(tuned):
@@ -30,10 +30,10 @@ def test_tuned_model_clearly_beats_the_baseline(tuned):
     assert model_f1 > baseline_f1 + 0.4
 
 
-def test_best_c_comes_from_the_grid_with_validation_scores(tuned, model_settings):
+def test_best_c_comes_from_the_grid_with_validation_scores(tuned, isolated_settings):
     _, result = tuned
-    assert result.best_c in model_settings["model"]["c_grid"]
-    assert set(result.validation_scores) == set(model_settings["model"]["c_grid"])
+    assert result.best_c in isolated_settings["model"]["c_grid"]
+    assert set(result.validation_scores) == set(isolated_settings["model"]["c_grid"])
     assert result.validation_scores[result.best_c] == max(result.validation_scores.values())
 
 
@@ -49,9 +49,9 @@ def test_thresholds_are_set_for_every_category(tuned):
     assert np.all((result.model.thresholds > 0) & (result.model.thresholds < 1))
 
 
-def test_same_data_and_seed_give_the_same_model(synthetic_data, model_settings):
+def test_same_data_and_seed_give_the_same_model(synthetic_data, isolated_settings):
     split = make_split(synthetic_data, test_size=0.2, seed=1)
-    first, second = tune(split.train, model_settings), tune(split.train, model_settings)
+    first, second = tune(split.train, isolated_settings), tune(split.train, isolated_settings)
     x = first.pipeline.transform(split.test).matrix
     assert first.best_c == second.best_c
     assert np.allclose(first.model.predict_proba(x), second.model.predict_proba(x))

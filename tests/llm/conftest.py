@@ -1,29 +1,8 @@
-"""Fixtures for the llm tests: a proposal built by hand, known categories, isolated paths, fake chat client."""
+"""Fixtures for the llm tests: a proposal built by hand, known categories, a valid answer."""
 
-import copy
-import importlib.util
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-
-fake_chat = None
-
-
-def _load_fake_chat():
-    spec = importlib.util.spec_from_file_location("fake_chat_llm", Path(__file__).parent / "fake_chat.py")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-@pytest.fixture
-def llm_settings(settings, tmp_path):
-    cfg = copy.deepcopy(settings)
-    cfg["llm"].update({"justifications_path": str(tmp_path / "data" / "llm_justifications.jsonl"),
-                       "cache_path": str(tmp_path / "cache" / "llm.sqlite")})
-    cfg["costs"]["usage_log_path"] = str(tmp_path / "logs" / "usage.csv")
-    return cfg
 
 
 def _neighbor(name, categories, overlap):
@@ -61,8 +40,3 @@ def valid_answer():
         "inconsistency": None,
         "confidence": "high",
     }
-
-
-@pytest.fixture
-def chat_module():
-    return _load_fake_chat()

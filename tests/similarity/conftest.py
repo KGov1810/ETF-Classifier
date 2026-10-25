@@ -1,49 +1,9 @@
-"""Fixtures for the similarity tests: synthetic dataset, isolated configuration, fake Azure client."""
-
-import copy
-import importlib.util
-from pathlib import Path
+"""Fixtures for the similarity tests: a small readable reference set and its pipeline."""
 
 import pandas as pd
 import pytest
 
 from etf_classifier.features.pipeline import FeaturePipeline
-
-TESTS = Path(__file__).parent.parent
-
-
-def _load(name: str, path: Path):
-    spec = importlib.util.spec_from_file_location(name, path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-synthetic = _load("synthetic_sim", TESTS / "model" / "synthetic.py")
-fake_azure = _load("fake_azure_sim", TESTS / "features" / "fake_azure.py")
-
-
-@pytest.fixture
-def sim_settings(settings, tmp_path):
-    cfg = copy.deepcopy(settings)
-    cfg["features"]["blocks"]["embeddings"]["enabled"] = False
-    cfg["features"]["text_tfidf"]["min_df"] = 1
-    cfg["features"]["embeddings"].update({"dimensions": 8, "cache_path": str(tmp_path / "cache" / "emb.sqlite")})
-    cfg["features"]["artifacts_dir"] = str(tmp_path / "artifacts" / "features")
-    cfg["model"]["artifacts_dir"] = str(tmp_path / "artifacts" / "models")
-    cfg["model"]["reports_dir"] = str(tmp_path / "reports")
-    cfg["costs"]["usage_log_path"] = str(tmp_path / "logs" / "usage.csv")
-    return cfg
-
-
-@pytest.fixture
-def make_synthetic():
-    return synthetic.make_synthetic
-
-
-@pytest.fixture
-def fake_client():
-    return fake_azure.FakeAzureClient()
 
 
 @pytest.fixture
@@ -62,5 +22,5 @@ def small_reference() -> pd.DataFrame:
 
 
 @pytest.fixture
-def small_pipeline(small_reference, sim_settings):
-    return FeaturePipeline(sim_settings).fit(small_reference)
+def small_pipeline(small_reference, isolated_settings):
+    return FeaturePipeline(isolated_settings).fit(small_reference)

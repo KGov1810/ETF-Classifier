@@ -5,11 +5,10 @@ Nothing is ever rewritten; the validation journal format stays unchanged.
 """
 
 import json
-import secrets
-from datetime import datetime, timezone
 
 from filelock import FileLock
 
+from etf_classifier.common import new_record_id, utc_timestamp
 from etf_classifier.config import resolve_path
 from etf_classifier.llm.prompts import PROMPT_VERSION
 
@@ -36,10 +35,10 @@ class JustificationStore:
     def append(self, etf_name: str, model_version: str, deployment: str, answer: dict, input_tokens: int,
                output_tokens: int, cost_usd: float | None) -> str:
         """Records a justification; returns its identifier."""
-        record_id = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S-") + secrets.token_hex(2)
+        record_id = new_record_id()
         self._append({
             "type": JUSTIFICATION, "id": record_id,
-            "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "created_at": utc_timestamp(),
             "prompt_version": PROMPT_VERSION, "deployment": deployment, "model_version": model_version,
             "etf_name": etf_name, "answer": answer, "input_tokens": input_tokens, "output_tokens": output_tokens,
             "cost_usd": cost_usd,
@@ -49,7 +48,7 @@ class JustificationStore:
     def link(self, justification_id: str, validation_id: str) -> None:
         """Ties a justification to the validation that followed it."""
         self._append({"type": LINK, "justification_id": justification_id, "validation_id": validation_id,
-                      "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")})
+                      "created_at": utc_timestamp()})
 
     def get(self, justification_id: str) -> dict | None:
         return next((r for r in self._records() if r["type"] == JUSTIFICATION and r["id"] == justification_id), None)

@@ -1,4 +1,3 @@
-import shutil
 
 import pandas as pd
 import pytest
@@ -77,14 +76,14 @@ def test_cached_texts_cost_nothing_and_need_no_confirmation(trained_emb_settings
 def test_embeddings_model_without_azure_gives_a_clear_error(trained_emb_settings, monkeypatch):
     for variable in ["AZURE_OPENAI_ENDPOINT", "AZURE_OPENAI_API_KEY", "AZURE_OPENAI_API_VERSION"]:
         monkeypatch.delenv(variable, raising=False)
-    monkeypatch.setattr("etf_classifier.features.embeddings.load_dotenv", lambda *a, **k: None)
+    monkeypatch.setattr("etf_classifier.azure.load_dotenv", lambda *a, **k: None)
     with pytest.raises(services.AppError, match="Azure"):
         services.load_current_model(trained_emb_settings)
 
 
-def test_no_current_model_gives_a_clear_error(app_settings):
+def test_no_current_model_gives_a_clear_error(isolated_settings):
     with pytest.raises(services.AppError, match="No current model"):
-        services.load_current_model(app_settings)
+        services.load_current_model(isolated_settings)
 
 
 def test_model_without_similarity_index_still_proposes(trained_settings):

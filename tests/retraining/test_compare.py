@@ -2,7 +2,6 @@ import json
 from types import SimpleNamespace
 
 import pandas as pd
-import pytest
 
 from etf_classifier.data.loader import prepare_dataset
 from etf_classifier.model.registry import load_bundle
@@ -97,13 +96,20 @@ def test_shared_categories_lists_new_ones():
     assert shared == ["ESG", "Gold"] and new == ["Space"] and dropped == []
 
 
-def test_score_of_a_real_model_on_its_own_test_set(rt_settings, sample_csv):
-    prepared = prepare_dataset(sample_csv, rt_settings)
-    train_and_save(prepared, rt_settings)
-    bundle = load_bundle("current", rt_settings)
+def test_score_of_a_real_model_on_its_own_test_set(isolated_settings, sample_csv):
+    prepared = prepare_dataset(sample_csv, isolated_settings)
+    train_and_save(prepared, isolated_settings)
+    bundle = load_bundle("current", isolated_settings)
     categories = sorted(bundle.model.classes)
-    result = score(bundle, prepared.split.test, categories, rt_settings)
+    result = score(bundle, prepared.split.test, categories, isolated_settings)
     assert 0.0 <= result.f1_macro <= 1.0
     assert set(result.per_category["category"]) == set(categories)
     assert result.per_category["support"].sum() == sum(
         len(set(c) & set(categories)) for c in prepared.split.test["categories"])
+
+
+def test_candidate_exactly_at_the_tolerance_is_promoted():
+    cfg = {**CFG, "f1_tolerance": 0.25}  # 0.75 - 0.25 = 0.5 exactly in binary floating point
+    current = _scores(0.75, {"Gold": (0.75, 10)})
+    candidate = _scores(0.5, {"Gold": (0.6, 10)})
+    assert decide(current, candidate, candidate_test_f1=0.8, baseline_test_f1=0.3, n_etfs=50, cfg=cfg).promote

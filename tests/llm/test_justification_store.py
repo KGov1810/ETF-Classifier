@@ -5,8 +5,8 @@ def _answer():
     return {"summary": "s", "confidence": "high"}
 
 
-def test_appended_justification_reads_back(llm_settings):
-    store = JustificationStore(llm_settings)
+def test_appended_justification_reads_back(isolated_settings):
+    store = JustificationStore(isolated_settings)
     record_id = store.append(etf_name="Gold ETF", model_version="v1", deployment="gpt-6.1-sol", answer=_answer(),
                              input_tokens=10, output_tokens=5, cost_usd=0.001)
     record = store.get(record_id)
@@ -14,8 +14,8 @@ def test_appended_justification_reads_back(llm_settings):
     assert record["prompt_version"]
 
 
-def test_link_adds_a_line_and_finds_the_justification_of_a_validation(llm_settings):
-    store = JustificationStore(llm_settings)
+def test_link_adds_a_line_and_finds_the_justification_of_a_validation(isolated_settings):
+    store = JustificationStore(isolated_settings)
     record_id = store.append(etf_name="Gold ETF", model_version="v1", deployment="d", answer=_answer(),
                              input_tokens=1, output_tokens=1, cost_usd=0.0)
     lines_before = store.path.read_text(encoding="utf-8").count("\n")
@@ -25,6 +25,6 @@ def test_link_adds_a_line_and_finds_the_justification_of_a_validation(llm_settin
     assert store.for_validation("unknown") is None
 
 
-def test_missing_file_gives_empty_results(llm_settings):
-    store = JustificationStore(llm_settings)
+def test_missing_file_gives_empty_results(isolated_settings):
+    store = JustificationStore(isolated_settings)
     assert store.get("x") is None and store.for_validation("y") is None

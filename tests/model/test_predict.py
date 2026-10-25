@@ -31,8 +31,8 @@ def _rows(path):
         return list(csv.DictReader(handle, delimiter=";"))
 
 
-def test_predictions_are_written_for_new_etfs(sample_csv, new_etfs_csv, model_settings, tmp_path, capsys):
-    config = _config(tmp_path, model_settings)
+def test_predictions_are_written_for_new_etfs(sample_csv, new_etfs_csv, isolated_settings, tmp_path, capsys):
+    config = _config(tmp_path, isolated_settings)
     train_main(["--csv", str(sample_csv), "--config", config, "--no-azure"])
     output = tmp_path / "predictions.csv"
     code = predict_main(["--csv", str(new_etfs_csv), "--config", config, "--output", str(output)])
@@ -46,16 +46,16 @@ def test_predictions_are_written_for_new_etfs(sample_csv, new_etfs_csv, model_se
     assert "2 ETF" in capsys.readouterr().out
 
 
-def test_without_any_model_a_clear_message_is_shown(new_etfs_csv, model_settings, tmp_path, capsys):
-    code = predict_main(["--csv", str(new_etfs_csv), "--config", _config(tmp_path, model_settings)])
+def test_without_any_model_a_clear_message_is_shown(new_etfs_csv, isolated_settings, tmp_path, capsys):
+    code = predict_main(["--csv", str(new_etfs_csv), "--config", _config(tmp_path, isolated_settings)])
     assert code == 2
     assert "No current model" in capsys.readouterr().err
 
 
-def test_model_with_embeddings_requires_azure(sample_csv, new_etfs_csv, model_settings, fake_client, tmp_path,
+def test_model_with_embeddings_requires_azure(sample_csv, new_etfs_csv, isolated_settings, fake_client, tmp_path,
                                                capsys, monkeypatch):
-    model_settings["features"]["blocks"]["embeddings"]["enabled"] = True
-    config = _config(tmp_path, model_settings)
+    isolated_settings["features"]["blocks"]["embeddings"]["enabled"] = True
+    config = _config(tmp_path, isolated_settings)
     train_main(["--csv", str(sample_csv), "--config", config, "--yes"], client=fake_client)
     for name in ["AZURE_OPENAI_ENDPOINT", "AZURE_OPENAI_API_KEY", "AZURE_OPENAI_API_VERSION"]:
         monkeypatch.delenv(name, raising=False)
@@ -63,9 +63,9 @@ def test_model_with_embeddings_requires_azure(sample_csv, new_etfs_csv, model_se
     assert "Azure" in capsys.readouterr().err
 
 
-def test_model_with_embeddings_predicts_with_azure(sample_csv, new_etfs_csv, model_settings, fake_client, tmp_path):
-    model_settings["features"]["blocks"]["embeddings"]["enabled"] = True
-    config = _config(tmp_path, model_settings)
+def test_model_with_embeddings_predicts_with_azure(sample_csv, new_etfs_csv, isolated_settings, fake_client, tmp_path):
+    isolated_settings["features"]["blocks"]["embeddings"]["enabled"] = True
+    config = _config(tmp_path, isolated_settings)
     train_main(["--csv", str(sample_csv), "--config", config, "--yes"], client=fake_client)
     output = tmp_path / "predictions.csv"
     code = predict_main(["--csv", str(new_etfs_csv), "--config", config, "--output", str(output), "--yes"],

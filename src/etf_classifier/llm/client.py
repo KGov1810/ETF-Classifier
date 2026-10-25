@@ -1,12 +1,8 @@
 """Azure OpenAI chat client (GPT-6.1 Sol): creation from .env and call with a structured answer."""
 
 import logging
-import os
 
-from dotenv import load_dotenv
-
-from etf_classifier.config import PROJECT_ROOT
-from etf_classifier.features.embeddings import ENV_VARIABLES
+from etf_classifier.azure import azure_client, deployment_name
 from etf_classifier.llm.prompts import RESPONSE_SCHEMA
 
 logger = logging.getLogger(__name__)
@@ -14,21 +10,12 @@ logger = logging.getLogger(__name__)
 
 def chat_deployment(settings: dict) -> str:
     """Name of the chat deployment: AZURE_OPENAI_CHAT_DEPLOYMENT if set, otherwise settings.yaml."""
-    return os.environ.get("AZURE_OPENAI_CHAT_DEPLOYMENT") or settings["llm"]["deployment"]
+    return deployment_name("AZURE_OPENAI_CHAT_DEPLOYMENT", settings["llm"]["deployment"])
 
 
 def create_chat_client(settings: dict):
     """AzureOpenAI client, or None if Azure OpenAI is not configured (.env)."""
-    load_dotenv(PROJECT_ROOT / ".env", override=False)
-    missing = [name for name in ENV_VARIABLES if not os.environ.get(name)]
-    if missing:
-        logger.info("Azure OpenAI not configured (missing variables: %s): see .env.example", ", ".join(missing))
-        return None
-    from openai import AzureOpenAI
-
-    return AzureOpenAI(azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"], api_key=os.environ["AZURE_OPENAI_API_KEY"],
-                       api_version=os.environ["AZURE_OPENAI_API_VERSION"],
-                       max_retries=settings["llm"]["max_retries"])
+    return azure_client(settings["llm"]["max_retries"])
 
 
 def complete(client, deployment: str, messages: list[dict], max_completion_tokens: int):

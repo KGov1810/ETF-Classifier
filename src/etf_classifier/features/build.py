@@ -13,44 +13,17 @@ from typing import Callable
 
 from etf_classifier.config import load_settings
 from etf_classifier.data.loader import prepare_dataset
-from etf_classifier.features.embeddings import EmbeddingPlan, EmbeddingsBlock, create_embedder
+from etf_classifier.features.embeddings import (
+    EXIT_CANCELLED, announce_embedding_plan, confirm_spending, create_embedder,
+)
 from etf_classifier.features.pipeline import FeaturePipeline
 
-EXIT_OK, EXIT_CANCELLED = 0, 1
+EXIT_OK = 0
 
 
 def _density(matrix) -> float:
     cells = matrix.shape[0] * matrix.shape[1]
     return matrix.nnz / cells if cells else 0.0
-
-
-def plan_embeddings(settings: dict, data, embedder) -> EmbeddingPlan:
-    """What computing the embeddings of these ETFs would cost (cache deducted), without calling Azure."""
-    texts = EmbeddingsBlock(None, embedder.dimensions,
-                            settings["features"]["embeddings"]["include_top_tickers"]).texts(data)
-    return embedder.plan(texts)
-
-
-def announce_embedding_plan(settings: dict, data, embedder) -> tuple[EmbeddingPlan, str]:
-    """Shows what computing the embeddings would cost (cache deducted), without calling Azure."""
-    plan = plan_embeddings(settings, data, embedder)
-    cost = f"${plan.estimate.cost_usd:.4f}" if plan.estimate else "unknown (deployment missing from the price list)"
-    approx = " (approximate)" if plan.estimate and plan.estimate.approximate else ""
-    tokens = plan.estimate.input_tokens if plan.estimate else "?"
-    print(f"Embeddings: {plan.n_to_compute} text(s) to compute, {plan.n_cached} already cached · "
-          f"{tokens} tokens · estimated cost {cost}{approx}")
-    return plan, cost
-
-
-def confirm_spending(plan: EmbeddingPlan, cost: str, assume_yes: bool, input_fn: Callable[[str], str]) -> bool:
-    """Asks for confirmation before spending on Azure (unless there is nothing to compute or assume_yes)."""
-    if not plan.n_to_compute or assume_yes:
-        return True
-    answer = input_fn(f"Confirm the estimated spending of {cost}? [y/N] ").strip().lower()
-    if answer in {"y", "yes"}:
-        return True
-    print("Cancelled: no Azure call made.")
-    return False
 
 
 def main(argv: list[str] | None = None, client=None, input_fn: Callable[[str], str] = input) -> int:

@@ -13,6 +13,16 @@ from etf_classifier.config import load_settings
 from etf_classifier.model.registry import current_version
 
 NO_VALIDATOR = "—"
+_MARKDOWN_SPECIALS = set("\\`*_{}[]()<>#+-!|~")
+
+
+def md_escape(text) -> str:
+    """Untrusted text (LLM answers, ETF names and descriptions) shown literally: no link, image or formatting.
+
+    st.markdown, st.info, st.warning and st.caption all render Markdown; a description or an answer could
+    otherwise make the browser load an external image (OWASP LLM05: treat model output as untrusted data).
+    """
+    return "".join("\\" + char if char in _MARKDOWN_SPECIALS else char for char in str(text))
 CONFIG_ENV = "ETF_CLASSIFIER_CONFIG"  # optional path to another settings file (used by the tests)
 
 
@@ -83,7 +93,7 @@ def cost_notice(plan) -> None:
 def result_panel(proposal, settings: dict) -> None:
     """Proposed categories, scores, closest ETFs and near-duplicate alert."""
     st.subheader("Proposed categories")
-    st.markdown(", ".join(f"**{c}**" for c in proposal.categories))
+    st.markdown(", ".join(f"**{md_escape(c)}**" for c in proposal.categories))
     best = proposal.scores[0][1] if proposal.scores else 0.0
     if proposal.uncertain:
         threshold = settings["model"]["uncertain_threshold"]
@@ -91,8 +101,8 @@ def result_panel(proposal, settings: dict) -> None:
                    "Check the categories carefully, a new category may be needed.")
     if proposal.near_duplicate is not None:
         dup = proposal.near_duplicate
-        st.info(f"Near-duplicate of {dup.name} ({dup.overlap_pct:.0f} % of the weight in common), "
-                f"categorised {', '.join(dup.categories)}.")
+        st.info(f"Near-duplicate of {md_escape(dup.name)} ({dup.overlap_pct:.0f} % of the weight in common), "
+                f"categorised {md_escape(', '.join(dup.categories))}.")
 
     scores = pd.DataFrame(proposal.scores, columns=["Category", "Score"])
     st.dataframe(scores, hide_index=True, width="stretch",
@@ -107,9 +117,9 @@ def result_panel(proposal, settings: dict) -> None:
         st.caption("This ETF has no composition: neighbours are compared on the text only.")
     lines = []
     for neighbor in proposal.neighbors:
-        shared = ", ".join(ticker for ticker, _ in neighbor.shared_holdings)
+        shared = md_escape(", ".join(ticker for ticker, _ in neighbor.shared_holdings))
         detail = f"{neighbor.overlap_pct:.0f} % of the weight in common" + (f" ({shared})" if shared else "")
-        lines.append(f"- **{neighbor.name}**, {', '.join(neighbor.categories)}. "
+        lines.append(f"- **{md_escape(neighbor.name)}**, {md_escape(', '.join(neighbor.categories))}. "
                      f"Score {neighbor.score:.2f}, {detail}")
     st.markdown("\n".join(lines) if lines else "No similar ETF found.")
 
@@ -156,6 +166,8 @@ def validation_form(prefix: str, proposal, settings: dict, validator: str) -> di
         st.error(error)
     if record is not None:
         st.success(f"Validated as {record['Decision']} (id {record['ValidationId']}).")
+        if record.get("warning"):
+            st.warning(record["warning"])
     return record
 
 
@@ -234,26 +246,28 @@ def justification_section(prefix: str, proposal, settings: dict) -> None:
     j = result.justification
     show_justification(j)
     origin = "from the cache, no cost" if result.cached else f"cost ${result.cost_usd:.4f}"
-    st.caption(f"Confidence: {j.confidence}. Answer {origin}." + (" " + " ".join(j.notes) if j.notes else ""))
+    notes = " " + md_escape(" ".join(j.notes)) if j.notes else ""
+    st.caption(f"Confidence: {j.confidence}. Answer {origin}.{notes}")
     has_suggestions = j.suggested_additions or j.suggested_removals or j.new_category
     if has_suggestions and state.get(f"{prefix}_validated") is None:
         st.button("Apply the suggestions", key=f"{prefix}_apply", on_click=_apply, args=(prefix,))
 
 
 def show_justification(j) -> None:
-    """Summary, inconsistency, verdicts, suggestions and new category of a justification."""
-    st.markdown(j.summary)
+    """Summary, inconsistency, verdicts, suggestions and new category of a justification (LLM text escaped)."""
+    st.markdown(md_escape(j.summary))
     if j.inconsistency:
-        st.warning(f"Inconsistency: {j.inconsistency}")
-    if j.categories:
+        st.warning(f"Inconsistency: {md_escape(j.inconsistency)}")
+    if j.categories:  # st.dataframe shows text as is: no escaping needed
         st.dataframe(pd.DataFrame([{"Category": c["category"],
                                     "Verdict": VERDICT_LABELS.get(c["verdict"], c["verdict"]),
                                     "Reason": c["reason"]} for c in j.categories]),
                      hide_index=True, width="stretch")
     if j.suggested_additions:
-        st.markdown("Suggested additions: " + ", ".join(f"**{c}**" for c in j.suggested_additions))
+        st.markdown("Suggested additions: " + ", ".join(f"**{md_escape(c)}**" for c in j.suggested_additions))
     if j.suggested_removals:
-        st.markdown("Suggested removals: " + ", ".join(f"**{c}**" for c in j.suggested_removals))
+        st.markdown("Suggested removals: " + ", ".join(f"**{md_escape(c)}**" for c in j.suggested_removals))
     if j.new_category:
-        st.markdown(f"Possible new category: **{j.new_category['name']}**. {j.new_category['description']} "
-                    f"{j.new_category['reason']}".strip())
+        new = j.new_category
+        st.markdown(f"Possible new category: **{md_escape(new['name'])}**. "
+                    + md_escape(f"{new['description']} {new['reason']}".strip()))

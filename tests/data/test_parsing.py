@@ -72,3 +72,20 @@ def test_unreadable_categories_raise():
 def test_categories_must_be_strings():
     with pytest.raises(ParsingError):
         parse_categories("[1, 2]")
+
+
+def test_format_composition_is_the_inverse_of_parsing():
+    import numpy as np
+
+    from etf_classifier.data.parsing import format_composition, parse_composition
+
+    text = format_composition({"AAPL": np.float64(6.5), "MSFT": 6})
+    assert text == "[{'AAPL': 6.5}, {'MSFT': 6.0}]"
+    assert parse_composition(text) == {"AAPL": 6.5, "MSFT": 6.0}
+
+
+def test_format_composition_keeps_text_weights_for_the_quality_rules():
+    from etf_classifier.data.parsing import format_composition
+
+    assert format_composition([("AAPL", "five")]) == "[{'AAPL': 'five'}]"
+    assert format_composition("[{'AAPL': 1.0}] ") == "[{'AAPL': 1.0}]"

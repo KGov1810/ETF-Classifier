@@ -16,8 +16,7 @@ import numpy as np
 
 from etf_classifier.config import load_settings, resolve_path
 from etf_classifier.data.loader import PreparedDataset, prepare_dataset
-from etf_classifier.features.build import announce_embedding_plan, confirm_spending
-from etf_classifier.features.embeddings import create_embedder
+from etf_classifier.features.embeddings import CommandStopped, embedder_for_command
 from etf_classifier.features.pipeline import training_fingerprint
 from etf_classifier.model.baseline import FrequencyBaseline
 from etf_classifier.model.classifier import decide, tune
@@ -25,7 +24,7 @@ from etf_classifier.model.evaluate import Metrics, evaluate
 from etf_classifier.similarity.index import SimilarityIndex
 from etf_classifier.similarity.vote import vote_matrix
 
-EXIT_OK, EXIT_CANCELLED = 0, 1
+EXIT_OK = 0  # 1 = cancelled (see features.embeddings)
 VOTE_THRESHOLD = 0.5  # a category is selected when the neighbours holding it weigh at least half of the vote
 
 
@@ -75,13 +74,11 @@ def main(argv: list[str] | None = None, client=None, input_fn: Callable[[str], s
 
     settings = load_settings(args.config)
     prepared = prepare_dataset(args.csv, settings)
-    embedder = None
-    if settings["features"]["blocks"]["embeddings"]["enabled"]:
-        embedder = create_embedder(settings, client=client)
-        if embedder is not None:
-            plan, cost = announce_embedding_plan(settings, prepared.data, embedder)
-            if not confirm_spending(plan, cost, args.yes, input_fn):
-                return EXIT_CANCELLED
+    try:
+        embedder = embedder_for_command(settings, prepared.data, args.yes, input_fn, client,
+                                        enabled=settings["features"]["blocks"]["embeddings"]["enabled"])
+    except CommandStopped as stop:
+        return stop.exit_code
 
     report = render(run_similarity_evaluation(prepared, settings, embedder))
     path = resolve_path(settings["model"]["reports_dir"]) / "similarity_evaluation.md"

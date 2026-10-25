@@ -8,19 +8,18 @@ Rules:
 """
 
 import csv
-import io
 import logging
-import secrets
 import shutil
 from contextlib import contextmanager
 from datetime import datetime, timezone
-from pathlib import Path
+from functools import lru_cache
 
 import pandas as pd
 from filelock import FileLock, Timeout
 
+from etf_classifier.common import append_csv_rows, new_record_id, utc_timestamp
 from etf_classifier.config import resolve_path
-from etf_classifier.data.parsing import ParsingError, parse_categories
+from etf_classifier.data.parsing import ParsingError, format_composition, parse_categories
 from etf_classifier.feedback.categories import CategoryRegistry
 from etf_classifier.feedback.checks import ValidationError, check_validation
 
@@ -35,13 +34,6 @@ class FeedbackError(RuntimeError):
     """Write impossible (lock unavailable, file locked by another application)."""
 
 
-def serialize_composition(composition) -> str:
-    """Composition in the reference CSV format: "[{'AAPL': 6.5}, {'MSFT': 6.1}]"."""
-    if isinstance(composition, str):
-        return composition.strip()
-    return str([{str(ticker): float(weight)} for ticker, weight in composition.items()])
-
-
 def _clean(categories) -> list[str]:
     cleaned: list[str] = []
     for category in categories or []:
@@ -49,6 +41,25 @@ def _clean(categories) -> list[str]:
         if label and label not in cleaned:
             cleaned.append(label)
     return cleaned
+
+
+@lru_cache(maxsize=4)
+def _read_reference(path: str, mtime_ns: int, size: int, encoding: str, separator: str, name_column: str,
+                    category_column: str) -> tuple[frozenset[str], frozenset[str]]:
+    """Names and categories of the original CSV, without going through the data module.
+
+    Cached on (path, modification time, size): the interface asks for the categories on every click,
+    and reading 10,000 rows takes about 0.1 s.
+    """
+    names, categories = set(), set()
+    with open(path, encoding=encoding, newline="") as handle:
+        for row in csv.DictReader(handle, delimiter=separator):
+            names.add((row.get(name_column) or "").strip())
+            try:
+                categories.update(parse_categories(row.get(category_column) or ""))
+            except ParsingError:
+                continue  # line already reported by the data module's quality report
+    return frozenset(names), frozenset(categories)
 
 
 class FeedbackStore:
@@ -61,7 +72,6 @@ class FeedbackStore:
         self.lock_timeout = float(cfg["lock_timeout_seconds"])
         self.reference_csv = resolve_path(cfg["reference_csv"])
         self.registry = CategoryRegistry(settings)
-        self._reference: tuple[set[str], set[str]] | None = None
 
     # ---------- lock ----------
     @contextmanager
@@ -104,23 +114,15 @@ class FeedbackStore:
         """Validations that have not been cancelled: they are the ones enriching the reference dataset."""
         return self._active(self.read_journal())
 
-    def _reference_names_and_categories(self) -> tuple[set[str], set[str]]:
-        """Names and categories of the original CSV, read once (without going through the data module)."""
-        if self._reference is None:
-            names, categories = set(), set()
-            cols = self.settings["csv"]["columns"]
-            if self.reference_csv.exists():
-                with self.reference_csv.open(encoding=self.settings["csv"]["encoding"], newline="") as handle:
-                    for row in csv.DictReader(handle, delimiter=self.settings["csv"]["separator"]):
-                        names.add((row.get(cols["name"]) or "").strip())
-                        try:
-                            categories.update(parse_categories(row.get(cols["category"]) or ""))
-                        except ParsingError:
-                            continue  # line already reported by the data module's quality report
-            else:
-                logger.warning("Reference CSV not found (%s): registry initialised empty", self.reference_csv)
-            self._reference = (names, categories)
-        return self._reference
+    def _reference_names_and_categories(self) -> tuple[frozenset[str], frozenset[str]]:
+        """Names and categories of the original CSV (read again only when the file changes)."""
+        if not self.reference_csv.exists():
+            logger.warning("Reference CSV not found (%s): registry initialised empty", self.reference_csv)
+            return frozenset(), frozenset()
+        stat = self.reference_csv.stat()
+        csv_cfg = self.settings["csv"]
+        return _read_reference(str(self.reference_csv), stat.st_mtime_ns, stat.st_size, csv_cfg["encoding"],
+                               csv_cfg["separator"], csv_cfg["columns"]["name"], csv_cfg["columns"]["category"])
 
     # ---------- writing ----------
     def _backup_if_needed(self) -> None:
@@ -136,21 +138,11 @@ class FeedbackStore:
                 old.unlink()
 
     def _append(self, record: dict) -> None:
-        buffer = io.StringIO()
-        writer = csv.DictWriter(buffer, fieldnames=JOURNAL_COLUMNS, delimiter=";", lineterminator="\n")
-        if not self.journal_path.exists() or self.journal_path.stat().st_size == 0:
-            writer.writeheader()
-        writer.writerow({k: ("" if record.get(k) is None else record[k]) for k in JOURNAL_COLUMNS})
         try:
-            with self.journal_path.open("a", encoding="utf-8", newline="") as handle:
-                handle.write(buffer.getvalue())
+            append_csv_rows(self.journal_path, JOURNAL_COLUMNS, [record])
         except PermissionError as exc:
             raise FeedbackError("The journal is in use by another application (Excel?): "
                                 "close it and try again.") from exc
-
-    @staticmethod
-    def _new_id() -> str:
-        return f"{datetime.now(timezone.utc):%Y%m%d-%H%M%S}-{secrets.token_hex(2)}"
 
     def record_validation(self, etf: dict, categories, validated_by: str, predicted_categories=None,
                           model_version: str | None = None, comment: str = "", create_categories: bool = False,
@@ -161,7 +153,7 @@ class FeedbackStore:
         """
         categories = _clean(categories)
         name = str(etf.get("name") or "").strip()
-        composition = serialize_composition(etf.get("composition") or {})
+        composition = format_composition(etf.get("composition") or {})
         with self.locked():
             reference_names, reference_categories = self._reference_names_and_categories()
             self.registry.ensure_initialized(reference_categories)
@@ -180,13 +172,13 @@ class FeedbackStore:
             else:
                 decision = ACCEPTED if set(_clean(predicted_categories)) == set(categories) else CORRECTED
             record = {
-                "ValidationId": self._new_id(),
+                "ValidationId": new_record_id(),
                 "Name": name,
                 "Description": str(etf.get("description") or "").strip(),
                 "Composition": composition,
                 "Category": str(categories),
                 "ValidatedBy": validated_by.strip(),
-                "ValidatedAt": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "ValidatedAt": utc_timestamp(),
                 "ModelVersion": model_version or "",
                 "PredictedCategories": str(_clean(predicted_categories)) if predicted_categories is not None else "",
                 "Decision": decision,
@@ -210,9 +202,9 @@ class FeedbackStore:
                 raise ValidationError([f"Validation already cancelled: {validation_id}"])
             original = validations.set_index("ValidationId").loc[validation_id]
             record = {
-                "ValidationId": self._new_id(), "Name": original["Name"], "Description": "", "Composition": "",
+                "ValidationId": new_record_id(), "Name": original["Name"], "Description": "", "Composition": "",
                 "Category": "", "ValidatedBy": cancelled_by.strip(),
-                "ValidatedAt": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "ValidatedAt": utc_timestamp(),
                 "ModelVersion": "", "PredictedCategories": "", "Decision": CANCELLATION,
                 "CancelsId": validation_id, "Comment": comment.strip(),
             }

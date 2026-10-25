@@ -51,7 +51,7 @@ if proposal is None:
     st.session_state[f"{PREFIX}_proposal"] = proposal
 
 for message in st.session_state.get(f"{PREFIX}_warnings", []):
-    st.warning(message)
+    st.warning(components.md_escape(message))
 left, right = st.columns([3, 2], gap="large")
 with left:
     components.result_panel(proposal, settings)

@@ -12,25 +12,25 @@ def _train(sample_csv, settings, tmp_path):
     assert train_main(["--csv", str(sample_csv), "--config", str(config), "--no-azure"]) == 0
 
 
-def test_training_saves_the_similarity_index_in_the_model_folder(sample_csv, sim_settings, tmp_path):
-    _train(sample_csv, sim_settings, tmp_path)
-    bundle = load_bundle("current", sim_settings)
+def test_training_saves_the_similarity_index_in_the_model_folder(sample_csv, isolated_settings, tmp_path):
+    _train(sample_csv, isolated_settings, tmp_path)
+    bundle = load_bundle("current", isolated_settings)
     assert (bundle.path / "similarity.joblib").exists()
     assert bundle.similarity is not None
 
 
-def test_reloaded_index_gives_the_same_neighbors_as_a_fresh_one(sample_csv, sim_settings, tmp_path):
-    _train(sample_csv, sim_settings, tmp_path)
-    bundle = load_bundle("current", sim_settings)
-    data = prepare_dataset(sample_csv, sim_settings).data
-    fresh = SimilarityIndex.build(data, bundle.pipeline, sim_settings)
+def test_reloaded_index_gives_the_same_neighbors_as_a_fresh_one(sample_csv, isolated_settings, tmp_path):
+    _train(sample_csv, isolated_settings, tmp_path)
+    bundle = load_bundle("current", isolated_settings)
+    data = prepare_dataset(sample_csv, isolated_settings).data
+    fresh = SimilarityIndex.build(data, bundle.pipeline, isolated_settings)
     loaded = bundle.similarity.query(data, bundle.pipeline, k=3, exclude_row_ids=data["row_id"])
     rebuilt = fresh.query(data, bundle.pipeline, k=3, exclude_row_ids=data["row_id"])
     assert [[n.row_id for n in r.neighbors] for r in loaded] == [[n.row_id for n in r.neighbors] for r in rebuilt]
 
 
-def test_model_folder_without_index_still_loads(sample_csv, sim_settings, tmp_path):
-    _train(sample_csv, sim_settings, tmp_path)
-    bundle = load_bundle("current", sim_settings)
+def test_model_folder_without_index_still_loads(sample_csv, isolated_settings, tmp_path):
+    _train(sample_csv, isolated_settings, tmp_path)
+    bundle = load_bundle("current", isolated_settings)
     (bundle.path / "similarity.joblib").unlink()
-    assert load_bundle("current", sim_settings).similarity is None
+    assert load_bundle("current", isolated_settings).similarity is None

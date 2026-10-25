@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 
 from etf_classifier.model.evaluate import evaluate
-from etf_classifier.model.train import TRAIN_NAMES_FILE
+from etf_classifier.model.registry import TRAIN_NAMES_FILE
 
 
 @dataclass

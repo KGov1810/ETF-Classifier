@@ -3,14 +3,13 @@
 Only counters are recorded, never the content of the texts sent.
 """
 
-import csv
-import io
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
+from etf_classifier.common import append_csv_rows
 from etf_classifier.costs.pricing import PricingTable, cost_usd
 
 logger = logging.getLogger(__name__)
@@ -85,12 +84,4 @@ class CostTracker:
 
     def _append(self, record: dict) -> None:
         """Writes the line in a single operation, in append mode (header if the file is new)."""
-        self.log_path.parent.mkdir(parents=True, exist_ok=True)
-        buffer = io.StringIO()
-        writer = csv.DictWriter(buffer, fieldnames=LOG_COLUMNS, delimiter=LOG_SEPARATOR, lineterminator="\n")
-        is_new = not self.log_path.exists() or self.log_path.stat().st_size == 0
-        if is_new:
-            writer.writeheader()
-        writer.writerow({k: ("" if v is None else v) for k, v in record.items()})
-        with self.log_path.open("a", encoding="utf-8", newline="") as handle:
-            handle.write(buffer.getvalue())
+        append_csv_rows(self.log_path, LOG_COLUMNS, [record], separator=LOG_SEPARATOR)

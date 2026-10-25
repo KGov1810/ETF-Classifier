@@ -69,10 +69,6 @@ class QualityLog:
         """Number of issues per (severity, rule)."""
         return Counter((issue.severity, issue.rule) for issue in self.issues)
 
-    def to_frame(self) -> pd.DataFrame:
-        return pd.DataFrame([vars(issue) for issue in self.issues],
-                            columns=["row_id", "line", "rule", "severity", "message", "extract", "source"])
-
 
 def _validate_row(row: dict, row_id: int, line: int, settings: dict, log: QualityLog,
                   require_categories: bool = True) -> dict | None:

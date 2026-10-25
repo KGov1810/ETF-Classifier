@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from etf_classifier.common import markdown_table
 from etf_classifier.config import load_settings, resolve_path
 from etf_classifier.data.loader import MissingColumnsError, prepare_dataset
 from etf_classifier.data.normalize import find_similar_tickers, normalize_ticker
@@ -28,23 +29,12 @@ class Report:
     stats: dict
 
 
-def _cell(value) -> str:
-    """Text that is safe inside a Markdown table cell."""
-    return str(value).replace("|", "\\|").replace("\n", " ")
-
-
-def _table(headers: list[str], rows: list[list]) -> str:
-    lines = ["| " + " | ".join(headers) + " |", "|" + "---|" * len(headers)]
-    lines += ["| " + " | ".join(_cell(v) for v in row) + " |" for row in rows]
-    return "\n".join(lines)
-
-
 def _issues_section(title: str, issues: list, empty_text: str) -> list[str]:
     lines = [f"## {title}", ""]
     if not issues:
         return lines + [empty_text, ""]
     counts = Counter(issue.rule for issue in issues)
-    lines += [_table(["Rule", "Count"], [[RULE_LABELS[r], n] for r, n in counts.most_common()]), ""]
+    lines += [markdown_table(["Rule", "Count"], [[RULE_LABELS[r], n] for r, n in counts.most_common()]), ""]
 
     def where(issue) -> str:
         line = issue.line if issue.line is not None else "?"
@@ -53,7 +43,7 @@ def _issues_section(title: str, issues: list, empty_text: str) -> list[str]:
     detail = [[where(i), RULE_LABELS[i.rule], i.message, i.extract]
               for i in sorted(issues, key=lambda i: (i.line or 0))[:MAX_DETAIL_ROWS]]
     lines += ["Details (line in the file, header = line 1):", "",
-              _table(["Line", "Rule", "Message", "Extract"], detail), ""]
+              markdown_table(["Line", "Rule", "Message", "Extract"], detail), ""]
     if len(issues) > MAX_DETAIL_ROWS:
         lines += [f"… and {len(issues) - MAX_DETAIL_ROWS} more.", ""]
     return lines
@@ -90,7 +80,7 @@ def build_report(csv_path: str | Path, settings: dict) -> Report:
         "",
         "## Summary",
         "",
-        _table(["Indicator", "Value"], [
+        markdown_table(["Indicator", "Value"], [
             ["Rows read", stats["total_rows"]],
             ["Usable rows", stats["valid_rows"]],
             ["Excluded rows", stats["excluded_rows"]],
@@ -105,11 +95,11 @@ def build_report(csv_path: str | Path, settings: dict) -> Report:
               f"{stats['n_categories']} distinct categories, "
               f"{stats['mean_categories_per_etf']:.2f} categories per ETF on average.", ""]
     if category_counts.size:
-        lines += [_table(["Category", "Number of ETFs"], [[c, int(n)] for c, n in category_counts.items()]), ""]
+        lines += [markdown_table(["Category", "Number of ETFs"], [[c, int(n)] for c, n in category_counts.items()]), ""]
 
     coverage = data["coverage"] if len(data) else pd.Series([0.0])
     lines += ["## Composition coverage", "",
-              _table(["Indicator", "Value"], [
+              markdown_table(["Indicator", "Value"], [
                   ["Minimum coverage (sum of weights)", f"{coverage.min():.1f}"],
                   ["Median coverage", f"{coverage.median():.1f}"],
                   ["Maximum coverage", f"{coverage.max():.1f}"],
@@ -122,19 +112,19 @@ def build_report(csv_path: str | Path, settings: dict) -> Report:
               f"{stats['n_raw_tickers']} distinct tickers before normalisation, "
               f"{stats['n_tickers']} after.", ""]
     if tickers:
-        lines += [_table(["Ticker", "Number of ETFs"], [[t, n] for t, n in tickers.most_common(top_n)]), ""]
+        lines += [markdown_table(["Ticker", "Number of ETFs"], [[t, n] for t, n in tickers.most_common(top_n)]), ""]
 
     lines += ["## Similar tickers", "",
               "Same root, different suffix: check them, and add them to "
               "`config/holding_aliases.csv` if they are the same security.", ""]
     if similar:
         rows = [[root, ", ".join(variants)] for root, variants in list(similar.items())[:MAX_DETAIL_ROWS]]
-        lines += [_table(["Root", "Variants"], rows), ""]
+        lines += [markdown_table(["Root", "Variants"], rows), ""]
     else:
         lines += ["None.", ""]
 
     lines += ["## Near-duplicates", "",
-              _table(["Indicator", "Value"], [
+              markdown_table(["Indicator", "Value"], [
                   ["Groups", dedup.n_groups],
                   ["Links found", dedup.n_links],
                   ["Size of the largest group", dedup.largest_group_size],
@@ -143,11 +133,11 @@ def build_report(csv_path: str | Path, settings: dict) -> Report:
     multi = group_sizes[group_sizes > 1].head(10)
     if len(multi):
         rows = [[g, int(n), ", ".join(data.loc[data["group_id"] == g, "name"].head(8))] for g, n in multi.items()]
-        lines += ["Largest groups:", "", _table(["Group", "Size", "ETFs (first 8)"], rows), ""]
+        lines += ["Largest groups:", "", markdown_table(["Group", "Size", "ETFs (first 8)"], rows), ""]
 
     summary = split.summary
     lines += ["## Train/test split", "",
-              _table(["Indicator", "Value"], [
+              markdown_table(["Indicator", "Value"], [
                   ["ETFs in training", summary.n_train],
                   ["ETFs in test", summary.n_test],
                   ["Test share", f"{summary.test_share:.1%}"],
@@ -156,7 +146,8 @@ def build_report(csv_path: str | Path, settings: dict) -> Report:
               ]), "",
               f"Rare categories (fewer than {settings['split']['rare_category_min']} ETFs):", ""]
     if summary.rare_categories:
-        lines += [_table(["Category", "Number of ETFs"], [[c, n] for c, n in summary.rare_categories.items()]), ""]
+        rows = [[c, n] for c, n in summary.rare_categories.items()]
+        lines += [markdown_table(["Category", "Number of ETFs"], rows), ""]
     else:
         lines += ["None.", ""]
 

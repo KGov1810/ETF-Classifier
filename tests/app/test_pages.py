@@ -17,7 +17,7 @@ PAGES = ["Home.py", "pages/1_Single_ETF.py", "pages/2_Batch.py", "pages/3_Histor
 def use_settings(monkeypatch, tmp_path):
     """Writes the given settings to a YAML file and points the app to it."""
     def _use(settings: dict) -> dict:
-        path = tmp_path / "app_settings.yaml"
+        path = tmp_path / "isolated_settings.yaml"
         path.write_text(yaml.safe_dump(settings, allow_unicode=True), encoding="utf-8")
         monkeypatch.setenv("ETF_CLASSIFIER_CONFIG", str(path))
         return settings
@@ -37,8 +37,8 @@ def _existing_pages():
 
 
 @pytest.mark.parametrize("page", PAGES[:2])
-def test_page_renders_without_a_model(page, app_settings, use_settings):
-    use_settings(app_settings)
+def test_page_renders_without_a_model(page, isolated_settings, use_settings):
+    use_settings(isolated_settings)
     at = _app(page).run()
     assert not at.exception
     assert "No current model" in _texts(at, "error") + _texts(at, "warning") + _texts(at, "info")
@@ -108,7 +108,7 @@ def test_embeddings_model_asks_for_cost_confirmation_before_proposing(trained_em
                                                                       fake_client, monkeypatch):
     use_settings(trained_emb_settings)
     # Azure "configured" with the fake client: the app builds its client exactly as in production
-    from etf_classifier.features.embeddings import ENV_VARIABLES
+    from etf_classifier.azure import ENV_VARIABLES
 
     for variable in ENV_VARIABLES:
         monkeypatch.setenv(variable, "test")
@@ -168,7 +168,6 @@ def test_batch_queue_validate_then_skip(trained_settings, use_settings, sample_c
 
 
 def _validate_directly(settings, name):
-    from etf_classifier.app import services
 
     store = FeedbackStore(settings)
     return store.record_validation({"name": name, "description": "d", "composition": {"NEM": 5.0}},
@@ -216,8 +215,8 @@ def test_history_cancel_requires_a_comment(trained_settings, use_settings):
     assert len(FeedbackStore(trained_settings).read_journal()) == 1
 
 
-def test_monitoring_page_without_data(app_settings, use_settings):
-    use_settings(app_settings)
+def test_monitoring_page_without_data(isolated_settings, use_settings):
+    use_settings(isolated_settings)
     at = _app("pages/4_Monitoring.py").run()
     assert not at.exception
     assert "No validation" in _texts(at, "markdown") + _texts(at, "info")

@@ -72,7 +72,7 @@ def test_azure_errors_become_readable_messages(trained_settings):
 
 @pytest.fixture
 def single_page(trained_settings, monkeypatch, tmp_path):
-    path = tmp_path / "app_settings.yaml"
+    path = tmp_path / "isolated_settings.yaml"
     path.write_text(yaml.safe_dump(trained_settings, allow_unicode=True), encoding="utf-8")
     monkeypatch.setenv("ETF_CLASSIFIER_CONFIG", str(path))
     at = AppTest.from_file(str(APP_DIR / "pages" / "1_Single_ETF.py"), default_timeout=60).run()
@@ -145,7 +145,7 @@ def test_history_shows_the_justification_of_a_validation(trained_settings, monke
                                              answer={**llm_answer, "notes": []}, input_tokens=1, output_tokens=1,
                                              cost_usd=0.01)
     justifications.link(justification_id, record["ValidationId"])
-    path = tmp_path / "app_settings.yaml"
+    path = tmp_path / "isolated_settings.yaml"
     path.write_text(yaml.safe_dump(trained_settings, allow_unicode=True), encoding="utf-8")
     monkeypatch.setenv("ETF_CLASSIFIER_CONFIG", str(path))
     at = AppTest.from_file(str(APP_DIR / "pages" / "3_History.py"), default_timeout=60).run()
@@ -158,8 +158,43 @@ def test_history_shows_the_justification_of_a_validation(trained_settings, monke
 def test_history_without_justification_says_so(trained_settings, monkeypatch, tmp_path):
     FeedbackStore(trained_settings).record_validation(
         {"name": "Gold K", "description": "d", "composition": {"NEM": 5.0}}, ["Gold"], "Alice Martin")
-    path = tmp_path / "app_settings.yaml"
+    path = tmp_path / "isolated_settings.yaml"
     path.write_text(yaml.safe_dump(trained_settings, allow_unicode=True), encoding="utf-8")
     monkeypatch.setenv("ETF_CLASSIFIER_CONFIG", str(path))
     at = AppTest.from_file(str(APP_DIR / "pages" / "3_History.py"), default_timeout=60).run()
     assert "No LLM justification" in _texts(at, "caption")
+
+
+def test_failed_justification_link_does_not_hide_a_saved_validation(trained_settings, chat_client, monkeypatch):
+    proposal = _proposal(trained_settings)
+    justifier = services.llm_justifier(trained_settings, client=chat_client)
+    result = services.llm_justify(justifier, proposal, trained_settings, confirmed=True)
+
+    def broken_link(*_):
+        raise TimeoutError("justification file locked")
+
+    monkeypatch.setattr(JustificationStore, "link", broken_link)
+    record = services.validate(proposal, proposal.categories, "Alice Martin", trained_settings,
+                               justification_id=result.justification_id)
+    assert len(FeedbackStore(trained_settings).read_journal()) == 1
+    assert "could not be linked" in record["warning"]
+
+
+def test_markdown_from_untrusted_text_is_neutralised():
+    from etf_classifier.app.components import md_escape
+
+    escaped = md_escape("See ![tracker](http://evil.example/a.png) and [link](http://evil.example) **bold**")
+    assert "![" not in escaped and "](" not in escaped and "**" not in escaped
+    assert md_escape("Gold & Silver Miners 2x") == "Gold & Silver Miners 2x"  # plain text unchanged
+
+
+def test_llm_answer_cannot_inject_markdown(llm_answer):
+    injected = {**llm_answer, "summary": "Fine. ![x](http://evil.example/leak.png)",
+                "inconsistency": "[click](http://evil.example)", "notes": []}
+    at = AppTest.from_string(
+        "from etf_classifier.app import components\n"
+        "from etf_classifier.llm.prompts import Justification\n"
+        f"components.show_justification(Justification(**{injected!r}))\n").run()
+    rendered = " ".join(e.value for e in at.markdown) + " ".join(e.value for e in at.warning)
+    assert not at.exception
+    assert "![" not in rendered and "](" not in rendered
