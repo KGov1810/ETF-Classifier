@@ -1,0 +1,7 @@
+pandas>=2.1
+numpy>=1.26
+scipy>=1.11
+PyYAML>=6.0
+pytest>=8.0
+# Installe le projet lui-même (mode éditable) pour `python -m etf_classifier...`
+-e .

@@ -1,0 +1,31 @@
+# Configuration du module data. Aucun seuil n'est écrit en dur dans le code.
+
+csv:
+  separator: ";"
+  encoding: "utf-8"
+  columns:
+    name: "Name"
+    description: "Description"
+    composition: "Composition"
+    category: "Category"
+
+quality:
+  max_weight_sum: 105.0        # au-delà : avertissement
+
+normalize:
+  strip_exchange_suffix: false # retirer " US", ".PA", " UW Equity"… (désactivé par défaut)
+  aliases_path: "config/holding_aliases.csv"
+
+dedup:
+  overlap_threshold: 0.80      # recouvrement pondéré minimal pour lier deux ETF
+  min_common_holdings: 3       # garde-fou contre une seule grosse ligne partagée
+  max_group_share: 0.02        # avertissement si un groupe dépasse 2 % du jeu
+
+split:
+  test_size: 0.20
+  seed: 42
+  rare_category_min: 5         # catégories sous ce seuil listées dans le rapport
+
+report:
+  output_path: "reports/data_quality.md"
+  top_holdings: 20

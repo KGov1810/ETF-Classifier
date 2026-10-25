@@ -1,0 +1,19 @@
+# Données réelles : jamais versionnées
+data/raw/*
+!data/raw/.gitkeep
+
+# Rapports générés
+reports/*
+!reports/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+build/
+dist/
+
+# Secrets (clés Azure à venir)
+.env
