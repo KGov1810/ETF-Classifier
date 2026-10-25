@@ -14,4 +14,5 @@ where = ["src"]
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+addopts = "--import-mode=importlib"
 markers = ["slow: tests de performance (désactivables avec -m 'not slow')"]

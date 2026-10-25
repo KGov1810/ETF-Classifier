@@ -25,29 +25,29 @@ et de tester tout le code Azure avec un faux client.
 ## Liste des tâches
 
 ### Phase A : module `costs`
-- [ ] A1 : grille tarifaire et chargement contrôlé
-- [ ] A2 : comptage des tokens et estimations
-- [ ] A3 : journal du coût réel (`CostTracker`)
-- [ ] A4 : rapport des coûts (CLI)
+- [x] A1 : grille tarifaire et chargement contrôlé
+- [x] A2 : comptage des tokens et estimations
+- [x] A3 : journal du coût réel (`CostTracker`)
+- [x] A4 : rapport des coûts (CLI)
 
 ### Point d'étape A
-- [ ] Tests verts sans réseau
+- [x] Tests verts sans réseau
 - [ ] Vous vérifiez les prix de `config/pricing.yaml` par rapport à votre contrat Azure
 
 ### Phase B : `features` sans Azure
-- [ ] B1 : dépendances, configuration et encodage des catégories
-- [ ] B2 : bloc `text_tfidf`
-- [ ] B3 : blocs `holdings` et `composition_stats`
-- [ ] B4 : pipeline apprendre/appliquer, sauvegarde et rechargement
+- [x] B1 : dépendances, configuration et encodage des catégories
+- [x] B2 : bloc `text_tfidf`
+- [x] B3 : blocs `holdings` et `composition_stats`
+- [x] B4 : pipeline apprendre/appliquer, sauvegarde et rechargement
 
 ### Point d'étape B
-- [ ] Tests d'absence de fuite et de reproductibilité verts
-- [ ] Construction des 3 blocs sur 10 000 ETF synthétiques en moins de 60 s
+- [x] Tests d'absence de fuite et de reproductibilité verts
+- [x] Construction des 3 blocs sur 10 000 ETF synthétiques en moins de 60 s (3,8 s)
 
 ### Phase C : `features` avec Azure
-- [ ] C1 : client d'embeddings (lots, troncature, nouvelles tentatives), testé avec un faux client
-- [ ] C2 : cache SQLite et suivi des coûts par lot
-- [ ] C3 : ligne de commande `build` (estimation, confirmation, `--yes`) et `.env.example`
+- [x] C1 : client d'embeddings (lots, troncature, nouvelles tentatives), testé avec un faux client
+- [x] C2 : cache SQLite et suivi des coûts par lot
+- [x] C3 : ligne de commande `build` (estimation, confirmation, `--yes`) et `.env.example`
 
 ### Point d'étape C : essai réel
 - [ ] Vous lancez `build --estimate-only` puis `build` sur un petit échantillon avec votre clé Azure
@@ -63,6 +63,14 @@ et de tester tout le code Azure avec un faux client.
 | Changement de modèle ou de dimension invalidant le cache | Moyen | Modèle et dimension inclus dans la clé du cache ; changement soumis à votre accord |
 | Fuite d'information du test vers l'entraînement | Élevé | Apprentissage sur l'entraînement seulement ; test dédié avec un mot et un ticker présents uniquement dans le test |
 | Clé Azure exposée | Élevé | `.env` exclu du versionnement ; clé jamais lue ailleurs que dans le client ; `.env.example` sans valeur |
+
+## Statut (25/10/2026)
+
+Tâches A1 à C3 codées et testées (171 tests verts, 1 ignoré faute d'accès aux tables tiktoken).
+Restent les vérifications de votre côté : prix de la grille (point A) et essai réel Azure (point C).
+
+Écart à la spec : repli approximatif du comptage de tokens quand les tables tiktoken ne peuvent pas être
+téléchargées (réseau restreint), signalé dans l'estimation.
 
 ## Questions ouvertes
 

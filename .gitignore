@@ -2,6 +2,11 @@
 data/raw/*
 !data/raw/.gitkeep
 
+# Journaux, cache d'embeddings et pipelines sauvegardés
+logs/
+cache/
+artifacts/
+
 # Rapports générés
 reports/*
 !reports/.gitkeep

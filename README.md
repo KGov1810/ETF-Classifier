@@ -13,7 +13,8 @@ chacune mesurée par rapport à une référence simple.
 | Module | Rôle | État |
 |---|---|---|
 | `data` | Chargement, contrôle qualité, normalisation, quasi-doublons, découpage | ✅ Fait |
-| `features` | Vectorisation du texte et de la composition | À spécifier |
+| `costs` | Estimation et suivi des coûts Azure OpenAI (USD) | ✅ Fait |
+| `features` | Vectorisation du texte, de la composition et embeddings Azure | ✅ Fait |
 | `model` | Classifieur multi-étiquettes et évaluation | — |
 | `similarity` | ETF les plus proches | — |
 | `feedback` | Enregistrement des validations dans le CSV | — |
@@ -21,7 +22,7 @@ chacune mesurée par rapport à une référence simple.
 | `llm-justify` | Justification par LLM (Azure OpenAI) | — |
 | `retraining` | Réentraînement quotidien | — |
 
-Voir `CAPABILITY-MAP.md` pour l'architecture et l'ordre de construction, et `SPEC-data.md` pour le détail du module `data`.
+Voir `CAPABILITY-MAP.md` pour l'architecture et l'ordre de construction, et les fichiers `SPEC-<module>.md` pour le détail de chaque module.
 
 ## Format des données attendu
 
@@ -70,10 +71,43 @@ prepared.split.test    # ETF de test (aucun quasi-doublon commun avec l'entraîn
 prepared.log           # exclusions et avertissements
 ```
 
+## Accès Azure OpenAI
+
+Copier `.env.example` en `.env` (jamais versionné) et renseigner l'endpoint, la clé, la version d'API
+et le nom du déploiement d'embeddings. Le nom du déploiement doit aussi figurer dans
+`config/pricing.yaml` (section `deployments`). **Vérifier les prix de cette grille** avec votre contrat :
+ils sont pré-remplis avec les tarifs publics Data Zone Standard (borne haute).
+
+Sans `.env`, tout fonctionne avec les trois blocs locaux ; seul le bloc embeddings est désactivé.
+
+## Construire les variables
+
+```bash
+python -m etf_classifier.features.build --csv data/raw/etfs.csv --estimate-only   # coût estimé, aucun appel
+python -m etf_classifier.features.build --csv data/raw/etfs.csv                   # demande confirmation
+python -m etf_classifier.features.build --csv data/raw/etfs.csv --yes             # sans confirmation (job quotidien)
+python -m etf_classifier.features.build --csv data/raw/etfs.csv --no-azure        # blocs locaux uniquement
+```
+
+Les embeddings sont mis en cache (`cache/embeddings.sqlite`) : un ETF déjà traité n'est jamais repayé.
+Le pipeline appris est sauvegardé dans `artifacts/features/<version>/`.
+
+## Suivre les coûts Azure
+
+Chaque appel Azure est enregistré dans `logs/azure_usage.csv` (compteurs de tokens et coût, jamais les textes).
+
+```bash
+python -m etf_classifier.costs.report --since 2026-10-01
+```
+
+Le comptage des tokens utilise `tiktoken`, qui télécharge ses tables au premier usage. Si le réseau
+le bloque, l'estimation passe en mode approximatif (signalé) ; le coût réel renvoyé par Azure fait
+toujours foi. Pour un poste hors ligne, pré-télécharger les tables et définir `TIKTOKEN_CACHE_DIR`.
+
 ## Tests
 
 ```bash
-pytest -v                 # suite complète (≈ 15 s)
+pytest -v                 # suite complète (≈ 20 s, aucun appel réseau)
 pytest -m "not slow"      # sans le test de performance
 ```
 
@@ -89,7 +123,10 @@ recouvrement des quasi-doublons, taille du jeu de test…). Les tickers à fusio
 config/                  configuration et alias de tickers
 data/raw/                CSV réel (non versionné)
 reports/                 rapports générés (non versionnés)
-src/etf_classifier/data/ module data
+src/etf_classifier/data/      module data
+src/etf_classifier/costs/     module costs
+src/etf_classifier/features/  module features
+logs/ cache/ artifacts/       journaux, cache et pipelines (non versionnés)
 tests/data/              tests et CSV fictif
 tasks/                   plan et tâches
 ```

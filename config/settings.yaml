@@ -29,3 +29,31 @@ split:
 report:
   output_path: "reports/data_quality.md"
   top_holdings: 20
+
+costs:
+  pricing_path: "config/pricing.yaml"
+  usage_log_path: "logs/azure_usage.csv"
+  stale_after_days: 90         # avertissement si la grille tarifaire est plus ancienne
+  report_output_path: "reports/azure_costs.md"
+
+features:
+  blocks:                      # blocs actifs et poids relatif dans la matrice combinée
+    text_tfidf: {enabled: true, weight: 1.0}
+    holdings: {enabled: true, weight: 1.0}
+    composition_stats: {enabled: true, weight: 1.0}
+    embeddings: {enabled: true, weight: 1.0}
+  text_tfidf:
+    ngram_max: 2               # mots et paires de mots
+    min_df: 2                  # un terme doit apparaître dans au moins 2 ETF
+    max_features: 50000
+  holdings:
+    min_df: 1                  # un ticker doit apparaître dans au moins N ETF d'entraînement
+  embeddings:
+    deployment: "text-embedding-3-large"   # remplacé par AZURE_OPENAI_EMBEDDING_DEPLOYMENT s'il est défini
+    dimensions: 3072
+    batch_size: 64
+    max_tokens: 8192
+    max_retries: 6             # nouvelles tentatives du client en cas d'erreur 429 ou serveur
+    include_top_tickers: false # expérimentation : ajouter les 10 premiers tickers au texte
+    cache_path: "cache/embeddings.sqlite"
+  artifacts_dir: "artifacts/features"

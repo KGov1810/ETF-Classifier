@@ -3,5 +3,9 @@ numpy>=1.26
 scipy>=1.11
 PyYAML>=6.0
 pytest>=8.0
+tiktoken>=0.7          # comptage des tokens (module costs)
+scikit-learn>=1.4      # TF-IDF, mise à l'échelle, encodage des catégories
+openai>=1.40           # client Azure OpenAI officiel
+python-dotenv>=1.0     # lecture du fichier .env
 # Installe le projet lui-même (mode éditable) pour `python -m etf_classifier...`
 -e .
