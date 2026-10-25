@@ -1,6 +1,9 @@
 # Données réelles : jamais versionnées
 data/raw/*
 !data/raw/.gitkeep
+data/validations.csv*
+data/categories.csv*
+data/backups/
 
 # Journaux, cache d'embeddings et pipelines sauvegardés
 logs/

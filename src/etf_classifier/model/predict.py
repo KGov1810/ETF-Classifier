@@ -55,11 +55,15 @@ def main(argv: list[str] | None = None, client=None, input_fn: Callable[[str], s
     cfg = settings["model"]
     predictions = bundle.model.predict(bundle.pipeline.transform(data).matrix,
                                        cfg["max_categories"], cfg["uncertain_threshold"])
+    # Fichier autonome : l'équipe y ajoute une colonne Category, puis l'importe (feedback.import)
     output = pd.DataFrame({
         "Name": data["name"],
+        "Description": data["description"],
+        "Composition": [str([{t: w} for t, w in comp.items()]) for comp in data["composition_raw"]],
         "PredictedCategories": [str(p.categories) for p in predictions],
         "Scores": [str([{c: round(s, 4)} for c, s in p.scores[: cfg["max_categories"]]]) for p in predictions],
         "Uncertain": [p.uncertain for p in predictions],
+        "ModelVersion": bundle.version,
     })
     if args.output:
         output_path = Path(args.output)

@@ -17,7 +17,7 @@ chacune mesurée par rapport à une référence simple.
 | `features` | Vectorisation du texte, de la composition et embeddings Azure | ✅ Fait |
 | `model` | Classifieur multi-étiquettes, évaluation, versionnement | ✅ Fait |
 | `similarity` | ETF les plus proches, alerte quasi-doublon, vote des voisins | ✅ Fait |
-| `feedback` | Enregistrement des validations dans le CSV | — |
+| `feedback` | Journal des validations, registre des catégories, import et suivi | ✅ Fait |
 | `app` | Interface Streamlit | — |
 | `llm-justify` | Justification par LLM (Azure OpenAI) | — |
 | `retraining` | Réentraînement quotidien | — |
@@ -130,6 +130,23 @@ python -m etf_classifier.similarity.evaluate --csv data/raw/etfs.csv        # vo
 - Chaque voisin est expliqué : part du poids en commun et principaux tickers partagés.
 - L'index est construit par `model.train` et rangé dans le dossier du modèle (`similarity.joblib`).
 
+## Enregistrer les validations de l'équipe
+
+Les validations sont ajoutées à un journal séparé, `data/validations.csv`, fusionné automatiquement avec le
+CSV d'origine (jamais réécrit) à chaque chargement : le prochain entraînement voit donc les nouveaux ETF.
+
+```bash
+python -m etf_classifier.model.predict --csv nouveaux_etfs.csv --output a_valider.csv
+# l'équipe ajoute une colonne Category (catégories validées) dans a_valider.csv
+python -m etf_classifier.feedback.importer --csv a_valider.csv --by "Prénom Nom" [--create-categories]
+python -m etf_classifier.feedback.report                       # taux d'acceptation, alerte de biais
+```
+
+- Écriture sous verrou de fichier, une ligne complète à la fois, sauvegarde quotidienne dans `data/backups/`.
+- Une erreur se corrige par une annulation (rien n'est jamais supprimé).
+- **Placer `data/` sur un disque local du serveur** : un verrou de fichier n'est pas fiable sur un lecteur réseau.
+- Ne pas ouvrir le journal dans Excel pendant les validations (Windows bloque alors le fichier).
+
 ## Tests
 
 ```bash
@@ -148,12 +165,14 @@ recouvrement des quasi-doublons, taille du jeu de test…). Les tickers à fusio
 ```
 config/                  configuration et alias de tickers
 data/raw/                CSV réel (non versionné)
+data/validations.csv     journal des validations (non versionné)
 reports/                 rapports générés (non versionnés)
 src/etf_classifier/data/      module data
 src/etf_classifier/costs/     module costs
 src/etf_classifier/features/  module features
 src/etf_classifier/model/     module model
 src/etf_classifier/similarity/ module similarity
+src/etf_classifier/feedback/  module feedback
 logs/ cache/ artifacts/       journaux, cache et pipelines (non versionnés)
 tests/data/              tests et CSV fictif
 tasks/                   plan et tâches

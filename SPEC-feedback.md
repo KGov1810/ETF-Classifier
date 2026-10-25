@@ -64,7 +64,7 @@ Colonnes du journal :
 - `cancel_validation(validation_id, cancelled_by, comment)` ajoute une ligne `annulation`. On ne supprime jamais rien : l'historique reste complet, et l'ETF annulé disparaît du jeu de référence au chargement suivant.
 
 ### 5. Import d'un lot (avant l'interface)
-`python -m etf_classifier.feedback.import --csv valides.csv --by "Prénom Nom" [--create-categories]`
+`python -m etf_classifier.feedback.importer --csv valides.csv --by "Prénom Nom" [--create-categories]`
 - Format d'entrée : celui produit par `model.predict`, complété par l'équipe d'une colonne `Category` (catégories validées).
 - Chaque ligne passe par les mêmes contrôles. Le rapport d'import indique les lignes acceptées et refusées, avec la raison.
 
@@ -119,3 +119,8 @@ Modification d'un module existant : `data.loader` fusionne le CSV d'origine et l
 - **Dépendance `filelock`** acceptée (verrou portable Windows / Linux / macOS).
 - **Corrections d'ETF historiques hors v1** ; elles pourront venir sous forme de lignes `correction` dans le journal.
 - **Identité du validateur** : nom ou e-mail, sans authentification en v1.
+- **Ajouts pendant l'implémentation** :
+  - décision `sans_proposition` pour une validation saisie sans proposition du modèle (exclue du taux d'acceptation) ;
+  - la commande d'import s'appelle `feedback.importer` (`import` est un mot réservé de Python) ;
+  - la sortie de `model.predict` contient désormais `Description`, `Composition` et `ModelVersion`, pour que le
+    fichier complété par l'équipe se suffise à lui-même.

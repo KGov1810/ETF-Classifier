@@ -67,17 +67,44 @@ def read_raw_rows(path: str | Path, settings: dict,
     return rows, bad_lines
 
 
-def load_dataset(path: str | Path, settings: dict | None = None, require_categories: bool = True) -> LoadResult:
-    """Charge, contrôle et normalise le CSV d'ETF.
+def _validation_rows(settings: dict, first_record: int) -> list[dict]:
+    """Validations actives du journal, au format des lignes du CSV, avec des row_id à la suite du CSV."""
+    from etf_classifier.feedback.store import FeedbackStore  # import local : le module feedback est facultatif
 
-    Colonnes du jeu exploitable : row_id, line, name, description, composition_raw,
-    composition (tickers normalisés), categories, coverage, n_holdings.
+    store = FeedbackStore(settings)
+    if not store.journal_path.exists():
+        return []
+    cols = settings["csv"]["columns"]
+    rows = []
+    for offset, (position, validation) in enumerate(store.active_validations().iterrows()):
+        rows.append({
+            cols["name"]: validation["Name"], cols["description"]: validation["Description"],
+            cols["composition"]: validation["Composition"], cols["category"]: validation["Category"],
+            "__line__": int(position) + 2,  # ligne dans le journal (en-tête = ligne 1)
+            "__record__": first_record + offset,
+        })
+    return rows
+
+
+def load_dataset(path: str | Path, settings: dict | None = None, require_categories: bool = True) -> LoadResult:
+    """Charge, contrôle et normalise le jeu de référence : CSV d'origine + validations actives du journal.
+
+    Colonnes du jeu exploitable : row_id, line, source (« reference » ou « validation »), name, description,
+    composition_raw, composition (tickers normalisés), categories, coverage, n_holdings.
     Les lignes exclues et les avertissements sont dans LoadResult.log.
-    require_categories=False sert à charger de nouveaux ETF à prédire : catégorie facultative.
+    require_categories=False sert à charger de nouveaux ETF à prédire : catégorie facultative, et jamais
+    de fusion avec le journal des validations.
     """
     settings = settings or load_settings()
     rows, bad_lines = read_raw_rows(path, settings, require_categories)
+    n_reference = len(rows) + len(bad_lines)
+    if require_categories and "feedback" in settings:
+        rows = rows + _validation_rows(settings, first_record=n_reference)
     data, log = validate_rows(rows, bad_lines, settings, require_categories)
+    for issue in log.issues:
+        if issue.row_id is not None and issue.row_id >= n_reference:
+            issue.source = "validation"
+    data.insert(2, "source", ["validation" if r >= n_reference else "reference" for r in data["row_id"]])
     aliases = load_aliases(settings)
     data = normalize_dataset(data, aliases, settings["normalize"]["strip_exchange_suffix"])
     return LoadResult(data=data, log=log, total_rows=len(rows) + len(bad_lines))

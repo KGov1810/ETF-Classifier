@@ -47,6 +47,7 @@ class QualityIssue:
     severity: str
     message: str
     extract: str = ""
+    source: str = "reference"  # « reference » (CSV d'origine) ou « validation » (journal des validations)
 
 
 @dataclass
@@ -70,7 +71,7 @@ class QualityLog:
 
     def to_frame(self) -> pd.DataFrame:
         return pd.DataFrame([vars(issue) for issue in self.issues],
-                            columns=["row_id", "line", "rule", "severity", "message", "extract"])
+                            columns=["row_id", "line", "rule", "severity", "message", "extract", "source"])
 
 
 def _validate_row(row: dict, row_id: int, line: int, settings: dict, log: QualityLog,

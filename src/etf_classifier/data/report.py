@@ -45,7 +45,11 @@ def _issues_section(title: str, issues: list, empty_text: str) -> list[str]:
         return lines + [empty_text, ""]
     counts = Counter(issue.rule for issue in issues)
     lines += [_table(["Règle", "Nombre"], [[RULE_LABELS[r], n] for r, n in counts.most_common()]), ""]
-    detail = [[i.line if i.line is not None else "?", RULE_LABELS[i.rule], i.message, i.extract]
+    def where(issue) -> str:
+        line = issue.line if issue.line is not None else "?"
+        return f"journal {line}" if issue.source == "validation" else str(line)
+
+    detail = [[where(i), RULE_LABELS[i.rule], i.message, i.extract]
               for i in sorted(issues, key=lambda i: (i.line or 0))[:MAX_DETAIL_ROWS]]
     lines += ["Détail (ligne du fichier, en-tête = ligne 1) :", "",
               _table(["Ligne", "Règle", "Message", "Extrait"], detail), ""]
