@@ -31,7 +31,8 @@ construit par étapes mesurées.
 
 ## Décisions
 
-- Le CSV reste la source de vérité (pas de base de données en v1).
+- Les CSV restent la source de vérité (pas de base de données en v1) : le CSV d'origine, jamais réécrit,
+  et le journal des validations `data/validations.csv`, fusionnés au chargement (décision du 25/10/2026).
 - Réentraînement quotidien déclenché par le planificateur du serveur (cron ou Planificateur de tâches Windows),
   pas par Streamlit. Le job est ignoré s'il n'y a eu aucune nouvelle validation depuis le dernier entraînement,
   et il respecte le même verrou de fichier que l'interface pour éviter les conflits d'écriture.
