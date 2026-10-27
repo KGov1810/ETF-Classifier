@@ -27,6 +27,7 @@ Python 3.11 or later, from the project folder.
    pip install -r requirements.txt
    ```
 2. **Add your data**: put the categorised CSV in `data/raw/etfs.csv` (never committed; format below).
+   No data yet? [`data/examples/`](data/examples/README.md) holds about 1,750 real ETFs to try everything.
 3. **Check its quality**
    ```bash
    python -m etf_classifier.data.report --csv data/raw/etfs.csv

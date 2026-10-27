@@ -1,0 +1,264 @@
+Ticker;Nom;TrueClassification;GivenClassification;Change
+EZBC;Franklin Templeton Digital Holdings Trust Shares of Franklin Bitcoin ETF;Alternatives – Alternative;Alternatives – Alternative;unchanged
+MSSE;Morgan Stanley Ethereum Trust;Alternatives – Alternative;Fixed Income – Corporate Bonds;wrong classification
+BRRR;Coinshares Bitcoin ETF;Alternatives – Alternative;Alternatives – Alternative;unchanged
+SOEZ;Franklin Solana ETF;Alternatives – Alternative;Alternatives – Alternative;unchanged
+BTCK;7RCC Spot Bitcoin and Carbon Credit Futures ETF;Alternatives – Alternative;Fixed Income – Treasury Bonds;wrong classification
+BTAL;AGFiQ U.S. Market Neutral Anti-Beta Fund;Alternatives – Alternative;Alternatives – Alternative;unchanged
+XBTY;GraniteShares YieldBOOST Bitcoin ETF;Alternatives – Alternative;Information Technology – Developed Markets;wrong classification
+WTMF;WisdomTree Managed Futures Strategy Fund;Alternatives – Alternative;Alternatives – Alternative;unchanged
+ETCG;Grayscale Ethereum Classic Trust (ETC);Alternatives – Alternative;Thematic;unknown classification
+FAAR;First Trust Alternative Absolute Return Strategy ETF;Alternatives – Alternative;Alternatives – Alternative;unchanged
+AMLP;Alerian MLP ETF;Energy – Developed Markets;Equity – Developed Market;unknown classification
+WR;Corgi U.S. War Machine ETF;Energy – Developed Markets;;no classification
+USAI;Pacer American Energy Independence ETF;Energy – Developed Markets;Materials – Developed Markets;wrong classification
+SMOG;VanEck Vectors Low Carbon Energy ETF;Energy – Developed Markets;Equity – Developed Market;unknown classification
+XOP;SPDR S&P Oil & Gas Exploration & Production ETF;Energy – Developed Markets;Materials – Developed Markets;wrong classification
+FCG;First Trust Natural Gas ETF;Energy – Developed Markets;;no classification
+XRLX;FundX Conservative ETF;Equities – Allocation;Equities – Allocation;unchanged
+FORH;ETF Opportunities Trust - Formidable ETF;Equities – Allocation;Industrials – Developed Markets;wrong classification
+CANQ;Calamos Nasdaq Equity & Income ETF;Equities – Allocation;Alternatives – Alternative;wrong classification
+TACK;Fairlead Tactical Sector ETF;Equities – Allocation;Equities – Allocation;unchanged
+BIZD;VanEck Vectors BDC Income ETF;Equities – Allocation;Industrials – Developed Markets;wrong classification
+UCBG;State Street SPDR UC Investments 90/10 Endowment Strategy Index ETF;Equities – Allocation;Equities – Allocation;unchanged
+FCEF;First Trust CEF Income Opportunity ETF;Equities – Allocation;Thematic;unknown classification
+EINC;VanEck Vectors Energy Income ETF;Equities – Allocation;;no classification
+ITDF;iShares LifePath Target Date 2050 ETF;Equities – Allocation;;no classification
+AOA;iShares Core Aggressive Allocation ETF;Equities – Allocation;Equities – Allocation;unchanged
+GSID;Goldman Sachs MarketBeta International Equity ETF;Equities – Developed Markets;;no classification
+HAP;VanEck Vectors Natural Resources ETF;Equities – Developed Markets;Equities – Developed Markets;unchanged
+DIVS;SmartETFs Dividend Builder ETF;Equities – Developed Markets;;no classification
+TEXN;iShares Texas Equity ETF;Equities – Developed Markets;Equities – Developed Markets;unchanged
+FKU;First Trust United Kingdom AlphaDEX Fund;Equities – Developed Markets;Fixed Income – Corporate Bonds;wrong classification
+PEJ;Invesco Dynamic Leisure and Entertainment ETF;Equities – Developed Markets;Equities – Developed Markets;unchanged
+DFTT;DF Tactical 30 ETF;Equities – Developed Markets;Equities – Growth;wrong classification
+MOTG;VanEck Morningstar Global Wide Moat ETF;Equities – Developed Markets;Equities – Developed Markets;unchanged
+FNDX;Schwab Fundamental U.S. Large Company Index ETF;Equities – Developed Markets;Equities – Value;wrong classification
+FNDF;Schwab Fundamental International Large Company Index ETF;Equities – Developed Markets;Equities – Developed Markets;unchanged
+ICOW;Pacer Developed Markets International Cash Cows 100 ETF;Equities – Developed Markets;Equities – Developed Markets;unchanged
+MBCE;Monarch Blue Chips Elite Index ETF;Equities – Developed Markets;Equities – Developed Markets;unchanged
+XSOE;WisdomTree Emerging Markets ex-State-Owned Enterprises Fund;Equities – Developed Markets;Equities – Developed Markets;unchanged
+WIMA;WisdomTree International Adaptive Moving Average Fund;Equities – Developed Markets;Alternatives – Alternative;wrong classification
+ECON;Columbia Emerging Markets Consumer ETF;Equities – Developed Markets;Equities – Developed Markets;unchanged
+FDIV;First Trust Strategic Income ETF;Equities – Developed Markets;Equities – Developed Markets;unchanged
+DTCR;Global X Data Center & Digital Infrastructure ETF;Equities – Developed Markets;Equities – Developed Markets;unchanged
+DVVY;Invesco Diversified Dividend Opportunities ETF;Equities – Developed Markets;Fixed Income – Treasury Bonds;wrong classification
+BOTZ;Global X Robotics & Artificial Intelligence ETF;Equities – Developed Markets;Equities – Factors;wrong classification
+VEFA;VanEck MSCI EAFE Analyst Sentiment ETF;Equities – Developed Markets;Equities – Value;wrong classification
+EQRR;ProShares Equities for Rising Rates ETF;Equities – Developed Markets;;no classification
+EWP;iShares MSCI Spain ETF;Equities – Developed Markets;Energy – Developed Markets;wrong classification
+DEHP;Dimensional Emerging Markets High Profitability ETF;Equities – Emerging Markets;Fixed Income – Blend;wrong classification
+INDA;iShares MSCI India ETF;Equities – Emerging Markets;Equities – Mid Cap;wrong classification
+EMXF;iShares ESG Advanced MSCI EM ETF;Equities – Emerging Markets;Real Estate – REITs;wrong classification
+EMDV;ProShares MSCI Emerging Markets Dividend Growers ETF;Equities – Emerging Markets;;no classification
+QAT;iShares MSCI Qatar ETF;Equities – Emerging Markets;Equities – Growth;wrong classification
+DFEM;Dimensional Emerging Markets Core Equity 2 ETF;Equities – Emerging Markets;Industrials – Developed Markets;wrong classification
+TCHI;iShares MSCI China Multisector Tech ETF;Equities – Emerging Markets;Equities – Emerging Markets;unchanged
+EMQQ;EMQQ The Emerging Markets Internet & Ecommerce ETF;Equities – Emerging Markets;Information Technology – Developed Markets;wrong classification
+KTEC;KraneShares Hang Seng TECH Index ETF;Equities – Emerging Markets;Equities – Emerging Markets;unchanged
+SPEM;SPDR Portfolio Emerging Markets ETF;Equities – Emerging Markets;;no classification
+RNEM;First Trust Emerging Markets Equity Select ETF;Equities – Emerging Markets;Fixed Income – High Yield Bonds;wrong classification
+FPA;First Trust Asia Pacific Ex-Japan AlphaDEX Fund;Equities – Emerging Markets;Equities – Emerging Markets;unchanged
+INQQ;INQQ The India Internet ETF;Equities – Emerging Markets;Equities – Emerging Markets;unchanged
+KBA;KraneShares Bosera MSCI China A ETF;Equities – Emerging Markets;Industrials – Developed Markets;wrong classification
+DVYE;iShares Emerging Markets Dividend ETF;Equities – Emerging Markets;Equities – Emerging Markets;unchanged
+SDEM;Global X MSCI SuperDividend Emerging Markets ETF;Equities – Emerging Markets;Equities – Emerging Markets;unchanged
+SPLV;Invesco S&P 500 Low Volatility ETF;Equities – Factors;Equities – Developed Markets;wrong classification
+FVAL;Fidelity Value Factor ETF;Equities – Factors;Equities – Factors;unchanged
+DWAS;Invesco DWA SmallCap Momentum ETF;Equities – Factors;Equities – Developed Markets;wrong classification
+ONEV;SPDR Russell 1000 Low Volatility Focus ETF;Equities – Factors;Equities – Developed Markets;wrong classification
+EVLU;iShares MSCI Emerging Markets Value Factor ETF;Equities – Factors;Equities – Developed Markets;wrong classification
+FCTR;First Trust Lunt U.S. Factor Rotation ETF;Equities – Factors;Equities – Factors;unchanged
+AUSF;Global X Funds - Global X Adaptive U.S. Factor ETF;Equities – Factors;Equities – Factors;unchanged
+QMOM;Alpha Architect U.S. Quantitative Momentum ETF;Equities – Factors;Equities – Factors;unchanged
+VFQY;Vanguard U.S. Quality Factor ETF ETF Shares;Equities – Factors;Equities – Factors;unchanged
+SCOW;Pacer S&P SmallCap 600 Quality FCF Aristocrats ETF;Equities – Factors;Equities – Developed Markets;wrong classification
+SPHD;Invesco S&P 500 High Dividend Low Volatility ETF;Equities – Factors;Equities – Factors;unchanged
+FDLO;Fidelity Low Volatility Factor ETF;Equities – Factors;;no classification
+ESMV;iShares ESG Optimized MSCI USA Min Vol Factor ETF;Equities – Factors;Equities – Factors;unchanged
+DGRW;WisdomTree U.S. Quality Dividend Growth Fund;Equities – Factors;;no classification
+QLVD;FlexShares Developed Markets ex-US Quality Low Volatility Index Fund;Equities – Factors;Equities – Factors;unchanged
+SVAL;iShares US Small Cap Value Factor ETF;Equities – Factors;Equities – Developed Markets;wrong classification
+RODM;Hartford Multifactor Developed Markets (ex-US) ETF;Equities – Factors;;no classification
+QGRO;American Century U.S. Quality Growth ETF;Equities – Factors;Equities – Factors;unchanged
+TLTE;FlexShares Morningstar Emerging Markets Factor Tilt Index Fund;Equities – Factors;Bonds;unknown classification
+QSML;WisdomTree U.S. SmallCap Quality Growth Fund;Equities – Factors;Equities – Factors;unchanged
+VFMO;Vanguard U.S. Momentum Factor ETF ETF Shares;Equities – Factors;Equity – Developed Market;unknown classification
+QUIZ;Zacks Quality International ETF;Equities – Factors;Equities – Factors;unchanged
+VOOG;Vanguard S&P 500 Growth Index Fund ETF Shares;Equities – Growth;Equities – Growth;unchanged
+VONG;Vanguard Russell 1000 Growth Index Fund ETF Shares;Equities – Growth;Equities – Growth;unchanged
+BKLG;BNY Mellon US Large Cap Equity Growth ETF;Equities – Growth;Bonds;unknown classification
+ILCG;iShares Morningstar Growth ETF;Equities – Growth;Equities – Growth;unchanged
+PCLG;Polen Focus Growth ETF;Equities – Growth;Equities – Growth;unchanged
+NVII;REX NVDA Growth & Income ETF;Equities – Growth;Equities – Growth;unchanged
+FSGS;First Trust SMID Growth Strength ETF;Equities – Growth;Equities – Large Cap;wrong classification
+GGRW;Gabelli Growth Innovators ETF;Equities – Growth;Equities – Growth;unchanged
+TSPY;TappAlpha S&P 500 Growth & Daily Income ETF;Equities – Growth;Equities – Growth;unchanged
+VDIG;Vanguard Wellington Dividend Growth Active ETF;Equities – Growth;Equities – Large Cap;wrong classification
+OAKM;Oakmark U.S. Large Cap ETF;Equities – Large Cap;Equities – Large Cap;unchanged
+IQQQ;ProShares Nasdaq-100 High Income ETF;Equities – Large Cap;Equities – Large Cap;unchanged
+XMAG;Defiance Large Cap ex-Mag 7 ETF;Equities – Large Cap;Equities – Developed Markets;wrong classification
+GSLC;Goldman Sachs ActiveBeta U.S. Large Cap Equity ETF;Equities – Large Cap;Equities – Developed Markets;wrong classification
+SCHX;Schwab U.S. Large-Cap ETF;Equities – Large Cap;Equities – Large Cap;unchanged
+CSM;ProShares Large Cap Core Plus;Equities – Large Cap;Equities – Developed Markets;wrong classification
+CHRI;Global X S&P 500 Christian Values ETF;Equities – Large Cap;Equities – Developed Markets;wrong classification
+STNC;Stance Equity ESG Large Cap Core ETF;Equities – Large Cap;Equities – Developed Markets;wrong classification
+IVVB;iShares Large Cap Deep Quarterly Laddered ETF;Equities – Large Cap;Equities – Developed Markets;wrong classification
+DRVR;Amplify S&P 500 Dividend Drivers ETF;Equities – Large Cap;Equities – Large Cap;unchanged
+ALTL;Pacer Lunt Large Cap Alternator ETF;Equities – Large Cap;Equities – Developed Markets;wrong classification
+KNGZ;First Trust S&P 500 Diversified Dividend Aristocrats ETF;Equities – Large Cap;Equities – Large Cap;unchanged
+LCTO;Kurv U.S. Large Cap TaxOptimized ETF;Equities – Large Cap;Equities – Large Cap;unchanged
+IWS;iShares Russell Mid-Cap Value ETF;Equities – Mid Cap;Equities – Mid Cap;unchanged
+IWP;iShares Russell Mid-Cap Growth ETF;Equities – Mid Cap;;no classification
+FNK;First Trust Mid Cap Value AlphaDEX Fund;Equities – Mid Cap;Equities – Small Cap;wrong classification
+SCHM;Schwab U.S. Mid-Cap ETF;Equities – Mid Cap;Equities – Small Cap;wrong classification
+PTMC;Pacer Trendpilot US Mid Cap ETF;Equities – Mid Cap;Equities – Small Cap;wrong classification
+IQSM;NYLIM Candriam U.S. Mid Cap Equity ETF;Equities – Mid Cap;Equities – Mid Cap;unchanged
+REGL;ProShares S&P MidCap 400 Dividend Aristocrats ETF;Equities – Mid Cap;Equities – Mid Cap;unchanged
+IMCG;iShares Morningstar Mid-Cap Growth ETF;Equities – Mid Cap;Equities – Mid Cap;unchanged
+SIXS;6 Meridian Small Cap Equity ETF;Equities – Small Cap;Equities – Small Cap;unchanged
+FYT;First Trust Small Cap Value AlphaDEX Fund;Equities – Small Cap;;no classification
+VB;Vanguard Small-Cap Index Fund ETF Shares;Equities – Small Cap;Equities – Small Cap;unchanged
+SCJ;iShares MSCI Japan Small-Cap ETF;Equities – Small Cap;Equities – Mid Cap;wrong classification
+SMIN;iShares MSCI India Small-Cap ETF;Equities – Small Cap;Equities – Small Cap;unchanged
+FYC;First Trust Small Cap Growth AlphaDEX Fund;Equities – Small Cap;Equities – Small Cap;unchanged
+SCZ;iShares MSCI EAFE Small-Cap ETF;Equities – Small Cap;Equities – Small Cap;unchanged
+DLS;WisdomTree International SmallCap Dividend Fund;Equities – Small Cap;;no classification
+VTWG;Vanguard Russell 2000 Growth Index Fund ETF Shares;Equities – Small Cap;Equities – Small Cap;unchanged
+CALF;Pacer US Small Cap Cash Cows 100 ETF;Equities – Small Cap;Equities – Small Cap;unchanged
+BBSC;JPMorgan BetaBuilders U.S. Small Cap Equity ETF;Equities – Small Cap;Equities – Small Cap;unchanged
+AVUV;Avantis U.S. Small Cap Value ETF;Equities – Small Cap;Equities – Small Cap;unchanged
+PSCU;Invesco S&P SmallCap Utilities & Communication Services ETF;Equities – Small Cap;Equities – Mid Cap;wrong classification
+ISCV;iShares Morningstar Small-Cap Value ETF;Equities – Small Cap;;no classification
+CGV;Conductor Global Equity Value ETF;Equities – Value;Equities – Value;unchanged
+EWJV;iShares MSCI Japan Value ETF;Equities – Value;Equities – Value;unchanged
+REVS;Columbia Research Enhanced Value ETF;Equities – Value;Equities – Factors;wrong classification
+VTV;Vanguard Value Index Fund ETF Shares;Equities – Value;Equities – Value;unchanged
+EFV;iShares MSCI EAFE Value ETF;Equities – Value;Equities – Value;unchanged
+GVAL;Cambria Global Value ETF;Equities – Value;Equities – Value;unchanged
+GVUS;Goldman Sachs MarketBeta Russell 1000 Value Equity ETF;Equities – Value;Equities – Factors;wrong classification
+SDCP;Virtus Newfleet Short Duration Core Plus Bond ETF;Fixed Income – Blend;Bonds;unknown classification
+WSDB;Weitz Short Duration Bond ETF;Fixed Income – Blend;Fixed Income – Blend;unchanged
+BINC;iShares Flexible Income Active ETF;Fixed Income – Blend;Fixed Income – Blend;unchanged
+ABXB;Abacus Flexible Bond Leaders ETF;Fixed Income – Blend;Equities – Value;wrong classification
+WABF;Western Asset Bond ETF;Fixed Income – Blend;Fixed Income – Blend;unchanged
+FXED;Sound Enhanced Fixed Income ETF;Fixed Income – Blend;Fixed Income – Blend;unchanged
+BRTR;iShares Total Return Active ETF;Fixed Income – Blend;Fixed Income – Blend;unchanged
+EUSB;iShares ESG Advanced Total USD Bond Market ETF;Fixed Income – Corporate Bonds;Fixed Income – Corporate Bonds;unchanged
+BSCZ;Invesco BulletShares 2035 Corporate Bond ETF;Fixed Income – Corporate Bonds;Fixed Income – Corporate Bonds;unchanged
+VCEB;Vanguard ESG U.S. Corporate Bond ETF;Fixed Income – Corporate Bonds;;no classification
+VBCF;Vanguard Target Maturity 2032 Corporate Bond ETF;Fixed Income – Corporate Bonds;Fixed Income – Corporate Bonds;unchanged
+LDUR;PIMCO Enhanced Low Duration Active Exchange-Traded Fund;Fixed Income – Corporate Bonds;Fixed Income – Investment Grade Bonds;wrong classification
+UITB;VictoryShares USAA Core Intermediate-Term Bond ETF;Fixed Income – Corporate Bonds;Fixed Income – Investment Grade Bonds;wrong classification
+SHAG;WisdomTree Yield Enhanced U.S. Short-Term Aggregate Bond Fund;Fixed Income – Corporate Bonds;Equity – Developed Market;unknown classification
+HBDC;Hilton BDC Corporate Bond ETF;Fixed Income – Corporate Bonds;Fixed Income – Investment Grade Bonds;wrong classification
+BRLN;iShares Floating Rate Loan Active ETF;Fixed Income – Corporate Bonds;Fixed Income – Investment Grade Bonds;wrong classification
+SLQD;iShares 0-5 Year Investment Grade Corporate Bond ETF;Fixed Income – Corporate Bonds;Fixed Income – Corporate Bonds;unchanged
+ISTB;iShares Core 1-5 Year USD Bond ETF;Fixed Income – Corporate Bonds;Fixed Income – Corporate Bonds;unchanged
+VCIT;Vanguard Intermediate-Term Corporate Bond Index Fund ETF Shares;Fixed Income – Corporate Bonds;Fixed Income – Corporate Bonds;unchanged
+MIG;VanEck Vectors Moody's Analytics IG Corporate Bond ETF;Fixed Income – Corporate Bonds;Fixed Income – Investment Grade Bonds;wrong classification
+CSPF;Cohen & Steers Preferred and Income Opportunities Active ETF;Fixed Income – Corporate Bonds;Fixed Income – Corporate Bonds;unchanged
+IBDT;iShares iBonds Dec 2028 Term Corporate ETF;Fixed Income – Corporate Bonds;Fixed Income – Corporate Bonds;unchanged
+FCVT;First Trust SSI Strategic Convertible Securities ETF;Fixed Income – Corporate Bonds;Fixed Income – Corporate Bonds;unchanged
+IBDV;iShares iBonds Dec 2030 Term Corporate ETF;Fixed Income – Corporate Bonds;Fixed Income – Corporate Bonds;unchanged
+FEIG;Northern Trust ESG & Climate Investment Grade Corporate Core ETF;Fixed Income – Corporate Bonds;Fixed Income – Corporate Bonds;unchanged
+IMTB;iShares Core 5-10 Year USD Bond ETF;Fixed Income – Corporate Bonds;Fixed Income – Investment Grade Bonds;wrong classification
+PSQA;Palmer Square CLO Senior Debt ETF;Fixed Income – Corporate Bonds;Fixed Income – Investment Grade Bonds;wrong classification
+IBND;SPDR Bloomberg Barclays International Corporate Bond ETF;Fixed Income – Corporate Bonds;;no classification
+FISR;SPDR SSGA Fixed Income Sector Rotation ETF;Fixed Income – Corporate Bonds;Bonds;unknown classification
+CHYG;Corgi 0-5 Year High Yield Corporate Bond ETF;Fixed Income – High Yield Bonds;Fixed Income – High Yield Bonds;unchanged
+IHY;VanEck Vectors International High Yield Bond ETF;Fixed Income – High Yield Bonds;Fixed Income – High Yield Bonds;unchanged
+FDHY;Fidelity High Yield Factor ETF;Fixed Income – High Yield Bonds;;no classification
+PGHY;Invesco Global Short Term High Yield Bond ETF;Fixed Income – High Yield Bonds;Fixed Income – High Yield Bonds;unchanged
+SHYM;iShares Short Duration High Yield Muni Active ETF;Fixed Income – High Yield Bonds;Fixed Income – High Yield Bonds;unchanged
+BAMY;Brookstone Yield ETF;Fixed Income – High Yield Bonds;Fixed Income – High Yield Bonds;unchanged
+HYGH;iShares Interest Rate Hedged High Yield Bond ETF;Fixed Income – High Yield Bonds;Fixed Income – High Yield Bonds;unchanged
+GHYB;Goldman Sachs Access High Yield Corporate Bond ETF;Fixed Income – High Yield Bonds;Fixed Income – High Yield Bonds;unchanged
+FTSL;First Trust Senior Loan Fund;Fixed Income – High Yield Bonds;Fixed Income – Corporate Bonds;wrong classification
+HYDW;Xtrackers Low Beta High Yield Bond ETF;Fixed Income – High Yield Bonds;Fixed Income – High Yield Bonds;unchanged
+EVHY;Eaton Vance High Yield ETF;Fixed Income – High Yield Bonds;Equity – Developed Market;unknown classification
+HYDB;iShares Edge High Yield Defensive Bond ETF;Fixed Income – High Yield Bonds;Equity – Developed Market;unknown classification
+IVOL;Quadratic Interest Rate Volatility and Inflation Hedge ETF New;Fixed Income – Inflation-Protected Securities;Fixed Income – Inflation-Protected Securities;unchanged
+TIPE;Northern Trust 2031 Inflation-Linked Distributing Ladder ETF;Fixed Income – Inflation-Protected Securities;Fixed Income – Inflation-Protected Securities;unchanged
+RINF;ProShares Inflation Expectations ETF;Fixed Income – Inflation-Protected Securities;Fixed Income – Inflation-Protected Securities;unchanged
+VTP;Vanguard Total Inflation-Protected Securities ETF;Fixed Income – Inflation-Protected Securities;Fixed Income – Treasury Bonds;wrong classification
+WIP;SPDR FTSE International Government Inflation-Protected Bond ETF;Fixed Income – Inflation-Protected Securities;Fixed Income – Inflation-Protected Securities;unchanged
+IBIG;iShares iBonds Oct 2030 Term TIPS ETF;Fixed Income – Inflation-Protected Securities;Fixed Income – Inflation-Protected Securities;unchanged
+STPZ;PIMCO 1-5 Year U.S. TIPS Index Exchange-Traded Fund;Fixed Income – Inflation-Protected Securities;Fixed Income – Inflation-Protected Securities;unchanged
+AGZD;WisdomTree Interest Rate Hedged U.S. Aggregate Bond Fund;Fixed Income – Investment Grade Bonds;Fixed Income – Investment Grade Bonds;unchanged
+BLV;Vanguard Long-Term Bond Index Fund ETF Shares;Fixed Income – Investment Grade Bonds;Fixed Income – Investment Grade Bonds;unchanged
+PIFI;ETF Series Solutions - ClearShares Piton Intermediate Fixed Income ETF;Fixed Income – Investment Grade Bonds;Fixed Income – Investment Grade Bonds;unchanged
+BIV;Vanguard Intermediate-Term Bond Index Fund ETF Shares;Fixed Income – Investment Grade Bonds;Fixed Income – Investment Grade Bonds;unchanged
+BGRN;iShares Global Green Bond ETF;Fixed Income – Investment Grade Bonds;;no classification
+NUBD;Nuveen ESG U.S. Aggregate Bond ETF;Fixed Income – Investment Grade Bonds;Fixed Income – Corporate Bonds;wrong classification
+CPAG;F/m Compoundr U.S. Aggregate Bond ETF;Fixed Income – Investment Grade Bonds;Fixed Income – Investment Grade Bonds;unchanged
+AGG;iShares Core U.S. Aggregate Bond ETF;Fixed Income – Investment Grade Bonds;Fixed Income – Corporate Bonds;wrong classification
+MYMK;State Street My2031 Municipal Bond ETF;Fixed Income – Municipal Bonds;Health Care – Developed Markets;wrong classification
+SCMB;Schwab Municipal Bond ETF;Fixed Income – Municipal Bonds;Fixed Income – Municipal Bonds;unchanged
+MUNY;Vanguard New York Tax-Exempt Bond ETF;Fixed Income – Municipal Bonds;Health Care – Developed Markets;wrong classification
+MUNJ;Northern Trust 2031 Tax-Exempt Distributing Ladder ETF;Fixed Income – Municipal Bonds;Equities – Mid Cap;wrong classification
+MUST;Columbia Multi-Sector Municipal Income ETF;Fixed Income – Municipal Bonds;Fixed Income – Municipal Bonds;unchanged
+TAXF;American Century Diversified Municipal Bond ETF;Fixed Income – Municipal Bonds;Fixed Income – Municipal Bonds;unchanged
+PZT;Invesco New York AMT-Free Municipal Bond ETF;Fixed Income – Municipal Bonds;Fixed Income – Municipal Bonds;unchanged
+LTAX;Nomura Tax-Free USA ETF;Fixed Income – Municipal Bonds;Equities – Value;wrong classification
+FLMI;Franklin Liberty Intermediate Municipal Opportunities ETF;Fixed Income – Municipal Bonds;;no classification
+MYMF;State Street My2026 Municipal Bond ETF;Fixed Income – Municipal Bonds;Fixed Income – Municipal Bonds;unchanged
+BSMU;Invesco BulletShares 2030 Municipal Bond ETF;Fixed Income – Municipal Bonds;;no classification
+APMU;ActivePassive Intermediate Municipal Bond ETF;Fixed Income – Municipal Bonds;Fixed Income – Municipal Bonds;unchanged
+TXCA;Northern Trust California Intermediate Tax-Exempt Bond ETF;Fixed Income – Municipal Bonds;Fixed Income – Municipal Bonds;unchanged
+MUNX;AMG GW&K Muni Income ETF;Fixed Income – Municipal Bonds;Fixed Income – Municipal Bonds;unchanged
+IBMW;iShares iBonds Dec 2034 Term Muni Bond ETF;Fixed Income – Municipal Bonds;Fixed Income – Municipal Bonds;unchanged
+VCRM;Vanguard Core Tax-Exempt Bond ETF;Fixed Income – Municipal Bonds;Fixed Income – Municipal Bonds;unchanged
+CGSM;Capital Group Short Duration Municipal Income ETF;Fixed Income – Municipal Bonds;Fixed Income – Treasury Bonds;wrong classification
+RVNU;Xtrackers Municipal Infrastructure Revenue Bond ETF;Fixed Income – Municipal Bonds;Fixed Income – Municipal Bonds;unchanged
+MMIN;IQ MacKay Municipal Insured ETF;Fixed Income – Municipal Bonds;;no classification
+ILTB;iShares Core 10+ Year USD Bond ETF;Fixed Income – Treasury Bonds;Equity – Developed Market;unknown classification
+SPTS;SPDR Portfolio Short Term Treasury ETF;Fixed Income – Treasury Bonds;Fixed Income – Treasury Bonds;unchanged
+ZCBB;Global X Zero Coupon Bond 2031 ETF;Fixed Income – Treasury Bonds;Fixed Income – Treasury Bonds;unchanged
+SLDR;Global X Short-Term Treasury Ladder ETF;Fixed Income – Treasury Bonds;Bonds;unknown classification
+EDV;Vanguard Extended Duration Treasury Index Fund ETF Shares;Fixed Income – Treasury Bonds;Fixed Income – Treasury Bonds;unchanged
+SPTI;SPDR Portfolio Intermediate Term Treasury ETF;Fixed Income – Treasury Bonds;Fixed Income – Treasury Bonds;unchanged
+GOVI;Invesco Equal Weight 0-30 Year Treasury ETF;Fixed Income – Treasury Bonds;Fixed Income – Inflation-Protected Securities;wrong classification
+MLDR;Global X Intermediate-Term Treasury Ladder ETF;Fixed Income – Treasury Bonds;Fixed Income – Inflation-Protected Securities;wrong classification
+BSGR;Invesco BulletShares 2027 Treasury Bond ETF;Fixed Income – Treasury Bonds;Fixed Income – Treasury Bonds;unchanged
+VGIT;Vanguard Intermediate-Term Treasury Index Fund ETF Shares;Fixed Income – Treasury Bonds;Fixed Income – Treasury Bonds;unchanged
+XHE;SPDR S&P Health Care Equipment ETF;Health Care – Developed Markets;Health Care – Developed Markets;unchanged
+IDNA;iShares Genomics Immunology and Healthcare ETF;Health Care – Developed Markets;Health Care – Developed Markets;unchanged
+CNBS;Amplify Seymour Cannabis ETF;Health Care – Developed Markets;Health Care – Developed Markets;unchanged
+XBI;SPDR S&P Biotech ETF;Health Care – Developed Markets;;no classification
+FTXH;First Trust Nasdaq Pharmaceuticals ETF;Health Care – Developed Markets;Equities – Developed Markets;wrong classification
+PPH;VanEck Vectors Pharmaceutical ETF;Health Care – Developed Markets;Health Care – Developed Markets;unchanged
+XPH;SPDR S&P Pharmaceuticals ETF;Health Care – Developed Markets;Health Care – Developed Markets;unchanged
+SHLD;VictoryShares Protect America ETF;Industrials – Developed Markets;Equity – Developed Market;unknown classification
+AV;Corgi Aerospace & Commercial Aviation ETF;Industrials – Developed Markets;Industrials – Developed Markets;unchanged
+XLI;Industrial Select Sector SPDR Fund;Industrials – Developed Markets;Bonds;unknown classification
+IYT;iShares Transportation Average ETF;Industrials – Developed Markets;Bonds;unknown classification
+CTEC;Global X CleanTech ETF;Industrials – Developed Markets;Equities – Allocation;wrong classification
+HYDR;Global X Hydrogen ETF;Industrials – Developed Markets;Equities – Small Cap;wrong classification
+ITEQ;BlueStar Israel Technology ETF;Information Technology – Developed Markets;Information Technology – Developed Markets;unchanged
+XSW;SPDR S&P Software & Services ETF;Information Technology – Developed Markets;Equities – Growth;wrong classification
+NRSH;Aztlan North America Nearshoring Stock Selection ETF;Information Technology – Developed Markets;Information Technology – Developed Markets;unchanged
+WCLD;WisdomTree Cloud Computing Fund;Information Technology – Developed Markets;Information Technology – Developed Markets;unchanged
+WTAI;WisdomTree Artificial Intelligence and Innovation Fund;Information Technology – Developed Markets;Equities – Growth;wrong classification
+TEK;iShares Technology Opportunities Active ETF;Information Technology – Developed Markets;Information Technology – Developed Markets;unchanged
+KNCT;Invesco Next Gen Connectivity ETF;Information Technology – Developed Markets;Equities – Growth;wrong classification
+EUV;Corgi Lithography & Semiconductor Photonics ETF;Information Technology – Developed Markets;Information Technology – Developed Markets;unchanged
+PSI;Invesco Dynamic Semiconductors ETF;Information Technology – Developed Markets;;no classification
+VEGN;US Vegan Climate ETF;Information Technology – Developed Markets;Equities – Growth;wrong classification
+XDAT;Franklin Exponential Data ETF;Information Technology – Developed Markets;Equities – Growth;wrong classification
+SOXQ;Invesco PHLX Semiconductor ETF;Information Technology – Developed Markets;Equities – Growth;wrong classification
+HACK;ETFMG Prime Cyber Security ETF;Information Technology – Developed Markets;Equities – Growth;wrong classification
+FTXL;First Trust Nasdaq Semiconductor ETF;Information Technology – Developed Markets;Information Technology – Developed Markets;unchanged
+SLVP;iShares MSCI Global Silver and Metals Miners ETF;Materials – Developed Markets;Industrials – Developed Markets;wrong classification
+COPJ;Sprott Junior Copper Miners ETF;Materials – Developed Markets;;no classification
+PSCM;Invesco S&P SmallCap Materials ETF;Materials – Developed Markets;Materials – Developed Markets;unchanged
+REMX;VanEck Vectors Rare Earth/Strategic Metals ETF;Materials – Developed Markets;Materials – Developed Markets;unchanged
+IUTCF;iShares S&P/TSX Global Gold Index ETF;Materials – Developed Markets;Materials – Developed Markets;unchanged
+SLX;VanEck Vectors ETF Trust - VanEck Vectors Steel ETF;Materials – Developed Markets;Materials – Developed Markets;unchanged
+SPRE;SP Funds S&P Global REIT Sharia ETF;Real Estate – REITs;Equities – Value;wrong classification
+REET;iShares Global REIT ETF;Real Estate – REITs;Real Estate – REITs;unchanged
+MORT;VanEck Vectors Mortgage REIT Income ETF;Real Estate – REITs;Real Estate – REITs;unchanged
+ISDMF;iShares II Public Limited Company - iShares Developed Markets Property Yield UCITS ETF;Real Estate – REITs;Real Estate – REITs;unchanged
+SRET;Global X SuperDividend REIT ETF;Real Estate – REITs;Equities – Value;wrong classification
+PSR;Invesco Active U.S. Real Estate Fund;Real Estate – REITs;Real Estate – REITs;unchanged
+IYR;iShares U.S. Real Estate ETF;Real Estate – REITs;Equities – Value;wrong classification
