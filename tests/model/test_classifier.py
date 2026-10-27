@@ -1,62 +1,66 @@
 import numpy as np
 import pytest
 
-from etf_classifier.model.classifier import MultiLabelClassifier, best_threshold, decide
+from etf_classifier.model.classifier import SingleLabelClassifier, decide
 
 
-def test_threshold_maximises_the_f1_of_the_category():
-    y_true = np.array([0, 0, 0, 1, 1, 1])
-    scores = np.array([0.1, 0.2, 0.35, 0.4, 0.7, 0.9])
-    assert best_threshold(y_true, scores, min_positives=3, default=0.5) == pytest.approx(0.4)
-
-
-def test_threshold_falls_back_to_default_with_too_few_positives():
-    y_true = np.array([0, 0, 1])
-    scores = np.array([0.1, 0.2, 0.3])
-    assert best_threshold(y_true, scores, min_positives=3, default=0.5) == 0.5
-
-
-def test_at_least_one_category_is_always_kept():
-    probas = np.array([[0.2, 0.3, 0.1]])
-    assert decide(probas, thresholds=np.full(3, 0.5), max_categories=5).tolist() == [[0, 1, 0]]
-
-
-def test_never_more_than_max_categories():
-    probas = np.array([[0.9, 0.8, 0.7, 0.95]])
-    assigned = decide(probas, thresholds=np.full(4, 0.5), max_categories=2)
-    assert assigned.tolist() == [[1, 0, 0, 1]]
-
-
-def test_each_category_uses_its_own_threshold():
-    probas = np.array([[0.6, 0.6]])
-    assert decide(probas, thresholds=np.array([0.5, 0.7]), max_categories=5).tolist() == [[1, 0]]
+def test_decide_keeps_exactly_the_best_category():
+    probas = np.array([[0.2, 0.5, 0.3], [0.6, 0.1, 0.3]])
+    assert decide(probas).tolist() == [[0, 1, 0], [1, 0, 0]]
 
 
 def _fit_toy():
-    x = np.array([[1, 0], [1, 0], [0, 1], [0, 1], [1, 1], [1, 1]], dtype=float)
-    y = np.array([[1, 0], [1, 0], [0, 1], [0, 1], [1, 1], [1, 1]])
-    model = MultiLabelClassifier(classes=["Gold", "ESG"], C=10.0, seed=0, max_iter=1000)
+    x = np.array([[1, 0, 0], [1, 0, 0], [0, 1, 0], [0, 1, 0], [0, 0, 1], [0, 0, 1]], dtype=float)
+    y = np.array([[1, 0, 0], [1, 0, 0], [0, 1, 0], [0, 1, 0], [0, 0, 1], [0, 0, 1]])
+    model = SingleLabelClassifier(classes=["Gold", "ESG", "Bonds"], C=10.0, seed=0, max_iter=1000)
     return model.fit(x, y), x
 
 
-def test_predictions_list_sorted_scores_and_kept_categories():
+def test_scores_form_a_distribution_over_the_categories():
     model, x = _fit_toy()
-    prediction = model.predict(x[:1], max_categories=5, uncertain_threshold=0.5)[0]
+    probas = model.predict_proba(x)
+    assert probas.shape == (6, 3)
+    assert np.allclose(probas.sum(axis=1), 1.0)
+
+
+def test_prediction_has_one_category_and_sorted_scores():
+    model, x = _fit_toy()
+    prediction = model.predict(x[:1], uncertain_threshold=0.5)[0]
     assert prediction.categories == ["Gold"]
-    assert [c for c, _ in prediction.scores] == ["Gold", "ESG"]
-    assert prediction.scores[0][1] >= prediction.scores[1][1]
+    assert [c for c, _ in prediction.scores][0] == "Gold"
+    assert [s for _, s in prediction.scores] == sorted((s for _, s in prediction.scores), reverse=True)
 
 
 def test_uncertain_flag_when_best_score_is_low():
     model, x = _fit_toy()
-    confident = model.predict(x[:1], max_categories=5, uncertain_threshold=0.5)[0]
-    doubtful = model.predict(x[:1], max_categories=5, uncertain_threshold=0.999)[0]
-    assert confident.uncertain is False
-    assert doubtful.uncertain is True
+    assert model.predict(x[:1], uncertain_threshold=0.3)[0].uncertain is False
+    assert model.predict(x[:1], uncertain_threshold=0.999)[0].uncertain is True
 
 
-def test_category_present_in_every_training_example_is_handled():
-    x = np.array([[1.0], [2.0], [3.0]])
-    y = np.array([[1, 0], [1, 1], [1, 0]])
-    model = MultiLabelClassifier(classes=["Always", "Sometimes"], C=1.0, seed=0, max_iter=1000).fit(x, y)
+def test_two_categories_give_two_complementary_scores():
+    x = np.array([[0.0], [0.1], [1.0], [1.1]])
+    y = np.array([[1, 0], [1, 0], [0, 1], [0, 1]])
+    model = SingleLabelClassifier(classes=["Low", "High"], C=10.0, seed=0, max_iter=1000).fit(x, y)
+    assert model.predict(np.array([[1.2]]), uncertain_threshold=0.5)[0].categories == ["High"]
+    assert set(model.coefficients()) == {"Low", "High"}
+
+
+def test_a_single_training_category_is_always_predicted():
+    x = np.array([[1.0], [2.0]])
+    y = np.array([[0, 1], [0, 1]])
+    model = SingleLabelClassifier(classes=["Never", "Always"], C=1.0, seed=0, max_iter=1000).fit(x, y)
+    assert model.predict_proba(x).tolist() == [[0.0, 1.0], [0.0, 1.0]]
+    assert model.coefficients() == {"Never": None, "Always": None}
+
+
+def test_rows_without_a_known_category_are_ignored_in_training():
+    x = np.array([[0.0], [1.0], [5.0]])
+    y = np.array([[1, 0], [0, 1], [0, 0]])
+    model = SingleLabelClassifier(classes=["A", "B"], C=1.0, seed=0, max_iter=1000).fit(x, y)
     assert model.predict_proba(x).shape == (3, 2)
+
+
+@pytest.mark.parametrize("bad_y", [np.array([[1, 1]]), np.array([[0, 2]])])
+def test_more_than_one_category_per_etf_is_refused(bad_y):
+    with pytest.raises(ValueError, match="one category"):
+        SingleLabelClassifier(classes=["A", "B"], C=1.0, seed=0, max_iter=1000).fit(np.array([[0.0]]), bad_y)

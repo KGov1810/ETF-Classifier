@@ -17,7 +17,7 @@ from etf_classifier.similarity.index import SimilarityIndex
 
 BUNDLE_FILE = "bundle.joblib"
 SIMILARITY_FILE = "similarity.joblib"
-TRAIN_NAMES_FILE = "train_names.json"  # names of the training ETFs (fair comparison in retraining)
+TRAIN_TICKERS_FILE = "train_tickers.json"  # tickers of the training ETFs (fair comparison in retraining)
 REGISTRY_FILE = "registry.json"
 
 
@@ -85,7 +85,7 @@ def save_bundle(model, pipeline, metrics: dict, settings: dict, model_card: str,
         "version": version,
         "created_at": datetime.now().isoformat(timespec="seconds"),
         "f1_macro": metrics.get("f1_macro"),
-        "f1_micro": metrics.get("f1_micro"),
+        "accuracy": metrics.get("accuracy"),
     })
     if registry["current"] is None and make_current_if_first:
         registry["current"] = version

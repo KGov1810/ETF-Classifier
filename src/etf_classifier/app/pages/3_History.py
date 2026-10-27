@@ -23,7 +23,7 @@ filters = st.columns(4)
 since = filters[0].date_input("Since", value=date.today() - timedelta(days=days), key=f"{PREFIX}_since")
 who = filters[1].selectbox("Validator", ["All"] + services.validators(settings), key=f"{PREFIX}_who")
 decision = filters[2].selectbox("Decision", ["All", "accepted", "corrected", "no_proposal"], key=f"{PREFIX}_decision")
-name = filters[3].text_input("Name contains", key=f"{PREFIX}_name")
+name = filters[3].text_input("Name or ticker contains", key=f"{PREFIX}_name")
 
 try:
     history = services.history(settings, since=since, validator=None if who == "All" else who,
@@ -43,7 +43,8 @@ st.dataframe(history, hide_index=True, width="stretch",
 
 st.subheader("LLM justification")
 ids = list(history["ValidationId"])
-titles = {row.ValidationId: f"{row.Name} ({row.ValidatedBy}, {row.ValidatedAt})" for row in history.itertuples()}
+titles = {row.ValidationId: f"{row.Ticker} · {row.Name} ({row.ValidatedBy}, {row.ValidatedAt})"
+          for row in history.itertuples()}
 shown = st.selectbox("Validation to inspect", ids, format_func=titles.get, key=f"{PREFIX}_justification_id")
 stored = services.justification_for_validation(settings, shown)
 if stored is None:
@@ -60,7 +61,8 @@ active = history[~history["Cancelled"]]
 if active.empty:
     st.info("Every listed validation is already cancelled.")
     st.stop()
-labels = {row.ValidationId: f"{row.Name} ({row.ValidatedBy}, {row.ValidatedAt})" for row in active.itertuples()}
+labels = {row.ValidationId: f"{row.Ticker} · {row.Name} ({row.ValidatedBy}, {row.ValidatedAt})"
+          for row in active.itertuples()}
 choice = st.selectbox("Validation", list(labels), format_func=labels.get, key=f"{PREFIX}_cancel_id")
 comment = st.text_input("Why cancel it? (required)", key=f"{PREFIX}_cancel_comment")
 confirm = st.checkbox("I confirm the cancellation", key=f"{PREFIX}_cancel_confirm")

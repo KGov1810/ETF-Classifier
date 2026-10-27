@@ -19,10 +19,10 @@ def config(isolated_settings, tmp_path):
 def new_etfs_csv(tmp_path):
     path = tmp_path / "new_etfs.csv"
     path.write_text(
-        "Name;Description;Composition\n"
-        "World Clone;Tracks the MSCI World index;"
+        "Ticker;Nom;Description;Composition\n"
+        "WCLN;World Clone;Tracks the MSCI World index;"
         "\"[{'AAPL': 5.0}, {'MSFT': 4.5}, {'NVDA': 4.0}, {'AMZN': 3.0}, {'GOOGL': 2.5}]\"\n"
-        "New Gold;Gold miners worldwide;\"[{'NEM': 11.0}, {'GOLD': 9.5}]\"\n",
+        "NGLD;New Gold;Gold miners worldwide;\"[{'NEM': 11.0}, {'GOLD': 9.5}]\"\n",
         encoding="utf-8",
     )
     return path
@@ -40,8 +40,10 @@ def test_k_neighbors_are_written_for_each_new_etf(sample_csv, new_etfs_csv, conf
     rows = _rows(output)
     assert len(rows) == 6
     assert rows[0]["Rank"] == "1"
-    first_gold = next(r for r in rows if r["Name"] == "New Gold" and r["Rank"] == "1")
-    assert first_gold["NeighborName"] == "Gold Miners"
+    first_gold = next(r for r in rows if r["Ticker"] == "NGLD" and r["Rank"] == "1")
+    assert (first_gold["Name"], first_gold["NeighborTicker"], first_gold["NeighborName"]) == \
+        ("New Gold", "GDX", "Gold Miners")
+    assert first_gold["NeighborCategory"] == "Gold"
     assert "NEM" in first_gold["SharedHoldings"]
 
 
@@ -50,7 +52,7 @@ def test_near_duplicate_is_reported_in_the_summary(sample_csv, new_etfs_csv, con
     output = tmp_path / "neighbors.csv"
     search_main(["--csv", str(new_etfs_csv), "--config", config, "--output", str(output)])
     summary = output.with_suffix(".md").read_text(encoding="utf-8")
-    assert "Near-duplicate" in summary and "World Tracker" in summary
+    assert "Near-duplicate" in summary and "World Tracker" in summary and "IWDA" in summary
 
 
 def test_without_any_model_a_clear_message_is_shown(new_etfs_csv, config, capsys):

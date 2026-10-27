@@ -17,7 +17,6 @@ import pandas as pd
 
 from etf_classifier.common import markdown_table
 from etf_classifier.config import load_settings, resolve_path
-from etf_classifier.data.parsing import parse_categories
 from etf_classifier.feedback.store import ACCEPTED, CANCELLATION, CORRECTED, FeedbackStore
 
 
@@ -56,9 +55,8 @@ def build_feedback_report(settings: dict, since: date | None = None) -> Feedback
 
     added, removed = Counter(), Counter()
     for row in active[active["Decision"] == CORRECTED].itertuples():
-        validated, predicted = set(parse_categories(row.Category)), set(parse_categories(row.PredictedCategories))
-        added.update(validated - predicted)
-        removed.update(predicted - validated)
+        added[row.Category] += 1           # category chosen by the validator…
+        removed[row.PredictedCategory] += 1  # …instead of the model's proposal
 
     threshold, minimum = float(cfg["bias_acceptance_threshold"]), int(cfg["bias_min_validations"])
     alerts = [v for v, s in sorted(by_validator.items())

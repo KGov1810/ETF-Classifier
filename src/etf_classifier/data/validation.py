@@ -12,7 +12,8 @@ import pandas as pd
 from etf_classifier.data.parsing import (
     ParsingError,
     WeightError,
-    parse_categories,
+    normalize_etf_ticker,
+    parse_category,
     parse_composition_items,
     to_weight,
 )
@@ -20,20 +21,23 @@ from etf_classifier.data.parsing import (
 EXCLUSION = "exclusion"
 WARNING = "warning"
 
-DATA_COLUMNS = ["row_id", "line", "name", "description", "composition", "categories", "coverage", "n_holdings"]
+DATA_COLUMNS = ["row_id", "line", "ticker", "name", "description", "composition", "categories", "coverage",
+                "n_holdings"]
 
 RULE_LABELS = {
     "malformed_line": "Malformed line (wrong number of fields, unquoted ';'?)",
+    "missing_ticker": "Empty ticker",
+    "missing_name": "Empty name",
+    "duplicate_etf_ticker": "Ticker present on several rows (every such row excluded)",
+    "no_description_no_composition": "Neither description nor composition",
     "unreadable_composition": "Unreadable composition",
-    "unreadable_categories": "Unreadable categories",
-    "no_category": "No category",
+    "no_category": "No classification",
     "non_numeric_weight": "Non-numeric weight",
     "negative_weight": "Negative weight",
     "empty_composition": "Empty composition (the description alone will be used)",
     "empty_description": "Empty description",
     "duplicate_ticker": "Ticker listed several times (weights summed)",
     "weight_sum_too_high": "Sum of weights above the allowed maximum",
-    "duplicate_name": "Duplicate ETF name",
 }
 
 
@@ -74,63 +78,73 @@ def _validate_row(row: dict, row_id: int, line: int, settings: dict, log: Qualit
                   require_categories: bool = True) -> dict | None:
     """Checks one row; returns the usable record, or None if the row is excluded."""
     cols = settings["csv"]["columns"]
-    raw_composition = row[cols["composition"]]
-    raw_categories = row.get(cols["category"], "")
+    ticker = normalize_etf_ticker(row.get(cols["ticker"]))
+    name = str(row.get(cols["name"]) or "").strip()
+    description = str(row.get(cols["description"]) or "").strip()
+    raw_composition = row.get(cols["composition"]) or ""
+    category = parse_category(row.get(cols["category"]))
+    if not ticker:
+        log.add(row_id, line, "missing_ticker", EXCLUSION, extract=name)
+        return None
+    if not name:
+        log.add(row_id, line, "missing_name", EXCLUSION, extract=ticker)
+        return None
+    if not category and require_categories:
+        log.add(row_id, line, "no_category", EXCLUSION, extract=ticker)
+        return None
 
     try:
         items = parse_composition_items(raw_composition)
     except ParsingError as exc:
         log.add(row_id, line, "unreadable_composition", EXCLUSION, str(exc), raw_composition)
         return None
-
-    try:
-        categories = parse_categories(raw_categories)
-    except ParsingError as exc:
-        log.add(row_id, line, "unreadable_categories", EXCLUSION, str(exc), raw_categories)
-        return None
-    if not categories and require_categories:
-        log.add(row_id, line, "no_category", EXCLUSION, extract=raw_categories)
+    if not items and not description:
+        log.add(row_id, line, "no_description_no_composition", EXCLUSION, extract=ticker)
         return None
 
     composition: dict[str, float] = {}
-    for ticker, raw_weight in items:
+    for holding, raw_weight in items:
         try:
             weight = to_weight(raw_weight)
         except WeightError as exc:
-            log.add(row_id, line, "non_numeric_weight", EXCLUSION, f"{ticker}: {exc}", raw_composition)
+            log.add(row_id, line, "non_numeric_weight", EXCLUSION, f"{holding}: {exc}", raw_composition)
             return None
         if weight < 0:
-            log.add(row_id, line, "negative_weight", EXCLUSION, f"{ticker}: {weight}", raw_composition)
+            log.add(row_id, line, "negative_weight", EXCLUSION, f"{holding}: {weight}", raw_composition)
             return None
-        if ticker in composition:
-            log.add(row_id, line, "duplicate_ticker", WARNING, f"Duplicate ticker: {ticker}", raw_composition)
-        composition[ticker] = composition.get(ticker, 0.0) + weight
+        if holding in composition:
+            log.add(row_id, line, "duplicate_ticker", WARNING, f"Duplicate ticker: {holding}", raw_composition)
+        composition[holding] = composition.get(holding, 0.0) + weight
 
     coverage = sum(composition.values())
     if not composition:
         log.add(row_id, line, "empty_composition", WARNING, extract=raw_composition)
     if coverage > settings["quality"]["max_weight_sum"]:
         log.add(row_id, line, "weight_sum_too_high", WARNING, f"Sum of weights: {coverage:.2f}", raw_composition)
-
-    description = row[cols["description"]].strip()
     if not description:
-        log.add(row_id, line, "empty_description", WARNING, extract=row[cols["name"]])
+        log.add(row_id, line, "empty_description", WARNING, extract=name)
 
     return {
         "row_id": row_id,
         "line": line,
-        "name": row[cols["name"]].strip(),
+        "ticker": ticker,
+        "name": name,
         "description": description,
         "composition": composition,
-        "categories": categories,
+        "categories": [category] if category else [],
         "coverage": coverage,
         "n_holdings": len(composition),
     }
 
 
-def validate_rows(rows: list[dict], bad_lines: list[dict], settings: dict,
-                  require_categories: bool = True) -> tuple[pd.DataFrame, QualityLog]:
-    """Applies every rule; returns (usable dataset, quality log)."""
+def validate_rows(rows: list[dict], bad_lines: list[dict], settings: dict, require_categories: bool = True,
+                  n_reference: int | None = None) -> tuple[pd.DataFrame, QualityLog]:
+    """Applies every rule; returns (usable dataset, quality log).
+
+    Rows whose record number is >= n_reference come from the validation journal: a ticker present on several
+    reference rows excludes them all, while a validation replaces the reference row and the earlier validations
+    of its ticker (rows are in journal order, so the latest wins).
+    """
     log = QualityLog()
     for bad in bad_lines:
         log.add(bad.get("record"), bad.get("line"), "malformed_line", EXCLUSION, extract=bad.get("extract", ""))
@@ -142,10 +156,15 @@ def validate_rows(rows: list[dict], bad_lines: list[dict], settings: dict,
         if record is not None:
             records.append(record)
 
-    seen_names: set[str] = set()
-    for record in records:
-        if record["name"] in seen_names:
-            log.add(record["row_id"], record["line"], "duplicate_name", WARNING, extract=record["name"])
-        seen_names.add(record["name"])
-
-    return pd.DataFrame(records, columns=DATA_COLUMNS), log
+    if n_reference is None:
+        n_reference = len(rows) + len(bad_lines)
+    reference = [record for record in records if record["row_id"] < n_reference]
+    counts = Counter(record["ticker"] for record in reference)
+    for record in reference:
+        if counts[record["ticker"]] > 1:
+            log.add(record["row_id"], record["line"], "duplicate_etf_ticker", EXCLUSION, extract=record["ticker"])
+    by_ticker = {record["ticker"]: record for record in reference if counts[record["ticker"]] == 1}
+    for record in records[len(reference):]:
+        by_ticker.pop(record["ticker"], None)  # re-inserted last: the dataset keeps the reference order first
+        by_ticker[record["ticker"]] = record
+    return pd.DataFrame(list(by_ticker.values()), columns=DATA_COLUMNS), log

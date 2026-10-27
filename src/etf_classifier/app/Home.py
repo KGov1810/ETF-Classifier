@@ -13,7 +13,7 @@ settings = components.app_settings()
 bundle, validator, error = components.sidebar(settings)
 
 st.title("ETF Classifier")
-st.write("The model proposes categories for new ETFs; you validate or correct them. "
+st.write("The model proposes a category for each new ETF; you validate or correct it. "
          "Every validation enriches the reference dataset used by the next daily retraining.")
 
 if error:
@@ -25,12 +25,12 @@ else:
     middle.metric("Macro F1 on the test set", f"{metrics.get('f1_macro', 0):.3f}",
                   help="Every category counts equally")
     right.metric("Trivial baseline", f"{metrics.get('baseline', {}).get('f1_macro', 0):.3f}",
-                 help="Always predicting the most frequent categories")
+                 help="Always predicting the most frequent category")
 
 st.subheader("Screens")
 st.markdown(
     "- **Single ETF**: enter one ETF, review the proposal and the closest ETFs, validate.\n"
-    "- **Batch**: upload a CSV of new ETFs and validate them one by one.\n"
+    "- **Batch**: upload a CSV of ETFs (and check their established classification), validate them one by one.\n"
     "- **History**: recent validations; cancel a mistake.\n"
     "- **Monitoring**: acceptance rates, bias alerts and Azure costs."
 )

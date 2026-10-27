@@ -10,15 +10,20 @@ def report(sample_csv, settings):
 
 
 def test_report_counts_rows(report):
-    assert report.stats["total_rows"] == 20
+    assert report.stats["total_rows"] == 24
     assert report.stats["valid_rows"] == 15
-    assert report.stats["excluded_rows"] == 5
-    assert report.stats["rows_with_warnings"] == 5
+    assert report.stats["excluded_rows"] == 9
+    assert report.stats["rows_with_warnings"] == 4
 
 
 def test_report_describes_categories(report):
-    assert report.stats["n_categories"] == 11
-    assert report.stats["mean_categories_per_etf"] == pytest.approx(1.4)
+    assert report.stats["n_categories"] == 10
+    assert "mean_categories_per_etf" not in report.stats
+
+
+def test_report_lists_the_duplicated_tickers(report):
+    assert report.markdown.count("Ticker present on several rows") >= 2
+    assert "| DUPT |" in report.markdown
 
 
 def test_report_describes_near_duplicate_groups(report):

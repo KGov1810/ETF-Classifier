@@ -23,7 +23,7 @@ from etf_classifier.model.baseline import FrequencyBaseline
 from etf_classifier.model.classifier import TuningResult, tune
 from etf_classifier.model.evaluate import Metrics, evaluate, render_report
 from etf_classifier.model.explain import top_features
-from etf_classifier.model.registry import TRAIN_NAMES_FILE, current_version, promote, save_bundle
+from etf_classifier.model.registry import TRAIN_TICKERS_FILE, current_version, promote, save_bundle
 from etf_classifier.similarity.index import SimilarityIndex
 
 EXIT_OK = 0  # 1 = cancelled (see features.embeddings)
@@ -45,11 +45,10 @@ def train_and_evaluate(prepared: PreparedDataset, settings: dict, embedder=None)
     start = time.perf_counter()
     cost_before = embedder.run_cost_usd if embedder else 0.0
     result = tune(prepared.split.train, settings, embedder)
-    cfg = settings["model"]
     test_features = result.pipeline.transform(prepared.split.test)
     y_test = result.pipeline.transform_labels(prepared.split.test)
     unknown = dict(result.pipeline.labels.last_unknown)
-    y_pred = result.model.decide(result.model.predict_proba(test_features.matrix), cfg["max_categories"])
+    y_pred = result.model.decide(result.model.predict_proba(test_features.matrix))
     classes = result.model.classes
     baseline = FrequencyBaseline().fit(result.pipeline.transform_labels(prepared.split.train))
     return TrainingOutcome(
@@ -66,14 +65,15 @@ def train_and_evaluate(prepared: PreparedDataset, settings: dict, embedder=None)
 def _model_card(version: str, outcome: TrainingOutcome, info: dict) -> str:
     m, b = outcome.metrics, outcome.baseline
     lines = [f"# Model card {version}", "",
-             "Multi-label ETF classifier: one logistic regression per category, thresholds tuned per category.", ""]
+             "Single-category ETF classifier: one multinomial logistic regression, the best-scored category "
+             "is proposed.", ""]
     lines += [f"- **{k}**: {v}" for k, v in info.items()]
     lines += ["", "## Performance (test set)", "",
               f"- Macro F1: {m.f1_macro:.3f} (trivial baseline: {b.f1_macro:.3f})",
-              f"- Micro F1: {m.f1_micro:.3f} (trivial baseline: {b.f1_micro:.3f})", "",
+              f"- Accuracy: {m.accuracy:.3f} (trivial baseline: {b.accuracy:.3f})", "",
               "## Limitations", "",
               "- Cannot predict a category that is missing from the training set.",
-              "- Rare categories use a default threshold when the validation set has too few examples.",
+              "- Rare categories have few examples: their F1 is less reliable.",
               "- Performance depends on the coverage of the compositions (often partial)."]
     return "\n".join(lines) + "\n"
 
@@ -88,7 +88,7 @@ class TrainedModel:
 
 def train_and_save(prepared: PreparedDataset, settings: dict, embedder=None, promote_model: bool = False,
                    make_current_if_first: bool = True) -> TrainedModel:
-    """Trains, evaluates once, saves the model folder (model, pipeline, index, training names, card) and the report.
+    """Trains, evaluates once, saves the model folder (model, pipeline, index, training tickers, card) and the report.
 
     Shared by the `model.train` command and the daily retraining. The very first model becomes current
     (unless make_current_if_first=False); later ones only with promote_model=True.
@@ -108,9 +108,8 @@ def train_and_save(prepared: PreparedDataset, settings: dict, embedder=None, pro
         "Training time": f"{outcome.seconds:.1f} s",
         "Azure cost of training": f"${outcome.azure_cost_usd:.4f}",
     }
-    thresholds = dict(zip(result.model.classes, result.model.thresholds.tolist()))
     metrics = {**outcome.metrics.to_dict(), "baseline": outcome.baseline.to_dict(), "best_c": result.best_c,
-               "validation_scores": result.validation_scores, "thresholds": thresholds,
+               "validation_scores": result.validation_scores,
                "blocks": result.pipeline.active_blocks, "unknown_categories": outcome.unknown_categories,
                "n_train": len(prepared.split.train), "n_test": len(prepared.split.test),
                "azure_cost_usd": outcome.azure_cost_usd, "dataset_fingerprint": fingerprint}
@@ -120,12 +119,12 @@ def train_and_save(prepared: PreparedDataset, settings: dict, embedder=None, pro
     path = save_bundle(result.model, result.pipeline, metrics, settings, "", similarity=similarity,
                        make_current_if_first=make_current_if_first)
     version = path.name
-    # names of the training ETFs: the retraining compares models on ETFs the current model never saw
-    (path / TRAIN_NAMES_FILE).write_text(json.dumps(sorted(prepared.split.train["name"]), ensure_ascii=False),
-                                         encoding="utf-8")
+    # tickers of the training ETFs: the retraining compares models on ETFs the current model never saw
+    (path / TRAIN_TICKERS_FILE).write_text(json.dumps(sorted(prepared.split.train["ticker"]), ensure_ascii=False),
+                                           encoding="utf-8")
     (path / "MODEL_CARD.md").write_text(_model_card(version, outcome, info), encoding="utf-8")
-    report = render_report(version, outcome.metrics, outcome.baseline, outcome.top, thresholds,
-                           outcome.unknown_categories, info)
+    report = render_report(version, outcome.metrics, outcome.baseline, outcome.top, outcome.unknown_categories,
+                           info)
     report_path = resolve_path(settings["model"]["reports_dir"]) / f"model_{version}.md"
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text(report, encoding="utf-8")
@@ -135,7 +134,7 @@ def train_and_save(prepared: PreparedDataset, settings: dict, embedder=None, pro
 
 
 def main(argv: list[str] | None = None, client=None, input_fn: Callable[[str], str] = input) -> int:
-    parser = argparse.ArgumentParser(description="Train the multi-label classifier")
+    parser = argparse.ArgumentParser(description="Train the single-category classifier")
     parser.add_argument("--csv", required=True, help="Path to the categorised ETF CSV")
     parser.add_argument("--config", help="Configuration file (default: config/settings.yaml)")
     parser.add_argument("--no-azure", action="store_true", help="Local blocks only (no embeddings)")
@@ -162,7 +161,7 @@ def main(argv: list[str] | None = None, client=None, input_fn: Callable[[str], s
     m, b = outcome.metrics, outcome.baseline
     print(f"\nModel {version} · blocks: {', '.join(result.pipeline.active_blocks)} · C = {result.best_c}")
     print(f"Macro F1: {m.f1_macro:.3f} (trivial baseline {b.f1_macro:.3f})")
-    print(f"Micro F1: {m.f1_micro:.3f} (trivial baseline {b.f1_micro:.3f})")
+    print(f"Accuracy: {m.accuracy:.3f} (trivial baseline {b.accuracy:.3f})")
     if embedder is not None:
         print(f"Azure cost of training: ${outcome.azure_cost_usd:.4f}")
     status = "current model" if current_version(settings) == version else "not promoted (use --promote)"

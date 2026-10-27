@@ -15,7 +15,7 @@ def trained(synthetic_data, isolated_settings):
 
 
 def _save(result, settings):
-    return save_bundle(result.model, result.pipeline, {"f1_macro": 0.9, "f1_micro": 0.92}, settings, "# Fiche")
+    return save_bundle(result.model, result.pipeline, {"f1_macro": 0.9, "accuracy": 0.92}, settings, "# Fiche")
 
 
 def test_reloaded_model_gives_identical_predictions(trained, isolated_settings):
@@ -25,7 +25,7 @@ def test_reloaded_model_gives_identical_predictions(trained, isolated_settings):
     x_before = result.pipeline.transform(split.test).matrix
     x_after = bundle.pipeline.transform(split.test).matrix
     assert np.array_equal(result.model.predict_proba(x_before), bundle.model.predict_proba(x_after))
-    assert np.array_equal(result.model.thresholds, bundle.model.thresholds)
+    assert bundle.model.classes == result.model.classes
 
 
 def test_bundle_folder_contains_metrics_and_model_card(trained, isolated_settings):

@@ -1,4 +1,9 @@
-"""Category proposals for new ETFs (CSV without a Category column).
+"""Category proposals for new ETFs, and check of the classifications already established.
+
+Input: the input CSV format (Ticker;Nom;Description;Composition), Classification optional. When a Classification
+is given, the model checks it: agreement, disagreement or unknown category, with the model's score for it.
+The output keeps the input columns, so that once Classification is completed or corrected it can be imported as
+validations (feedback.importer).
 
 Usage:
     python -m etf_classifier.model.predict --csv new_etfs.csv [--model current] [--output …]
@@ -17,14 +22,17 @@ from etf_classifier.config import load_settings, resolve_path
 from etf_classifier.data.loader import load_dataset
 from etf_classifier.data.parsing import format_composition
 from etf_classifier.features.embeddings import CommandStopped, embedder_for_command
+from etf_classifier.model.check import AGREEMENT, DISAGREEMENT, UNKNOWN, check_established
 from etf_classifier.model.registry import NoModelError, load_bundle
 
 EXIT_OK, EXIT_NO_MODEL = 0, 2  # 1 = cancelled, 3 = Azure not configured (see features.embeddings)
+N_SCORES = 3  # best categories listed with their score
 
 
 def main(argv: list[str] | None = None, client=None, input_fn: Callable[[str], str] = input) -> int:
     parser = argparse.ArgumentParser(description="Category proposals for new ETFs")
-    parser.add_argument("--csv", required=True, help="CSV of the new ETFs (Name;Description;Composition)")
+    parser.add_argument("--csv", required=True,
+                        help="CSV of the ETFs (Ticker;Nom;Description;Composition, Classification optional)")
     parser.add_argument("--model", default="current", help="Model version (default: current model)")
     parser.add_argument("--config", help="Configuration file (default: config/settings.yaml)")
     parser.add_argument("--output", help="Output CSV (default: reports/predictions_<version>_<date>.csv)")
@@ -50,16 +58,22 @@ def main(argv: list[str] | None = None, client=None, input_fn: Callable[[str], s
         bundle.pipeline.attach_embedder(embedder)
 
     cfg = settings["model"]
-    predictions = bundle.model.predict(bundle.pipeline.transform(data).matrix,
-                                       cfg["max_categories"], cfg["uncertain_threshold"])
-    # Self-contained file: the team adds a Category column, then imports it (feedback.importer)
+    predictions = bundle.model.predict(bundle.pipeline.transform(data).matrix, cfg["uncertain_threshold"])
+    checks = [check_established(p, cats[0] if cats else "", bundle.model.classes)
+              for p, cats in zip(predictions, data["categories"])]
+    cols = settings["csv"]["columns"]
+    # Self-contained file: the team completes or corrects Classification, then imports it (feedback.importer)
     output = pd.DataFrame({
-        "Name": data["name"],
-        "Description": data["description"],
-        "Composition": [format_composition(comp) for comp in data["composition_raw"]],
-        "PredictedCategories": [str(p.categories) for p in predictions],
-        "Scores": [str([{c: round(s, 4)} for c, s in p.scores[: cfg["max_categories"]]]) for p in predictions],
+        cols["ticker"]: data["ticker"],
+        cols["name"]: data["name"],
+        cols["description"]: data["description"],
+        cols["composition"]: [format_composition(comp) for comp in data["composition_raw"]],
+        cols["category"]: [c.established for c in checks],
+        "PredictedCategory": [p.categories[0] for p in predictions],
+        "Scores": [str([{c: round(s, 4)} for c, s in p.scores[:N_SCORES]]) for p in predictions],
         "Uncertain": [p.uncertain for p in predictions],
+        "EstablishedScore": [f"{c.established_score:.4f}" if c.established_score is not None else "" for c in checks],
+        "Check": [c.verdict or "" for c in checks],
         "ModelVersion": bundle.version,
     })
     if args.output:
@@ -73,6 +87,10 @@ def main(argv: list[str] | None = None, client=None, input_fn: Callable[[str], s
     n_uncertain = int(output["Uncertain"].sum())
     print(f"{len(output)} ETFs processed with model {bundle.version} · {n_uncertain} uncertain · "
           f"{len(loaded.log.exclusions())} excluded row(s)")
+    verdicts = [c.verdict for c in checks]
+    if any(verdicts):
+        print(f"Established classifications: {verdicts.count(AGREEMENT)} agreement · "
+              f"{verdicts.count(DISAGREEMENT)} disagreement · {verdicts.count(UNKNOWN)} unknown")
     print(f"Proposals: {output_path}")
     return EXIT_OK
 

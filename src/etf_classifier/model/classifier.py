@@ -1,7 +1,8 @@
-"""Multi-label classifier: one logistic regression per category, thresholds tuned per category.
+"""Single-category classifier: one multinomial logistic regression (softmax) over the categories.
 
-Tuning (regularisation strength C and thresholds) is done on an internal validation set drawn from
-the training set. tune() never receives the test set: leakage is impossible by construction.
+Every ETF gets exactly one category, the one with the highest score; the scores of an ETF sum to 1.
+Tuning (regularisation strength C) is done on an internal validation set drawn from the training set.
+tune() never receives the test set: leakage is impossible by construction.
 """
 
 import logging
@@ -10,7 +11,6 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
-from sklearn.multiclass import OneVsRestClassifier
 
 from etf_classifier.data.split import make_split
 from etf_classifier.features.pipeline import FeaturePipeline
@@ -21,69 +21,74 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class Prediction:
-    """Proposal for an ETF: selected categories, sorted scores, "uncertain" flag."""
+    """Proposal for an ETF: the category (one-element list), every score sorted, "uncertain" flag."""
 
     categories: list[str]
     scores: list[tuple[str, float]]
     uncertain: bool
 
 
-def best_threshold(y_true: np.ndarray, scores: np.ndarray, min_positives: int, default: float) -> float:
-    """Threshold that maximises the F1 of a category; default value if there are too few positive examples."""
-    y_true, scores = np.asarray(y_true), np.asarray(scores)
-    if y_true.sum() < min_positives:
-        return default
-    best, best_f1 = default, -1.0
-    for threshold in np.unique(scores):
-        predicted = scores >= threshold
-        tp = np.sum(predicted & (y_true == 1))
-        f1 = 2 * tp / (predicted.sum() + y_true.sum()) if (predicted.sum() + y_true.sum()) else 0.0
-        if f1 > best_f1:
-            best, best_f1 = float(threshold), f1
-    return best
-
-
-def decide(probas: np.ndarray, thresholds: np.ndarray, max_categories: int) -> np.ndarray:
-    """Selected categories: above their threshold, at most max_categories, at least the best one."""
+def decide(probas: np.ndarray) -> np.ndarray:
+    """One-hot matrix of the best category of each row."""
     probas = np.asarray(probas)
     decided = np.zeros(probas.shape, dtype=np.int8)
-    for row, scores in enumerate(probas):
-        order = np.argsort(-scores, kind="stable")
-        kept = [j for j in order if scores[j] >= thresholds[j]][:max_categories]
-        decided[row, kept or [order[0]]] = 1
+    if probas.size:
+        decided[np.arange(len(probas)), probas.argmax(axis=1)] = 1
     return decided
 
 
-class MultiLabelClassifier:
+class SingleLabelClassifier:
     def __init__(self, classes: list[str], C: float, seed: int, max_iter: int):
         self.classes = list(classes)
         self.C = C
-        self.thresholds = np.full(len(self.classes), 0.5)
-        self._model = OneVsRestClassifier(LogisticRegression(
-            C=C, class_weight="balanced", solver="liblinear", max_iter=max_iter, random_state=seed))
+        self._model = LogisticRegression(C=C, class_weight="balanced", max_iter=max_iter, random_state=seed)
+        self._constant: int | None = None  # index of the only category seen in training, if so
 
-    def fit(self, x, y: np.ndarray) -> "MultiLabelClassifier":
-        self._model.fit(x, np.asarray(y))
+    def fit(self, x, y: np.ndarray) -> "SingleLabelClassifier":
+        """y: one-hot matrix (one row per ETF); rows without a known category are ignored."""
+        y = np.asarray(y)
+        if (y.sum(axis=1) > 1).any() or (y > 1).any():
+            raise ValueError("Exactly one category per ETF is expected.")
+        known = y.sum(axis=1) == 1
+        target = y[known].argmax(axis=1)
+        if len(np.unique(target)) == 1:
+            self._constant = int(target[0])
+        else:
+            self._constant = None
+            self._model.fit(x[np.flatnonzero(known)], target)
         return self
 
     def predict_proba(self, x) -> np.ndarray:
-        return np.asarray(self._model.predict_proba(x))
+        """Scores of every category (columns in the order of `classes`), each row summing to 1."""
+        probas = np.zeros((x.shape[0], len(self.classes)))
+        if self._constant is not None:
+            probas[:, self._constant] = 1.0
+        else:
+            probas[:, self._model.classes_] = self._model.predict_proba(x)
+        return probas
 
-    @property
-    def estimators(self) -> list:
-        return self._model.estimators_
+    def coefficients(self) -> dict[str, np.ndarray | None]:
+        """Coefficient vector of each category (None when it cannot be learned: absent or the only one)."""
+        result: dict[str, np.ndarray | None] = {c: None for c in self.classes}
+        if self._constant is not None:
+            return result
+        coef = np.asarray(self._model.coef_)
+        learned = list(self._model.classes_)
+        if len(learned) == 2:  # scikit-learn stores one vector for two classes: the second one's
+            coef = np.vstack([-coef[0], coef[0]])
+        for row, index in enumerate(learned):
+            result[self.classes[index]] = coef[row]
+        return result
 
-    def decide(self, probas: np.ndarray, max_categories: int = 5) -> np.ndarray:
-        return decide(probas, self.thresholds, max_categories)
+    def decide(self, probas: np.ndarray) -> np.ndarray:
+        return decide(probas)
 
-    def predict(self, x, max_categories: int, uncertain_threshold: float) -> list[Prediction]:
-        probas = self.predict_proba(x)
-        decided = self.decide(probas, max_categories)
+    def predict(self, x, uncertain_threshold: float) -> list[Prediction]:
         predictions = []
-        for scores, kept in zip(probas, decided):
+        for scores in self.predict_proba(x):
             order = np.argsort(-scores, kind="stable")
             predictions.append(Prediction(
-                categories=[self.classes[j] for j in order if kept[j]],
+                categories=[self.classes[order[0]]],
                 scores=[(self.classes[j], float(scores[j])) for j in order],
                 uncertain=bool(scores[order[0]] < uncertain_threshold),
             ))
@@ -92,20 +97,15 @@ class MultiLabelClassifier:
 
 @dataclass
 class TuningResult:
-    model: MultiLabelClassifier
+    model: SingleLabelClassifier
     pipeline: FeaturePipeline
     best_c: float
     validation_scores: dict[float, float]
     n_validation: int
 
 
-def _thresholds(y_val, probas, cfg) -> np.ndarray:
-    return np.array([best_threshold(y_val[:, j], probas[:, j], cfg["min_positives_for_threshold"],
-                                    cfg["default_threshold"]) for j in range(y_val.shape[1])])
-
-
 def tune(train: pd.DataFrame, settings: dict, embedder=None) -> TuningResult:
-    """Chooses C (macro F1) and the thresholds on an internal validation set, then refits on the whole training set."""
+    """Chooses C (macro F1) on an internal validation set, then refits on the whole training set."""
     cfg = settings["model"]
     inner = make_split(train.reset_index(drop=True), cfg["validation_size"], cfg["seed"],
                        settings["split"]["rare_category_min"])
@@ -114,19 +114,14 @@ def tune(train: pd.DataFrame, settings: dict, embedder=None) -> TuningResult:
     y_fit, y_val = inner_pipeline.transform_labels(inner.train), inner_pipeline.transform_labels(inner.test)
     classes = inner_pipeline.labels.classes
 
-    scores, thresholds_by_c = {}, {}
+    scores = {}
     for c in cfg["c_grid"]:
-        model = MultiLabelClassifier(classes, c, cfg["seed"], cfg["max_iter"]).fit(x_fit, y_fit)
-        probas = model.predict_proba(x_val)
-        model.thresholds = _thresholds(y_val, probas, cfg)
-        scores[c] = evaluate(y_val, model.decide(probas, cfg["max_categories"]), classes).f1_macro
-        thresholds_by_c[c] = dict(zip(classes, model.thresholds))
+        model = SingleLabelClassifier(classes, c, cfg["seed"], cfg["max_iter"]).fit(x_fit, y_fit)
+        scores[c] = evaluate(y_val, model.decide(model.predict_proba(x_val)), classes).f1_macro
     best_c = max(cfg["c_grid"], key=lambda c: (scores[c], -c))  # on a tie, the strongest regularisation
     logger.info("Validation (macro F1) per C: %s → selected C = %s", scores, best_c)
 
     pipeline = FeaturePipeline(settings, embedder).fit(train)
-    final = MultiLabelClassifier(pipeline.labels.classes, best_c, cfg["seed"], cfg["max_iter"])
+    final = SingleLabelClassifier(pipeline.labels.classes, best_c, cfg["seed"], cfg["max_iter"])
     final.fit(pipeline.transform(train).matrix, pipeline.transform_labels(train))
-    chosen = thresholds_by_c[best_c]
-    final.thresholds = np.array([chosen.get(c, cfg["default_threshold"]) for c in final.classes])
     return TuningResult(final, pipeline, best_c, scores, len(inner.test))

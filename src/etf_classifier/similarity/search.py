@@ -22,27 +22,27 @@ from etf_classifier.model.registry import NoModelError, load_bundle
 EXIT_OK, EXIT_NO_MODEL, EXIT_NO_INDEX = 0, 2, 4  # 1 = cancelled, 3 = Azure not configured
 
 
-def _summary(names: list[str], results, version: str) -> str:
+def _summary(labels: list[str], results, version: str) -> str:
     lines = [f"# Closest ETFs (model {version})", ""]
-    for name, result in zip(names, results):
-        lines += [f"## {name}", ""]
+    for label, result in zip(labels, results):
+        lines += [f"## {label}", ""]
         if result.near_duplicate:
             dup = result.near_duplicate
-            lines += [f"> ⚠️ Near-duplicate of **{dup.name}** ({dup.overlap_pct:.0f}% of the weight in common), "
-                      f"categories: {', '.join(dup.categories)}", ""]
+            lines += [f"> ⚠️ Near-duplicate of **{dup.ticker} · {dup.name}** ({dup.overlap_pct:.0f}% of the weight in "
+                      f"common), category: {', '.join(dup.categories)}", ""]
         if result.text_only:
             lines += ["No composition: matched on the text only.", ""]
-        rows = [[rank, n.name, ", ".join(n.categories), f"{n.score:.2f}", f"{n.overlap_pct:.0f}%",
+        rows = [[rank, f"{n.ticker} · {n.name}", ", ".join(n.categories), f"{n.score:.2f}", f"{n.overlap_pct:.0f}%",
                  ", ".join(t for t, _ in n.shared_holdings) or "–"]
                 for rank, n in enumerate(result.neighbors, start=1)]
-        lines += [markdown_table(["Rank", "ETF", "Categories", "Score", "Weight in common", "Shared tickers"], rows),
+        lines += [markdown_table(["Rank", "ETF", "Category", "Score", "Weight in common", "Shared tickers"], rows),
                   ""]
     return "\n".join(lines)
 
 
 def main(argv: list[str] | None = None, client=None, input_fn: Callable[[str], str] = input) -> int:
     parser = argparse.ArgumentParser(description="ETFs closest to new ETFs")
-    parser.add_argument("--csv", required=True, help="CSV of the new ETFs (Name;Description;Composition)")
+    parser.add_argument("--csv", required=True, help="CSV of the new ETFs (Ticker;Nom;Description;Composition)")
     parser.add_argument("--model", default="current", help="Model version (default: current model)")
     parser.add_argument("--config", help="Configuration file (default: config/settings.yaml)")
     parser.add_argument("--k", type=int, help="Number of neighbours (default: settings.yaml)")
@@ -74,11 +74,12 @@ def main(argv: list[str] | None = None, client=None, input_fn: Callable[[str], s
     k = args.k or settings["similarity"]["n_neighbors"]
     results = bundle.similarity.query(data, bundle.pipeline, k=k)
     rows = []
-    for name, result in zip(data["name"], results):
-        duplicate = result.near_duplicate.name if result.near_duplicate else ""
+    for ticker, name, result in zip(data["ticker"], data["name"], results):
+        duplicate = result.near_duplicate.ticker if result.near_duplicate else ""
         for rank, n in enumerate(result.neighbors, start=1):
             rows.append({
-                "Name": name, "Rank": rank, "NeighborName": n.name, "NeighborCategories": str(n.categories),
+                "Ticker": ticker, "Name": name, "Rank": rank, "NeighborTicker": n.ticker, "NeighborName": n.name,
+                "NeighborCategory": ", ".join(n.categories),
                 "Score": round(n.score, 4), "CompositionSimilarity": round(n.composition_similarity, 4),
                 "TextSimilarity": round(n.text_similarity, 4), "OverlapPct": round(n.overlap_pct, 1),
                 "SharedHoldings": str([t for t, _ in n.shared_holdings]), "NearDuplicate": duplicate,
@@ -90,7 +91,8 @@ def main(argv: list[str] | None = None, client=None, input_fn: Callable[[str], s
         output = resolve_path(settings["model"]["reports_dir"]) / f"neighbors_{bundle.version}_{stamp}.csv"
     output.parent.mkdir(parents=True, exist_ok=True)
     pd.DataFrame(rows).to_csv(output, sep=";", index=False, encoding="utf-8")
-    output.with_suffix(".md").write_text(_summary(list(data["name"]), results, bundle.version), encoding="utf-8")
+    labels = [f"{t} · {n}" for t, n in zip(data["ticker"], data["name"])]
+    output.with_suffix(".md").write_text(_summary(labels, results, bundle.version), encoding="utf-8")
 
     n_duplicates = sum(1 for r in results if r.near_duplicate)
     print(f"{len(data)} ETFs processed · {k} neighbours each · {n_duplicates} near-duplicate(s) flagged")

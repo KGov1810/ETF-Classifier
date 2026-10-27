@@ -1,4 +1,4 @@
-"""Conversion of the Composition and Category cells into Python structures.
+"""Conversion of the Composition, Classification and Ticker cells into Python structures.
 
 The cells are not strict JSON (single quotes): they are read with ast.literal_eval,
 which only accepts literals and never executes code.
@@ -71,22 +71,14 @@ def parse_composition(raw: str) -> dict[str, float]:
     return composition
 
 
-def parse_categories(raw: str) -> list[str]:
-    """Converts "['Global Equity', 'ESG']" into ['Global Equity', 'ESG'].
+def parse_category(raw) -> str:
+    """Classification cell → one category (plain text, whitespace stripped); "" when empty."""
+    return "" if raw is None else str(raw).strip()
 
-    Whitespace stripped, duplicates removed (order kept), empty strings ignored.
-    """
-    if raw is None or not str(raw).strip():
-        return []
-    value = _literal(str(raw).strip(), "Category")
-    if not isinstance(value, (list, tuple)) or not all(isinstance(item, str) for item in value):
-        raise ParsingError(f"Category: list of strings expected: {_extract(str(raw))}")
-    categories: list[str] = []
-    for item in value:
-        label = item.strip()
-        if label and label not in categories:
-            categories.append(label)
-    return categories
+
+def normalize_etf_ticker(raw) -> str:
+    """ETF ticker used as identifier: trimmed, inner whitespace collapsed, upper-cased; "" when empty."""
+    return " ".join(str(raw or "").split()).upper()
 
 
 def format_composition(composition) -> str:

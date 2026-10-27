@@ -26,6 +26,7 @@ from etf_classifier.feedback.store import CANCELLATION, FeedbackError, FeedbackS
 from etf_classifier.llm.justify import Justifier, LLMUnavailable
 from etf_classifier.llm.prompts import AnswerError, Justification
 from etf_classifier.llm.store import JustificationStore
+from etf_classifier.model.check import AGREEMENT, DISAGREEMENT, UNKNOWN, check_established
 from etf_classifier.model.registry import NoModelError, load_bundle
 from etf_classifier.retraining.history import read_history
 
@@ -90,9 +91,11 @@ def _describe(issue) -> str:
     return label if issue.message in ("", label) else f"{label} ({issue.message})"
 
 
-def etf_from_inputs(name: str, description: str, holdings: pd.DataFrame, settings: dict) -> EtfCheck:
+def etf_from_inputs(ticker: str, name: str, description: str, holdings: pd.DataFrame, settings: dict) -> EtfCheck:
     """Checks an ETF typed in the interface with the same rules as a CSV row."""
     errors = []
+    if _is_blank(ticker):
+        errors.append("The ETF ticker is empty.")
     if _is_blank(name):
         errors.append("The ETF name is empty.")
     holdings = holdings if holdings is not None else pd.DataFrame(columns=[TICKER_COLUMN, WEIGHT_COLUMN])
@@ -102,7 +105,8 @@ def etf_from_inputs(name: str, description: str, holdings: pd.DataFrame, setting
         return EtfCheck(pd.DataFrame(), errors)
 
     cols = settings["csv"]["columns"]
-    row = {cols["name"]: str(name).strip(), cols["description"]: str(description or "").strip(),
+    row = {cols["ticker"]: str(ticker).strip(), cols["name"]: str(name).strip(),
+           cols["description"]: str(description or "").strip(),
            cols["composition"]: composition, "__line__": None, "__record__": 0}
     loaded = load_records([row], settings, require_categories=False)
     errors = [_describe(issue) for issue in loaded.log.exclusions()]
@@ -130,6 +134,7 @@ class CostConfirmationRequired(AppError):
 class Proposal:
     """What the interface shows for one ETF."""
 
+    ticker: str
     name: str
     description: str
     composition: dict
@@ -141,6 +146,14 @@ class Proposal:
     text_only: bool
     similarity_available: bool
     model_version: str
+    established: str = ""                    # classification given in the uploaded CSV ("" if none)
+    check: str | None = None                 # agreement, disagreement, unknown (None without classification)
+    established_score: float | None = None   # model score of the established category
+
+    @property
+    def category(self) -> str:
+        """The proposed category (the model proposes exactly one)."""
+        return self.categories[0]
 
 
 def load_current_model(settings: dict, client=None):
@@ -178,9 +191,8 @@ def propose(data: pd.DataFrame, bundle, settings: dict, confirmed: bool = False)
     if plan is not None and plan.n_to_compute and not confirmed:
         raise CostConfirmationRequired(plan)
     data = data.reset_index(drop=True)
-    cfg = settings["model"]
     predictions = bundle.model.predict(bundle.pipeline.transform(data).matrix,
-                                       cfg["max_categories"], cfg["uncertain_threshold"])
+                                       settings["model"]["uncertain_threshold"])
     if bundle.similarity is not None:
         results = bundle.similarity.query(data, bundle.pipeline, k=settings["similarity"]["n_neighbors"])
     else:
@@ -188,13 +200,17 @@ def propose(data: pd.DataFrame, bundle, settings: dict, confirmed: bool = False)
     n_scores = settings.get("app", {}).get("n_scores_shown", 10)
     proposals = []
     for (_, etf), prediction, result in zip(data.iterrows(), predictions, results):
+        check = check_established(prediction, etf["categories"][0] if etf["categories"] else "",
+                                  bundle.model.classes)
         proposals.append(Proposal(
-            name=etf["name"], description=etf["description"], composition=dict(etf["composition_raw"]),
+            ticker=etf["ticker"], name=etf["name"], description=etf["description"],
+            composition=dict(etf["composition_raw"]),
             categories=list(prediction.categories), scores=list(prediction.scores[:n_scores]),
             uncertain=bool(prediction.uncertain),
             neighbors=result.neighbors if result else [], near_duplicate=result.near_duplicate if result else None,
             text_only=result.text_only if result else False, similarity_available=result is not None,
-            model_version=bundle.version,
+            model_version=bundle.version, established=check.established, check=check.verdict,
+            established_score=check.established_score,
         ))
     return proposals
 
@@ -219,20 +235,20 @@ def known_categories(settings: dict) -> list[str]:
     return sorted(_feedback_call(lambda: FeedbackStore(settings).known_categories()))
 
 
-def validate(proposal: Proposal, categories: list[str], validator: str, settings: dict, comment: str = "",
-             new_categories: dict[str, str] | None = None, justification_id: str | None = None) -> dict:
-    """Records the validation of a proposal; new_categories = {name: description} of categories to create.
+def validate(proposal: Proposal, category: str, validator: str, settings: dict, comment: str = "",
+             create_category: bool = False, category_description: str = "",
+             justification_id: str | None = None) -> dict:
+    """Records the validation of a proposal with one category (created if create_category is set).
 
     justification_id: LLM justification shown before validating, linked to the validation.
     """
     if not str(validator or "").strip():
         raise AppError("Choose a validator before validating.")
-    new_categories = new_categories or {}
-    etf = {"name": proposal.name, "description": proposal.description, "composition": proposal.composition}
+    etf = {"ticker": proposal.ticker, "name": proposal.name, "description": proposal.description,
+           "composition": proposal.composition}
     record = _feedback_call(lambda: FeedbackStore(settings).record_validation(
-        etf, list(categories) + [c for c in new_categories if c not in categories], validator,
-        predicted_categories=proposal.categories, model_version=proposal.model_version, comment=comment,
-        create_categories=bool(new_categories), category_descriptions=new_categories))
+        etf, category, validator, predicted_category=proposal.category, model_version=proposal.model_version,
+        comment=comment, create_category=create_category, category_description=category_description))
     if justification_id:
         try:
             JustificationStore(settings).link(justification_id, record["ValidationId"])
@@ -251,7 +267,7 @@ def cancel(validation_id: str, validator: str, comment: str, settings: dict) -> 
     return _feedback_call(lambda: FeedbackStore(settings).cancel_validation(validation_id, validator, comment))
 
 
-HISTORY_COLUMNS = ["ValidationId", "ValidatedAt", "Name", "Category", "PredictedCategories", "Decision",
+HISTORY_COLUMNS = ["ValidationId", "ValidatedAt", "Ticker", "Name", "Category", "PredictedCategory", "Decision",
                    "ValidatedBy", "ModelVersion", "Comment", "Cancelled", "CancellationComment"]
 
 
@@ -272,8 +288,9 @@ def history(settings: dict, since=None, validator: str | None = None, decision: 
         result = result[result["ValidatedBy"] == validator]
     if decision:
         result = result[result["Decision"] == decision]
-    if name:
-        result = result[result["Name"].str.contains(name, case=False, regex=False)]
+    if name:  # matches the name or the ticker
+        result = result[result["Name"].str.contains(name, case=False, regex=False)
+                        | result["Ticker"].str.contains(name, case=False, regex=False)]
     result = result.iloc[::-1]  # the journal is in chronological order
     return result[HISTORY_COLUMNS].reset_index(drop=True)
 
@@ -291,14 +308,16 @@ class BatchLoad:
 
 
 def load_batch(content: bytes, settings: dict) -> BatchLoad:
-    """Reads an uploaded CSV of new ETFs (Name;Description;Composition, Category optional)."""
+    """Reads an uploaded CSV of ETFs (input format; a Classification, if given, is checked by the model)."""
     with tempfile.TemporaryDirectory() as folder:
         path = Path(folder) / "batch.csv"
         path.write_bytes(content)
         try:
             rows, bad_lines = read_raw_rows(path, settings, require_categories=False)
         except MissingColumnsError as exc:
-            raise AppError(f"{exc}. Expected: Name;Description;Composition (Category optional).") from exc
+            cols = settings["csv"]["columns"]
+            expected = ";".join(cols[k] for k in ("ticker", "name", "description", "composition"))
+            raise AppError(f"{exc}. Expected: {expected} ({cols['category']} optional).") from exc
         except UnicodeDecodeError as exc:
             raise AppError("The file is not UTF-8 text: save it as 'CSV UTF-8' and upload it again.") from exc
     loaded = load_records(rows, settings, require_categories=False, bad_lines=bad_lines)
@@ -312,12 +331,28 @@ def load_batch(content: bytes, settings: dict) -> BatchLoad:
                      [describe(issue) for issue in loaded.log.warnings()])
 
 
-def queue_order(proposals: list, uncertain_first: bool) -> list[int]:
-    """Order in which the queue shows the proposals (positions in the batch)."""
+def _priority(proposal) -> int:
+    if proposal.check in (DISAGREEMENT, UNKNOWN):
+        return 0
+    return 1 if proposal.uncertain else 2
+
+
+def queue_order(proposals: list, priority_first: bool) -> list[int]:
+    """Order in which the queue shows the proposals (positions in the batch).
+
+    priority_first: disagreements with the established classification and unknown categories, then uncertain
+    proposals, then the rest; the file order is kept within each group.
+    """
     positions = list(range(len(proposals)))
-    if uncertain_first:
-        positions.sort(key=lambda i: not proposals[i].uncertain)  # stable: keeps the file order otherwise
+    if priority_first:
+        positions.sort(key=lambda i: _priority(proposals[i]))
     return positions
+
+
+def check_counts(proposals: list) -> dict[str, int]:
+    """Number of agreements, disagreements and unknown categories among the established classifications."""
+    verdicts = [p.check for p in proposals]
+    return {verdict: verdicts.count(verdict) for verdict in (AGREEMENT, DISAGREEMENT, UNKNOWN)}
 
 
 # --- Monitoring ----------------------------------------------------------------------------------
@@ -383,11 +418,9 @@ def llm_justify(justifier, proposal: Proposal, settings: dict, confirmed: bool =
     return _llm_call(lambda: justifier.justify(proposal, category_descriptions(settings), confirmed=confirmed))
 
 
-def apply_suggestions(selection: list[str], justification) -> list[str]:
-    """Current selection + suggested additions − suggested removals (order kept, no duplicates)."""
-    result = [c for c in selection if c not in justification.suggested_removals]
-    result += [c for c in justification.suggested_additions if c not in result]
-    return result
+def suggested_category(selection: str, justification) -> str:
+    """Category to select after "Apply the suggestion": the LLM's alternative, or the current selection."""
+    return justification.alternative or selection
 
 
 def justification_for_validation(settings: dict, validation_id: str) -> dict | None:

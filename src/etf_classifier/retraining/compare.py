@@ -11,14 +11,14 @@ import numpy as np
 import pandas as pd
 
 from etf_classifier.model.evaluate import evaluate
-from etf_classifier.model.registry import TRAIN_NAMES_FILE
+from etf_classifier.model.registry import TRAIN_TICKERS_FILE
 
 
 @dataclass
 class ComparisonSet:
     data: pd.DataFrame
     n_seen_excluded: int      # test ETFs removed because the current model trained on them
-    whole_test_set: bool      # True for a current model trained before this module (no training names)
+    whole_test_set: bool      # True for a current model saved without its training tickers
 
 
 @dataclass
@@ -40,11 +40,11 @@ class Decision:
 
 def comparison_set(candidate_test: pd.DataFrame, current_bundle) -> ComparisonSet:
     """Candidate's test ETFs that the current model did not train on."""
-    names_file = current_bundle.path / TRAIN_NAMES_FILE
-    if not names_file.exists():
+    tickers_file = current_bundle.path / TRAIN_TICKERS_FILE
+    if not tickers_file.exists():
         return ComparisonSet(candidate_test.reset_index(drop=True), 0, True)
-    seen = set(json.loads(names_file.read_text(encoding="utf-8")))
-    keep = ~candidate_test["name"].isin(seen)
+    seen = set(json.loads(tickers_file.read_text(encoding="utf-8")))
+    keep = ~candidate_test["ticker"].isin(seen)
     return ComparisonSet(candidate_test[keep].reset_index(drop=True), int((~keep).sum()), False)
 
 
@@ -54,11 +54,11 @@ def shared_categories(current_bundle, candidate_bundle) -> tuple[list[str], list
     return sorted(current & candidate), sorted(candidate - current), sorted(current - candidate)
 
 
-def score(bundle, data: pd.DataFrame, categories: list[str], settings: dict) -> Scores:
+def score(bundle, data: pd.DataFrame, categories: list[str]) -> Scores:
     """Macro F1 and per-category F1 of a model on `data`, restricted to `categories`."""
     model = bundle.model
     probas = model.predict_proba(bundle.pipeline.transform(data.reset_index(drop=True)).matrix)
-    decided = model.decide(probas, settings["model"]["max_categories"])
+    decided = model.decide(probas)
     columns = [list(model.classes).index(c) for c in categories]
     y_pred = np.asarray(decided)[:, columns]
     y_true = np.array([[int(c in etf_categories) for c in categories] for etf_categories in data["categories"]],

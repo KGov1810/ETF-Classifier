@@ -18,10 +18,10 @@ def _run(settings, tmp_path, *extra, client=None) -> int:
     return main(["--config", _config(settings, tmp_path), *extra], client=client)
 
 
-def _validate(settings, name="New Gold Miners"):
+def _validate(settings, ticker="NGDX"):
     FeedbackStore(settings).record_validation(
-        {"name": name, "description": "Gold mining companies", "composition": {"NEM": 10.0, "GOLD": 8.0, "AEM": 7.0}},
-        ["Commodities", "Gold"], "Alice Martin")
+        {"ticker": ticker, "name": "New Gold Miners", "description": "Gold mining companies",
+         "composition": {"NEM": 10.0, "GOLD": 8.0, "AEM": 7.0}}, "Gold", "Alice Martin")
 
 
 def test_first_run_without_a_current_model_promotes(isolated_settings, tmp_path):

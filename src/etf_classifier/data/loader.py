@@ -78,7 +78,8 @@ def _validation_rows(settings: dict, first_record: int) -> list[dict]:
     rows = []
     for offset, (position, validation) in enumerate(store.active_validations().iterrows()):
         rows.append({
-            cols["name"]: validation["Name"], cols["description"]: validation["Description"],
+            cols["ticker"]: validation["Ticker"], cols["name"]: validation["Name"],
+            cols["description"]: validation["Description"],
             cols["composition"]: validation["Composition"], cols["category"]: validation["Category"],
             "__line__": int(position) + 2,  # line in the journal (header = line 1)
             "__record__": first_record + offset,
@@ -89,7 +90,10 @@ def _validation_rows(settings: dict, first_record: int) -> list[dict]:
 def load_dataset(path: str | Path, settings: dict | None = None, require_categories: bool = True) -> LoadResult:
     """Loads, checks and normalises the reference dataset: original CSV + active validations from the journal.
 
-    Columns of the usable dataset: row_id, line, source ("reference" or "validation"), name, description,
+    The ticker identifies an ETF: the latest active validation of a ticker replaces its reference row and its
+    earlier validations (cancelling it therefore restores the previous state).
+
+    Columns of the usable dataset: row_id, line, source ("reference" or "validation"), ticker, name, description,
     composition_raw, composition (normalised tickers), categories, coverage, n_holdings.
     Excluded rows and warnings are in LoadResult.log.
     require_categories=False loads new ETFs to predict: the category is optional, and the validation
@@ -114,7 +118,7 @@ def load_records(rows: list[dict], settings: dict, require_categories: bool = Tr
     bad_lines = bad_lines or []
     if n_reference is None:
         n_reference = len(rows) + len(bad_lines)
-    data, log = validate_rows(rows, bad_lines, settings, require_categories)
+    data, log = validate_rows(rows, bad_lines, settings, require_categories, n_reference)
     for issue in log.issues:
         if issue.row_id is not None and issue.row_id >= n_reference:
             issue.source = "validation"

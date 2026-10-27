@@ -45,10 +45,10 @@ def trained_emb_settings(isolated_settings, tmp_path, sample_csv, fake_client):
 @pytest.fixture
 def llm_answer():
     return {
-        "summary": "Gold miners: Gold fits; Commodities is doubtful.",
-        "categories": [{"category": "Gold", "verdict": "fits", "reason": "Gold mining companies."}],
-        "suggested_additions": ["ESG"],
-        "suggested_removals": ["Commodities"],
+        "summary": "Gold miners: ESG fits better.",
+        "verdict": "doubtful",
+        "reason": "Gold mining companies, but screened.",
+        "alternative": "ESG",
         "new_category": {"name": "Precious Metals Miners", "description": "Miners of gold and silver",
                          "reason": "More precise than Commodities."},
         "inconsistency": None,

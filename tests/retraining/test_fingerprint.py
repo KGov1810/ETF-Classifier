@@ -7,11 +7,11 @@ from etf_classifier.model.registry import current_version, load_bundle
 from etf_classifier.model.train import train_and_save
 
 
-def test_trained_model_saves_its_training_names_and_the_dataset_fingerprint(isolated_settings, sample_csv):
+def test_trained_model_saves_its_training_tickers_and_the_dataset_fingerprint(isolated_settings, sample_csv):
     prepared = prepare_dataset(sample_csv, isolated_settings)
     trained = train_and_save(prepared, isolated_settings)
-    names = json.loads((trained.path / "train_names.json").read_text(encoding="utf-8"))
-    assert sorted(names) == sorted(prepared.split.train["name"])
+    tickers = json.loads((trained.path / "train_tickers.json").read_text(encoding="utf-8"))
+    assert sorted(tickers) == sorted(prepared.split.train["ticker"])
     metrics = json.loads((trained.path / "metrics.json").read_text(encoding="utf-8"))
     assert metrics["dataset_fingerprint"] == dataset_fingerprint(prepared.data)
 
@@ -29,8 +29,8 @@ def test_fingerprint_is_stable_and_changes_with_validations(isolated_settings, s
     first = dataset_fingerprint(prepare_dataset(sample_csv, isolated_settings).data)
     assert dataset_fingerprint(prepare_dataset(sample_csv, isolated_settings).data) == first
     store = FeedbackStore(isolated_settings)
-    record = store.record_validation({"name": "New Gold", "description": "d", "composition": {"NEM": 5.0}},
-                                     ["Gold"], "Alice Martin")
+    record = store.record_validation({"ticker": "NGLD", "name": "New Gold", "description": "d",
+                                      "composition": {"NEM": 5.0}}, "Gold", "Alice Martin")
     with_validation = dataset_fingerprint(prepare_dataset(sample_csv, isolated_settings).data)
     assert with_validation != first
     store.cancel_validation(record["ValidationId"], "Alice Martin", "mistake")

@@ -24,10 +24,10 @@ def test_tuned_model_clearly_beats_the_baseline(tuned):
     x_test = result.pipeline.transform(split.test).matrix
     y_test = result.pipeline.transform_labels(split.test)
     y_train = result.pipeline.transform_labels(split.train)
-    model_f1 = evaluate(y_test, result.model.decide(result.model.predict_proba(x_test)), result.model.classes).f1_macro
-    baseline_f1 = evaluate(y_test, FrequencyBaseline().fit(y_train).predict(len(y_test)), result.model.classes).f1_macro
-    assert model_f1 > 0.85
-    assert model_f1 > baseline_f1 + 0.4
+    model = evaluate(y_test, result.model.decide(result.model.predict_proba(x_test)), result.model.classes)
+    baseline = evaluate(y_test, FrequencyBaseline().fit(y_train).predict(len(y_test)), result.model.classes)
+    assert model.f1_macro > 0.85 and model.accuracy > 0.85
+    assert model.f1_macro > baseline.f1_macro + 0.4
 
 
 def test_best_c_comes_from_the_grid_with_validation_scores(tuned, isolated_settings):
@@ -43,10 +43,10 @@ def test_final_model_is_refit_on_the_whole_training_set(tuned):
     assert result.n_validation > 0
 
 
-def test_thresholds_are_set_for_every_category(tuned):
-    _, result = tuned
-    assert len(result.model.thresholds) == len(result.model.classes)
-    assert np.all((result.model.thresholds > 0) & (result.model.thresholds < 1))
+def test_every_test_etf_gets_exactly_one_category(tuned):
+    split, result = tuned
+    decided = result.model.decide(result.model.predict_proba(result.pipeline.transform(split.test).matrix))
+    assert np.all(decided.sum(axis=1) == 1)
 
 
 def test_same_data_and_seed_give_the_same_model(synthetic_data, isolated_settings):

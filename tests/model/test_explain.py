@@ -16,11 +16,11 @@ def test_influential_features_are_the_category_signatures(synthetic_data, isolat
 
 
 def test_constant_category_has_no_influential_feature():
-    class Constant:  # mimics scikit-learn's constant predictor (no coefficients)
-        pass
-
-    class FakeModel:
+    class FakeModel:  # a single training category: nothing to learn, no coefficients
         classes = ["Always"]
-        estimators = [Constant()]
+
+        @staticmethod
+        def coefficients():
+            return {"Always": None}
 
     assert top_features(FakeModel(), ["a"], k=10) == {"Always": []}

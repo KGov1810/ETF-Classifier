@@ -112,7 +112,8 @@ class Justifier:
         cached = self.cache.get(key)
         if cached is not None:
             justification_id, answer = cached
-            return JustificationResult(check_answer(answer, known_categories), justification_id, 0.0, True)
+            justification = check_answer(answer, known_categories, proposal.categories[0])
+            return JustificationResult(justification, justification_id, 0.0, True)
         estimate = estimate_chat(messages, self.deployment, self.pricing, self.cfg["expected_output_tokens"])
         if not confirmed:
             raise ConfirmationRequired(estimate)
@@ -125,10 +126,11 @@ class Justifier:
         if getattr(choice, "finish_reason", "stop") == "length":
             raise AnswerError("The answer was cut off by the token limit: increase llm.max_completion_tokens "
                               "in config/settings.yaml.")
-        justification = check_answer(choice.message.content or "", known_categories)
+        justification = check_answer(choice.message.content or "", known_categories, proposal.categories[0])
         answer = justification.to_dict()
         justification_id = self.store.append(
-            etf_name=proposal.name, model_version=getattr(proposal, "model_version", ""), deployment=self.deployment,
+            ticker=proposal.ticker, etf_name=proposal.name, model_version=getattr(proposal, "model_version", ""),
+            deployment=self.deployment,
             answer=answer, input_tokens=usage.input_tokens, output_tokens=usage.output_tokens,
             cost_usd=record["cost_usd"])
         self.cache.put(key, justification_id, answer)

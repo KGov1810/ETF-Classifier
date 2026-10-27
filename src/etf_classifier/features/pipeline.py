@@ -38,19 +38,21 @@ class FeatureSet:
 
 
 def training_fingerprint(data: pd.DataFrame) -> str:
-    """Fingerprint of the training set (names and categories), to trace which dataset was used."""
-    content = "\n".join(f"{n}|{','.join(c)}" for n, c in zip(data["name"], data["categories"]))
+    """Fingerprint of the training set (tickers and categories), to trace which dataset was used."""
+    content = "\n".join(f"{t}|{','.join(c)}" for t, c in zip(data["ticker"], data["categories"]))
     return hashlib.sha256(content.encode("utf-8")).hexdigest()[:16]
 
 
 def dataset_fingerprint(data: pd.DataFrame) -> str:
-    """Fingerprint of a whole prepared dataset (names, descriptions, compositions, categories), order-independent.
+    """Fingerprint of a whole prepared dataset (tickers, names, descriptions, compositions, categories),
+    order-independent.
 
     Used by the daily retraining to detect whether anything changed since the last model.
     """
     rows = sorted(
-        f"{n}|{d}|{sorted(c.items())}|{sorted(k)}"
-        for n, d, c, k in zip(data["name"], data["description"], data["composition"], data["categories"])
+        f"{t}|{n}|{d}|{sorted(c.items())}|{sorted(k)}"
+        for t, n, d, c, k in zip(data["ticker"], data["name"], data["description"], data["composition"],
+                                 data["categories"])
     )
     return hashlib.sha256("\n".join(rows).encode("utf-8")).hexdigest()[:16]
 

@@ -25,7 +25,7 @@ def test_end_to_end_training_without_azure(sample_csv, isolated_settings, tmp_pa
     assert (Path(isolated_settings["model"]["artifacts_dir"]) / version / "bundle.joblib").exists()
     report = Path(isolated_settings["model"]["reports_dir"]) / f"model_{version}.md"
     assert "## Comparison with the trivial baseline" in report.read_text(encoding="utf-8")
-    assert "Macro F1" in output
+    assert "Macro F1" in output and "Accuracy" in output
 
 
 def test_training_with_embeddings_reports_the_azure_cost(sample_csv, isolated_settings, fake_client, tmp_path, capsys):

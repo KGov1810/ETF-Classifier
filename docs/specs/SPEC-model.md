@@ -2,10 +2,12 @@
 
 Status: **approved** (2026-10-25)
 
+> **Amended on 2026-10-27** by [CHANGE-input-format](CHANGE-input-format.md): input CSV `Ticker;Nom;Description;Classification;Composition`, one category per ETF, ticker as the ETF identifier. Where this spec and the change spec differ, the change spec prevails.
+
 ## Objective
 
-Train, evaluate and version the **multi-label classifier** that proposes one or more
-categories for every ETF, with a confidence score per category.
+Train, evaluate and version the **single-category classifier** (amended on 2026-10-27; first version: multi-label)
+that proposes one category for every ETF, with a score for every category.
 
 This is the learning core of the project. We move forward through measured comparisons:
 1. a **trivial baseline** (predict the most frequent categories), which serves as a floor;
@@ -25,29 +27,30 @@ the interface (`app` module), deep-learning models.
 ## Features
 
 ### 1. Model
-- **One logistic regression per category** ("one-vs-rest" strategy), on the combined matrix of the active blocks.
+- **One multinomial logistic regression** (softmax over the categories; amended on 2026-10-27, first version:
+  one logistic regression per category), on the combined matrix of the active blocks.
   - Rationale: fast on sparse matrices with tens of thousands of columns, usable probabilities, interpretable coefficients (we can show which words or tickers push towards a category).
   - `class_weight="balanced"` so as not to sacrifice rare categories.
 - **Tuning on an internal validation set**: the training set is split again (80/20, by near-duplicate group) to:
   - choose the regularisation strength `C` from a small grid (0.1 · 1 · 10);
-  - set a **decision threshold per category** that maximises its F1 (0.5 by default if the category has too few examples in validation).
-- The final model is then retrained on the whole training set, with the selected parameters and thresholds.
+  - (first version only) set a decision threshold per category: removed on 2026-10-27, the best-scored category is proposed.
+- The final model is then retrained on the whole training set, with the selected parameter.
 - **The test set is used only once**, for the final evaluation. It is never used for tuning.
 - Category without any positive example in training: cannot be learned, reported in the report.
 
 ### 2. Prediction
 - `predict(df) -> list[Prediction]`. For every ETF:
   - the **scores of all categories** (probabilities), sorted;
-  - the **selected categories**, those above their threshold;
-  - **at least one category** selected, the best one, even if none exceeds its threshold, since every ETF has at least one category;
+  - the **proposed category**: the best-scored one (scores sum to 1);
   - an **"uncertain"** flag if the best score is below a confidence threshold (configurable, 0.5 by default). This is the signal for the interface and for `llm-justify`: hard case or possible new category.
 - `python -m etf_classifier.model.predict --model current --csv new_etfs.csv` writes a CSV of proposals (selected categories, scores, uncertain flag). Useful before the interface arrives.
 
 ### 3. Evaluation
 Computed on the test set and written to `reports/model_<version>.md`:
-- **micro F1** (every ETF × category decision counts equally: favours frequent categories);
+- **accuracy** (share of ETFs given the right category);
 - **macro F1** (every category counts equally: reveals poorly learned rare categories);
-- **per-ETF F1** ("samples"), exact match (all categories right), Hamming loss;
+- the most frequent **confusions** (true category → proposed category); micro F1, per-ETF F1 and Hamming loss of the
+  first version are dropped (amended on 2026-10-27);
 - **per category**: precision, recall, F1, support, selected threshold;
 - **comparison with the trivial baseline**, on the same test set;
 - **most influential features per category** (10 most positive coefficients): the report shows for example that "gold", "NEM" and "miners" push towards "Gold".

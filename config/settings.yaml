@@ -3,11 +3,12 @@
 csv:
   separator: ";"
   encoding: "utf-8"
-  columns:
-    name: "Name"
+  columns:                     # header names of the input CSV (column order does not matter)
+    ticker: "Ticker"           # ETF identifier (spaces trimmed, upper-cased)
+    name: "Nom"
     description: "Description"
     composition: "Composition"
-    category: "Category"
+    category: "Classification" # one category per ETF
 
 quality:
   max_weight_sum: 105.0        # above this: warning
@@ -61,10 +62,7 @@ features:
 model:
   c_grid: [0.1, 1.0, 10.0]     # regularisation strengths tried (smaller value = more regularisation)
   validation_size: 0.20        # share of the training set held out for tuning
-  min_positives_for_threshold: 3   # below this (in validation), default threshold
-  default_threshold: 0.5
   uncertain_threshold: 0.5     # best score below this: ETF flagged as "uncertain"
-  max_categories: 5            # maximum number of categories proposed per ETF
   seed: 42
   max_iter: 2000
   artifacts_dir: "artifacts/models"

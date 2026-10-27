@@ -29,11 +29,12 @@ def test_confirmed_call_records_the_cost_and_the_justification(isolated_settings
     result = Justifier(isolated_settings, client=client).justify(proposal, known_categories, confirmed=True)
     assert len(client.calls) == 1
     assert client.calls[0]["response_format"]["type"] == "json_schema"
-    assert result.justification.suggested_removals == ["Commodities"]
+    assert result.justification.verdict == "fits"
     lines = _cost_lines(isolated_settings)
     assert len(lines) == 1 and lines[0]["module"] == "llm-justify" and lines[0]["input_tokens"] == "1200"
     stored = JustificationStore(isolated_settings).get(result.justification_id)
-    assert stored["etf_name"] == "Global Gold Miners" and stored["answer"]["confidence"] == "high"
+    assert (stored["ticker"], stored["etf_name"]) == ("GGMX", "Global Gold Miners")
+    assert stored["answer"]["confidence"] == "high"
 
 
 def test_identical_request_is_served_by_the_cache(isolated_settings, proposal, known_categories, valid_answer,

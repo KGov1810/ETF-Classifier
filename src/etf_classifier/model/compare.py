@@ -63,14 +63,14 @@ def render_comparison(results: list[ExperimentResult]) -> str:
     rows = []
     baseline = next((r.baseline for r in results if r.baseline is not None), None)
     if baseline:
-        rows.append(["Trivial baseline", f"{baseline.f1_macro:.3f}", f"{baseline.f1_micro:.3f}", 0, "–", "$0"])
+        rows.append(["Trivial baseline", f"{baseline.f1_macro:.3f}", f"{baseline.accuracy:.3f}", 0, "–", "$0"])
     for r in results:
         if r.skipped_reason:
             rows.append([r.name, r.skipped_reason, "", "", "", ""])
         else:
-            rows.append([r.name, f"{r.metrics.f1_macro:.3f}", f"{r.metrics.f1_micro:.3f}", r.n_features,
+            rows.append([r.name, f"{r.metrics.f1_macro:.3f}", f"{r.metrics.accuracy:.3f}", r.n_features,
                          f"{r.seconds:.1f} s", f"${r.azure_cost_usd:.4f}"])
-    table = markdown_table(["Experiment", "Macro F1", "Micro F1", "Features", "Time", "Azure cost"], rows)
+    table = markdown_table(["Experiment", "Macro F1", "Accuracy", "Features", "Time", "Azure cost"], rows)
     fingerprint = results[0].test_fingerprint if results else "–"
     return "\n".join([
         "# Experiment comparison", "",

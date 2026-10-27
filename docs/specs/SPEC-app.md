@@ -2,6 +2,8 @@
 
 Status: **approved** (2026-10-25)
 
+> **Amended on 2026-10-27** by [CHANGE-input-format](CHANGE-input-format.md): input CSV `Ticker;Nom;Description;Classification;Composition`, one category per ETF, ticker as the ETF identifier. Where this spec and the change spec differ, the change spec prevails.
+
 ## Objective
 
 A Streamlit interface for the ETF team. It replaces the command-line round trip
@@ -27,7 +29,7 @@ v1 has no LLM justification (`llm-justify` module) and no authentication.
 - Feedback after validation: decision (`accepted` / `corrected`), validation identifier, form reset.
 
 ### 2. Batch from a CSV
-- Upload of a CSV `Name;Description;Composition` (same format and checks as `model.predict`); excluded rows are listed with their reason.
+- Upload of a CSV `Ticker;Nom;Description;Composition`, `Classification` optional (same format and checks as `model.predict`); excluded rows are listed with their reason. An established classification is checked by the model: disagreements and unknown categories come first in the queue (amended on 2026-10-27).
 - Proposals computed for the whole batch, then a **queue**: one ETF at a time, same result panel and validation form as screen 1, plus **Skip** and progress (`12 / 40 · 3 uncertain`).
 - Filter "uncertain first". The composition of the current ETF can be corrected in the editable table before validating.
 - Each validation is written to the journal immediately; leaving the page loses only the queue, never a validation (already-validated ETFs are then refused as duplicates, with the existing record).

@@ -68,25 +68,25 @@ def test_too_small_comparison_set_is_refused():
     assert any("5 ETF" in reason for reason in decision.reasons)
 
 
-def _bundle_with_names(tmp_path, names):
+def _bundle_with_tickers(tmp_path, names):
     path = tmp_path / "model"
     path.mkdir()
     if names is not None:
-        (path / "train_names.json").write_text(json.dumps(names), encoding="utf-8")
+        (path / "train_tickers.json").write_text(json.dumps(names), encoding="utf-8")
     return SimpleNamespace(path=path)
 
 
 def test_comparison_set_excludes_etfs_seen_by_the_current_model(tmp_path):
-    test = pd.DataFrame({"name": ["A", "B", "C"]})
-    result = comparison_set(test, _bundle_with_names(tmp_path, ["B", "Z"]))
-    assert list(result.data["name"]) == ["A", "C"]
+    test = pd.DataFrame({"ticker": ["A", "B", "C"]})
+    result = comparison_set(test, _bundle_with_tickers(tmp_path, ["B", "Z"]))
+    assert list(result.data["ticker"]) == ["A", "C"]
     assert result.n_seen_excluded == 1 and not result.whole_test_set
 
 
-def test_comparison_set_without_training_names_uses_the_whole_test_set(tmp_path):
-    test = pd.DataFrame({"name": ["A", "B"]})
-    result = comparison_set(test, _bundle_with_names(tmp_path, None))
-    assert list(result.data["name"]) == ["A", "B"] and result.whole_test_set
+def test_comparison_set_without_training_tickers_uses_the_whole_test_set(tmp_path):
+    test = pd.DataFrame({"ticker": ["A", "B"]})
+    result = comparison_set(test, _bundle_with_tickers(tmp_path, None))
+    assert list(result.data["ticker"]) == ["A", "B"] and result.whole_test_set
 
 
 def test_shared_categories_lists_new_ones():
@@ -101,7 +101,7 @@ def test_score_of_a_real_model_on_its_own_test_set(isolated_settings, sample_csv
     train_and_save(prepared, isolated_settings)
     bundle = load_bundle("current", isolated_settings)
     categories = sorted(bundle.model.classes)
-    result = score(bundle, prepared.split.test, categories, isolated_settings)
+    result = score(bundle, prepared.split.test, categories)
     assert 0.0 <= result.f1_macro <= 1.0
     assert set(result.per_category["category"]) == set(categories)
     assert result.per_category["support"].sum() == sum(

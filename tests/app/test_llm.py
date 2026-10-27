@@ -16,28 +16,28 @@ APP_DIR = Path(__file__).parents[2] / "src" / "etf_classifier" / "app"
 
 
 def _justification(**changes):
-    values = dict(summary="s", categories=[], suggested_additions=["ESG"], suggested_removals=["Commodities"],
-                  new_category=None, inconsistency=None, confidence="high")
+    values = dict(summary="s", verdict="doubtful", reason="r", alternative="ESG", new_category=None,
+                  inconsistency=None, confidence="high")
     values.update(changes)
     return Justification(**values)
 
 
-def test_apply_suggestions_adds_and_removes_in_order():
-    assert services.apply_suggestions(["Gold", "Commodities"], _justification()) == ["Gold", "ESG"]
+def test_suggested_category_is_the_alternative():
+    assert services.suggested_category("Gold", _justification()) == "ESG"
 
 
-def test_apply_suggestions_never_duplicates():
-    assert services.apply_suggestions(["ESG"], _justification(suggested_removals=[])) == ["ESG"]
+def test_without_alternative_the_selection_is_kept():
+    assert services.suggested_category("Gold", _justification(alternative=None)) == "Gold"
 
 
 def test_category_descriptions_include_the_historical_categories(trained_settings):
     descriptions = services.category_descriptions(trained_settings)
-    assert {"Gold", "Commodities"} <= set(descriptions)
+    assert {"Gold", "Global Equity"} <= set(descriptions)
 
 
 def _proposal(settings):
     bundle = services.load_current_model(settings)
-    checked = services.etf_from_inputs("New Gold", "Gold miners", pd.DataFrame(
+    checked = services.etf_from_inputs("NGLD", "New Gold", "Gold miners", pd.DataFrame(
         [["NEM", 11.0], ["GOLD", 9.0], ["AEM", 8.0]], columns=["Ticker", "Weight (%)"]), settings)
     return services.propose(checked.data, bundle, settings)[0]
 
@@ -46,7 +46,7 @@ def test_validation_is_linked_to_its_justification(trained_settings, chat_client
     proposal = _proposal(trained_settings)
     justifier = services.llm_justifier(trained_settings, client=chat_client)
     result = services.llm_justify(justifier, proposal, trained_settings, confirmed=True)
-    record = services.validate(proposal, proposal.categories, "Alice Martin", trained_settings,
+    record = services.validate(proposal, proposal.category, "Alice Martin", trained_settings,
                                justification_id=result.justification_id)
     linked = JustificationStore(trained_settings).for_validation(record["ValidationId"])
     assert linked["id"] == result.justification_id
@@ -80,6 +80,7 @@ def single_page(trained_settings, monkeypatch, tmp_path):
     at.session_state["single_holdings_init"] = pd.DataFrame(
         {"Ticker": ["NEM", "GOLD", "AEM"], "Weight (%)": [11.0, 9.0, 8.0]})
     at.run()
+    at.text_input(key="single_ticker").input("NGMX")
     at.text_input(key="single_name").input("New Gold Miners")
     at.text_area(key="single_description").input("Global gold mining companies")
     at.button(key="single_propose").click()
@@ -100,7 +101,7 @@ def test_explain_button_asks_for_confirmation_before_calling(azure_configured, s
     at.run()
     assert not at.exception
     assert len(azure_configured.calls) == 1
-    assert "Gold miners: Gold fits" in _texts(at, "markdown")
+    assert "Gold miners: ESG fits better" in _texts(at, "markdown")
 
 
 def test_apply_suggestions_updates_the_selection(azure_configured, single_page):
@@ -112,8 +113,7 @@ def test_apply_suggestions_updates_the_selection(azure_configured, single_page):
     at.button(key="single_apply").click()
     at.run()
     assert not at.exception
-    selection = at.multiselect(key="single_categories").value
-    assert "ESG" in selection and "Commodities" not in selection
+    assert at.selectbox(key="single_category").value == "ESG"
     assert at.checkbox(key="single_create").value is True
     assert at.text_input(key="single_new_name").value == "Precious Metals Miners"
 
@@ -138,10 +138,12 @@ def test_explain_button_is_disabled_without_azure(single_page, monkeypatch):
 
 def test_history_shows_the_justification_of_a_validation(trained_settings, monkeypatch, tmp_path, llm_answer):
     store = FeedbackStore(trained_settings)
-    record = store.record_validation({"name": "Gold J", "description": "d", "composition": {"NEM": 5.0}},
-                                     ["Gold"], "Alice Martin", predicted_categories=["Gold"], model_version="v1")
+    record = store.record_validation({"ticker": "GLDJ", "name": "Gold J", "description": "d",
+                                      "composition": {"NEM": 5.0}}, "Gold", "Alice Martin",
+                                     predicted_category="Gold", model_version="v1")
     justifications = JustificationStore(trained_settings)
-    justification_id = justifications.append(etf_name="Gold J", model_version="v1", deployment="gpt-6.1-sol",
+    justification_id = justifications.append(ticker="GLDJ", etf_name="Gold J", model_version="v1",
+                                             deployment="gpt-6.1-sol",
                                              answer={**llm_answer, "notes": []}, input_tokens=1, output_tokens=1,
                                              cost_usd=0.01)
     justifications.link(justification_id, record["ValidationId"])
@@ -152,12 +154,13 @@ def test_history_shows_the_justification_of_a_validation(trained_settings, monke
     at.selectbox(key="history_justification_id").select(record["ValidationId"])
     at.run()
     assert not at.exception
-    assert "Gold miners: Gold fits" in _texts(at, "markdown")
+    assert "Gold miners: ESG fits better" in _texts(at, "markdown")
 
 
 def test_history_without_justification_says_so(trained_settings, monkeypatch, tmp_path):
     FeedbackStore(trained_settings).record_validation(
-        {"name": "Gold K", "description": "d", "composition": {"NEM": 5.0}}, ["Gold"], "Alice Martin")
+        {"ticker": "GLDK", "name": "Gold K", "description": "d", "composition": {"NEM": 5.0}}, "Gold",
+        "Alice Martin")
     path = tmp_path / "isolated_settings.yaml"
     path.write_text(yaml.safe_dump(trained_settings, allow_unicode=True), encoding="utf-8")
     monkeypatch.setenv("ETF_CLASSIFIER_CONFIG", str(path))
@@ -174,7 +177,7 @@ def test_failed_justification_link_does_not_hide_a_saved_validation(trained_sett
         raise TimeoutError("justification file locked")
 
     monkeypatch.setattr(JustificationStore, "link", broken_link)
-    record = services.validate(proposal, proposal.categories, "Alice Martin", trained_settings,
+    record = services.validate(proposal, proposal.category, "Alice Martin", trained_settings,
                                justification_id=result.justification_id)
     assert len(FeedbackStore(trained_settings).read_journal()) == 1
     assert "could not be linked" in record["warning"]

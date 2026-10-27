@@ -2,6 +2,8 @@
 
 Status: **approved** (2026-10-25)
 
+> **Amended on 2026-10-27** by [CHANGE-input-format](CHANGE-input-format.md): input CSV `Ticker;Nom;Description;Classification;Composition`, one category per ETF, ticker as the ETF identifier. Where this spec and the change spec differ, the change spec prevails.
+
 ## Objective
 
 Retrain the model **once a day**, without anyone at the keyboard, on the reference dataset enriched with the

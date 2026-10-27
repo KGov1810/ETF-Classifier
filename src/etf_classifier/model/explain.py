@@ -7,11 +7,10 @@ import numpy as np
 
 
 def top_features(model, feature_names: list[str], k: int = 10) -> dict[str, list[tuple[str, float]]]:
-    """For each category, the k features with the most positive coefficient (none if the category is constant)."""
+    """For each category, the k features with the most positive coefficient (none if nothing was learned)."""
     result: dict[str, list[tuple[str, float]]] = {}
-    for category, estimator in zip(model.classes, model.estimators):
-        coef = getattr(estimator, "coef_", None)
-        if coef is None:  # category present (or absent) everywhere in training: nothing to learn
+    for category, coef in model.coefficients().items():
+        if coef is None:  # single training category, or absent: nothing to learn
             result[category] = []
             continue
         coef = np.asarray(coef).ravel()

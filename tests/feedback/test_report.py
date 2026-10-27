@@ -4,19 +4,19 @@ from etf_classifier.feedback.report import build_feedback_report
 
 
 def _etf(name):
-    return {"name": name, "description": "d", "composition": {"AAPL": 5.0}}
+    return {"ticker": name, "name": name, "description": "d", "composition": {"AAPL": 5.0}}
 
 
 @pytest.fixture
 def journal(store):
     """Alice: 3 accepted + 1 corrected; Bob: 1 accepted + 1 accepted then cancelled; 1 without proposal."""
     for i in range(3):
-        store.record_validation(_etf(f"A{i}"), ["US Equity"], "Alice", predicted_categories=["US Equity"])
-    store.record_validation(_etf("A3"), ["US Equity", "ESG"], "Alice", predicted_categories=["US Equity", "Gold"])
-    store.record_validation(_etf("B0"), ["Gold"], "Bob", predicted_categories=["Gold"])
-    cancelled = store.record_validation(_etf("B1"), ["Gold"], "Bob", predicted_categories=["Gold"])
+        store.record_validation(_etf(f"A{i}"), "US Equity", "Alice", predicted_category="US Equity")
+    store.record_validation(_etf("A3"), "ESG", "Alice", predicted_category="Gold")
+    store.record_validation(_etf("B0"), "Gold", "Bob", predicted_category="Gold")
+    cancelled = store.record_validation(_etf("B1"), "Gold", "Bob", predicted_category="Gold")
     store.cancel_validation(cancelled["ValidationId"], "Bob")
-    store.record_validation(_etf("C0"), ["Gold"], "Carla")
+    store.record_validation(_etf("C0"), "Gold", "Carla")
     return store
 
 
@@ -29,7 +29,7 @@ def test_acceptance_rates_computed_by_hand(journal, isolated_settings):
     assert stats["n_cancelled"] == 1
 
 
-def test_categories_added_and_removed_by_validators(journal, isolated_settings):
+def test_categories_chosen_instead_of_the_proposal(journal, isolated_settings):
     stats = build_feedback_report(isolated_settings).stats
     assert stats["added"] == {"ESG": 1}
     assert stats["removed"] == {"Gold": 1}
@@ -48,7 +48,7 @@ def test_no_bias_alert_below_the_minimum_number_of_validations(journal, isolated
 
 
 def test_created_categories_are_listed(store, isolated_settings):
-    store.record_validation(_etf("H"), ["Hydrogen"], "Alice", create_categories=True)
+    store.record_validation(_etf("H"), "Hydrogen", "Alice", create_category=True)
     report = build_feedback_report(isolated_settings)
     assert report.stats["created_categories"] == ["Hydrogen"]
 

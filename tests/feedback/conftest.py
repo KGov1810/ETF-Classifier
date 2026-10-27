@@ -12,5 +12,5 @@ def store(isolated_settings):
 
 @pytest.fixture
 def new_etf():
-    return {"name": "New Clean Energy", "description": "Global clean energy producers",
+    return {"ticker": "NCLE", "name": "New Clean Energy", "description": "Global clean energy producers",
             "composition": {"ENPH": 6.0, "FSLR": 5.0, "VWS": 4.0}}

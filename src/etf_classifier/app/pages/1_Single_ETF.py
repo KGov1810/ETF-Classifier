@@ -15,12 +15,15 @@ if error:
     st.error(error)
     st.stop()
 
-name = st.text_input("Name", key=f"{PREFIX}_name")
-description = st.text_area("Description", key=f"{PREFIX}_description", height=90)
+ticker_column, name_column = st.columns([1, 3])
+ticker = ticker_column.text_input("Ticker", key=f"{PREFIX}_ticker", help="Identifies the ETF (required)")
+name = name_column.text_input("Name", key=f"{PREFIX}_name")
+description = st.text_area("Description", key=f"{PREFIX}_description", height=90,
+                           help="Optional when a composition is given")
 holdings = components.composition_editor(PREFIX, st.session_state.get(f"{PREFIX}_holdings_init"))
-signature = (name, description, holdings.to_json())
+signature = (ticker, name, description, holdings.to_json())
 
-if st.button("Propose categories", key=f"{PREFIX}_propose", type="primary"):
+if st.button("Propose a category", key=f"{PREFIX}_propose", type="primary"):
     components.reset(PREFIX)
     st.session_state[f"{PREFIX}_request"] = signature
 
@@ -33,7 +36,7 @@ if request != signature:
 
 proposal = st.session_state.get(f"{PREFIX}_proposal")
 if proposal is None:
-    checked = services.etf_from_inputs(name, description, holdings, settings)
+    checked = services.etf_from_inputs(ticker, name, description, holdings, settings)
     for message in checked.errors:
         st.error(message)
     if checked.errors:

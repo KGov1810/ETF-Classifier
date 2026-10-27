@@ -82,6 +82,7 @@ def test_local_blocks_on_10000_etfs_in_less_than_60_seconds(local_settings):
         size = int(rng.integers(10, 120))
         tickers = rng.choice(8000, size=size, replace=False)
         rows.append({
+            "ticker": f"T{i}",
             "name": f"ETF {i}",
             "description": " ".join(rng.choice(words, size=30)),
             "composition": {f"T{t}": float(w) for t, w in zip(tickers, rng.dirichlet(np.ones(size)) * 80)},
@@ -91,3 +92,13 @@ def test_local_blocks_on_10000_etfs_in_less_than_60_seconds(local_settings):
     start = time.perf_counter()
     FeaturePipeline(local_settings).fit(data.iloc[:8000]).transform(data)
     assert time.perf_counter() - start < 60
+
+
+def test_dataset_fingerprint_changes_with_the_ticker_only():
+    import pandas as pd
+
+    from etf_classifier.features.pipeline import dataset_fingerprint
+
+    row = {"ticker": "AAA", "name": "N", "description": "d", "composition": {"X": 1.0}, "categories": ["Gold"]}
+    first = dataset_fingerprint(pd.DataFrame([row]))
+    assert dataset_fingerprint(pd.DataFrame([{**row, "ticker": "BBB"}])) != first

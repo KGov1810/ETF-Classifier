@@ -28,7 +28,7 @@ def test_identical_composition_gives_similarity_1_and_a_near_duplicate_alert(ind
 
 def test_small_etf_contained_in_a_large_one_is_not_identical(small_pipeline, isolated_settings):
     large = {f"T{i}": 10.0 for i in range(10)}
-    reference = pd.DataFrame([{"row_id": 0, "name": "Large", "description": "broad",
+    reference = pd.DataFrame([{"row_id": 0, "ticker": "LRG", "name": "Large", "description": "broad",
                                "composition": large, "categories": ["A"]}])
     index = SimilarityIndex.build(reference, FeaturePipeline(isolated_settings).fit(reference), isolated_settings)
     query = _query_df(composition={"T0": 10.0, "T1": 10.0, "T2": 10.0})
@@ -84,3 +84,14 @@ def test_100_queries_on_10000_etfs_in_less_than_10_seconds(make_synthetic, isola
     start = time.perf_counter()
     index.query(queries, pipeline, k=5)
     assert time.perf_counter() - start < 10
+
+
+def test_neighbors_carry_their_ticker_so_same_names_are_told_apart(small_reference, isolated_settings):
+    from etf_classifier.features.pipeline import FeaturePipeline
+    from etf_classifier.similarity.index import SimilarityIndex
+
+    reference = small_reference.assign(name=["World", "World", "Gold Miners", "Physical Gold"])
+    pipeline = FeaturePipeline(isolated_settings).fit(reference)
+    index = SimilarityIndex.build(reference, pipeline, isolated_settings)
+    neighbors = index.query(reference.head(1), pipeline, k=3, exclude_row_ids=[0])[0].neighbors
+    assert neighbors[0].ticker == "WLDB" and neighbors[0].name == "World"

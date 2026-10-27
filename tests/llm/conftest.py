@@ -5,19 +5,20 @@ from types import SimpleNamespace
 import pytest
 
 
-def _neighbor(name, categories, overlap):
-    return SimpleNamespace(name=name, categories=categories, overlap_pct=overlap, score=0.8,
-                           shared_holdings=[("NEM", 10.0)])
+def _neighbor(i, category, overlap):
+    return SimpleNamespace(ticker=f"NB{i}", name=f"Neighbour {i}", categories=[category], overlap_pct=overlap,
+                           score=0.8, shared_holdings=[("NEM", 10.0)])
 
 
 @pytest.fixture
 def proposal():
     holdings = {f"T{i}": float(20 - i) for i in range(14)}  # 14 holdings: only the 10 largest are sent
     return SimpleNamespace(
-        name="Global Gold Miners", description="Companies mining gold worldwide",
-        composition=holdings, categories=["Gold", "Commodities"],
-        scores=[("Gold", 0.91), ("Commodities", 0.74), ("Global Equity", 0.20)], uncertain=False,
-        neighbors=[_neighbor(f"Neighbour {i}", ["Gold"], 50.0 - i) for i in range(7)],
+        ticker="GGMX", name="Global Gold Miners", description="Companies mining gold worldwide",
+        composition=holdings, categories=["Gold"],
+        scores=[("Gold", 0.71), ("Commodities", 0.19), ("Global Equity", 0.10)], uncertain=False,
+        neighbors=[_neighbor(i, "Gold", 50.0 - i) for i in range(7)],
+        established="Commodities", established_score=0.19, check="disagreement",
         model_version="20261025-120000",
     )
 
@@ -31,11 +32,10 @@ def known_categories():
 @pytest.fixture
 def valid_answer():
     return {
-        "summary": "A gold miners ETF; Gold and Commodities fit.",
-        "categories": [{"category": "Gold", "verdict": "fits", "reason": "Gold mining companies."},
-                       {"category": "Commodities", "verdict": "doubtful", "reason": "Equities, not commodities."}],
-        "suggested_additions": [],
-        "suggested_removals": ["Commodities"],
+        "summary": "A gold miners ETF: Gold fits better than Commodities.",
+        "verdict": "fits",
+        "reason": "Its holdings are gold mining companies.",
+        "alternative": None,
         "new_category": None,
         "inconsistency": None,
         "confidence": "high",

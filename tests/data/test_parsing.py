@@ -3,7 +3,8 @@ import pytest
 from etf_classifier.data.parsing import (
     ParsingError,
     WeightError,
-    parse_categories,
+    normalize_etf_ticker,
+    parse_category,
     parse_composition,
     parse_composition_items,
 )
@@ -56,22 +57,17 @@ def test_composition_never_evaluates_code():
         parse_composition("__import__('os').system('echo pwned')")
 
 
-def test_categories_are_stripped_and_deduplicated_in_order():
-    assert parse_categories("[' Global Equity ', 'ESG', 'Global Equity']") == ["Global Equity", "ESG"]
+def test_category_is_one_plain_text_value_stripped():
+    assert parse_category("  Global Equity ") == "Global Equity"
 
 
-def test_empty_category_list_gives_empty_list():
-    assert parse_categories("[]") == []
+def test_empty_category_gives_empty_text():
+    assert parse_category("") == "" and parse_category(None) == ""
 
 
-def test_unreadable_categories_raise():
-    with pytest.raises(ParsingError):
-        parse_categories("['US Equity'")
-
-
-def test_categories_must_be_strings():
-    with pytest.raises(ParsingError):
-        parse_categories("[1, 2]")
+@pytest.mark.parametrize("raw, expected", [(" iwda ", "IWDA"), ("IWDA  LN", "IWDA LN"), ("", ""), (None, "")])
+def test_etf_ticker_is_trimmed_and_upper_cased(raw, expected):
+    assert normalize_etf_ticker(raw) == expected
 
 
 def test_format_composition_is_the_inverse_of_parsing():

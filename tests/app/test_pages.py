@@ -62,6 +62,7 @@ def _fill_single_etf(at: AppTest) -> AppTest:
     at.session_state["single_holdings_init"] = pd.DataFrame(
         {"Ticker": ["NEM", "GOLD", "AEM"], "Weight (%)": [11.0, 9.0, 8.0]})
     at.run()
+    at.text_input(key="single_ticker").input("NGMX")
     at.text_input(key="single_name").input("New Gold Miners")
     at.text_area(key="single_description").input("Global gold mining companies")
     at.button(key="single_propose").click()
@@ -79,7 +80,8 @@ def test_single_etf_propose_then_validate_writes_one_journal_line(trained_settin
     at.run()
     assert not at.exception
     journal = FeedbackStore(trained_settings).read_journal()
-    assert list(journal["Name"]) == ["New Gold Miners"]
+    assert list(journal["Ticker"]) == ["NGMX"] and list(journal["Name"]) == ["New Gold Miners"]
+    assert journal.iloc[0]["Category"] == journal.iloc[0]["PredictedCategory"]
     assert journal.iloc[0]["ValidatedBy"] == "Alice Martin"
     assert "Validated" in _texts(at, "success")
     assert at.button(key="single_validate").disabled
@@ -98,6 +100,7 @@ def test_single_etf_input_errors_are_shown(trained_settings, use_settings):
     at = _app("pages/1_Single_ETF.py").run()
     at.session_state["single_holdings_init"] = pd.DataFrame({"Ticker": ["AAPL"], "Weight (%)": [-5.0]})
     at.run()
+    at.text_input(key="single_ticker").input("BAD")
     at.text_input(key="single_name").input("Bad ETF")
     at.button(key="single_propose").click()
     at.run()
@@ -125,15 +128,20 @@ def test_embeddings_model_asks_for_cost_confirmation_before_proposing(trained_em
     assert at.button(key="single_validate")
 
 
-def _batch_bytes(sample_csv) -> bytes:
+def _batch_bytes(sample_csv, keep_classification=False) -> bytes:
     frame = pd.read_csv(sample_csv, sep=";", dtype=str, keep_default_na=False)
-    frame = frame[frame["Name"].isin(["Gold Miners", "US Tech", "Negative Weight"])]
-    frame = frame.assign(Name=frame["Name"] + " II")
-    return frame.drop(columns=["Category"]).to_csv(sep=";", index=False).encode("utf-8")
+    frame = frame[frame["Nom"].isin(["Gold Miners", "US Tech", "Negative Weight"])]
+    frame = frame.assign(Nom=frame["Nom"] + " II", Ticker=frame["Ticker"] + "2")
+    if keep_classification:  # the gold ETF is given a doubtful established classification
+        frame.loc[frame["Nom"] == "Gold Miners II", "Classification"] = "Technology"
+    else:
+        frame = frame.drop(columns=["Classification"])
+    return frame.to_csv(sep=";", index=False).encode("utf-8")
 
 
-def _upload_batch(at: AppTest, sample_csv) -> AppTest:
-    at.file_uploader(key="batch_file").upload("new_etfs.csv", _batch_bytes(sample_csv), "text/csv")
+def _upload_batch(at: AppTest, sample_csv, keep_classification=False) -> AppTest:
+    at.file_uploader(key="batch_file").upload("new_etfs.csv", _batch_bytes(sample_csv, keep_classification),
+                                              "text/csv")
     at.run()
     at.button(key="batch_propose").click()
     return at.run()
@@ -167,11 +175,29 @@ def test_batch_queue_validate_then_skip(trained_settings, use_settings, sample_c
     assert "1 validated" in _texts(at, "markdown") + _texts(at, "caption") + _texts(at, "success")
 
 
+def test_batch_shows_the_established_classification_and_lets_it_be_picked(trained_settings, use_settings,
+                                                                         sample_csv):
+    use_settings(trained_settings)
+    at = _app("pages/2_Batch.py").run()
+    at.sidebar.selectbox(key="validator").select("Bruno Leroy")
+    at = _upload_batch(at, sample_csv, keep_classification=True)
+    assert not at.exception
+    first = at.session_state["batch_proposals"][at.session_state["batch_order"][0]]
+    assert (first.ticker, first.check) == ("GDX2", "disagreement")  # disagreements come first
+    texts = _texts(at, "caption") + _texts(at, "warning")
+    assert "Established classification" in texts and "1 disagreement" in texts
+    established = first.established
+    at.button(key="batch_use_established").click()
+    at.run()
+    assert at.selectbox(key="batch_category").value == established
+
+
 def _validate_directly(settings, name):
 
     store = FeedbackStore(settings)
-    return store.record_validation({"name": name, "description": "d", "composition": {"NEM": 5.0}},
-                                   ["Gold"], "Alice Martin", predicted_categories=["Gold"], model_version="v1")
+    return store.record_validation({"ticker": name.upper().replace(" ", ""), "name": name, "description": "d",
+                                    "composition": {"NEM": 5.0}}, "Gold", "Alice Martin",
+                                   predicted_category="Gold", model_version="v1")
 
 
 def test_history_page_empty_journal(trained_settings, use_settings):
@@ -257,3 +283,13 @@ def test_batch_queue_offers_the_llm_explanation(azure_configured, trained_settin
     assert not at.exception
     assert len(azure_configured.calls) == 1
     assert at.button(key="batch_apply")
+
+
+def test_an_alternative_category_is_selected_in_one_click(trained_settings, use_settings):
+    use_settings(trained_settings)
+    at = _fill_single_etf(_app("pages/1_Single_ETF.py").run())
+    second = at.session_state["single_proposal"].scores[1][0]
+    at.button(key="single_alt_0").click()
+    at.run()
+    assert not at.exception
+    assert at.selectbox(key="single_category").value == second

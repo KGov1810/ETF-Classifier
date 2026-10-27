@@ -32,7 +32,7 @@ class JustificationStore:
         with self.path.open(encoding="utf-8") as handle:
             return [json.loads(line) for line in handle if line.strip()]
 
-    def append(self, etf_name: str, model_version: str, deployment: str, answer: dict, input_tokens: int,
+    def append(self, ticker: str, etf_name: str, model_version: str, deployment: str, answer: dict, input_tokens: int,
                output_tokens: int, cost_usd: float | None) -> str:
         """Records a justification; returns its identifier."""
         record_id = new_record_id()
@@ -40,7 +40,8 @@ class JustificationStore:
             "type": JUSTIFICATION, "id": record_id,
             "created_at": utc_timestamp(),
             "prompt_version": PROMPT_VERSION, "deployment": deployment, "model_version": model_version,
-            "etf_name": etf_name, "answer": answer, "input_tokens": input_tokens, "output_tokens": output_tokens,
+            "ticker": ticker, "etf_name": etf_name, "answer": answer, "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
             "cost_usd": cost_usd,
         })
         return record_id

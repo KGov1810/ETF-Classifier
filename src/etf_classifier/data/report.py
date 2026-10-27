@@ -66,7 +66,6 @@ def build_report(csv_path: str | Path, settings: dict) -> Report:
         "excluded_rows": len({(i.row_id, i.line) for i in log.exclusions()}),
         "rows_with_warnings": len({i.row_id for i in log.warnings()}),
         "n_categories": int(category_counts.size),
-        "mean_categories_per_etf": float(data["categories"].map(len).mean()) if len(data) else 0.0,
         "n_raw_tickers": len(raw_tickers),
         "n_tickers": len(tickers),
         "n_groups": dedup.n_groups,
@@ -92,8 +91,7 @@ def build_report(csv_path: str | Path, settings: dict) -> Report:
     lines += _issues_section("Warnings", log.warnings(), "No warning.")
 
     lines += ["## Categories", "",
-              f"{stats['n_categories']} distinct categories, "
-              f"{stats['mean_categories_per_etf']:.2f} categories per ETF on average.", ""]
+              f"{stats['n_categories']} distinct categories (one per ETF).", ""]
     if category_counts.size:
         lines += [markdown_table(["Category", "Number of ETFs"], [[c, int(n)] for c, n in category_counts.items()]), ""]
 

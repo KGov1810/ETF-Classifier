@@ -6,8 +6,9 @@ from etf_classifier.app import services
 from etf_classifier.data.loader import load_dataset
 
 
-def _etf(settings, name, description, holdings):
-    checked = services.etf_from_inputs(name, description, pd.DataFrame(holdings, columns=["Ticker", "Weight (%)"]),
+def _etf(settings, name, description, holdings, ticker="NEWX"):
+    checked = services.etf_from_inputs(ticker, name, description,
+                                       pd.DataFrame(holdings, columns=["Ticker", "Weight (%)"]),
                                        settings)
     assert checked.errors == []
     return checked.data
@@ -17,12 +18,14 @@ def test_proposal_contains_categories_scores_neighbours_and_version(trained_sett
     bundle = services.load_current_model(trained_settings)
     data = _etf(trained_settings, "New Gold", "Global gold miners", [["NEM", 11.0], ["GOLD", 9.0], ["AEM", 8.0]])
     proposal = services.propose(data, bundle, trained_settings)[0]
-    assert 1 <= len(proposal.categories) <= trained_settings["model"]["max_categories"]
+    assert len(proposal.categories) == 1 and proposal.category == proposal.categories[0]
+    assert proposal.ticker == "NEWX"
     assert len(proposal.scores) <= trained_settings["app"]["n_scores_shown"]
     assert proposal.scores == sorted(proposal.scores, key=lambda item: -item[1])
     assert len(proposal.neighbors) == trained_settings["similarity"]["n_neighbors"]
     assert proposal.model_version == bundle.version
-    assert proposal.neighbors[0].name == "Gold Miners"
+    assert (proposal.neighbors[0].ticker, proposal.neighbors[0].name) == ("GDX", "Gold Miners")
+    assert proposal.check is None and proposal.established == ""
 
 
 def test_copy_of_an_existing_etf_raises_the_near_duplicate_alert(trained_settings):
@@ -37,9 +40,9 @@ def test_copy_of_an_existing_etf_raises_the_near_duplicate_alert(trained_setting
 def test_typed_etf_and_csv_etf_get_the_same_proposal(trained_settings, sample_csv):
     bundle = services.load_current_model(trained_settings)
     from_csv = load_dataset(sample_csv, trained_settings).data
-    from_csv = from_csv[from_csv["name"] == "Europe Dividend"].reset_index(drop=True)
+    from_csv = from_csv[from_csv["ticker"] == "EUDV"].assign(categories=[[]]).reset_index(drop=True)
     typed = _etf(trained_settings, "Europe Dividend", "High-dividend European equities",
-                 [["NESN", 4.0], ["TTE", 3.8], ["ALV", 3.5], ["SAN", 3.0]])
+                 [["NESN", 4.0], ["TTE", 3.8], ["ALV", 3.5], ["SAN", 3.0]], ticker="EUDV")
     a = services.propose(from_csv, bundle, trained_settings)[0]
     b = services.propose(typed, bundle, trained_settings)[0]
     assert a.categories == b.categories
@@ -94,3 +97,17 @@ def test_model_without_similarity_index_still_proposes(trained_settings):
     proposal = services.propose(data, bundle, trained_settings)[0]
     assert proposal.categories
     assert proposal.neighbors == [] and not proposal.similarity_available
+
+
+def test_established_classification_is_checked(trained_settings, sample_csv):
+    bundle = services.load_current_model(trained_settings)
+    batch = services.load_batch(sample_csv.read_bytes(), trained_settings).data
+    gold = batch[batch["ticker"] == "GDX"].reset_index(drop=True)
+    agree = services.propose(gold, bundle, trained_settings)[0]
+    other = "Technology" if agree.category != "Technology" else "Gold"
+    disagree = services.propose(gold.assign(categories=[[other]]), bundle, trained_settings)[0]
+    unknown = services.propose(gold.assign(categories=[["Crypto"]]), bundle, trained_settings)[0]
+    assert agree.established == "Gold" and agree.check in {"agreement", "disagreement"}
+    assert (disagree.check, disagree.established) == ("disagreement", other)
+    assert disagree.established_score == pytest.approx(dict(disagree.scores)[other])
+    assert (unknown.check, unknown.established_score) == ("unknown", None)

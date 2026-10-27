@@ -16,13 +16,12 @@ NOISE_TICKERS = [f"N{i}" for i in range(500)]
 
 
 def make_synthetic(n_etfs: int = 400, seed: int = 0) -> pd.DataFrame:
-    """ETFs with 1 or 2 categories; description and composition mix signatures and noise."""
+    """ETFs with one category and a unique ticker; description and composition mix signatures and noise."""
     rng = np.random.default_rng(seed)
     names = list(CATEGORIES)
     rows = []
     for i in range(n_etfs):
-        n_cats = 1 if rng.random() < 0.7 else 2
-        cats = list(rng.choice(names, size=n_cats, replace=False))
+        cats = [rng.choice(names)]
         words, tickers = [], {}
         for cat in cats:
             cat_words, cat_tickers = CATEGORIES[cat]
@@ -33,6 +32,7 @@ def make_synthetic(n_etfs: int = 400, seed: int = 0) -> pd.DataFrame:
         for ticker in rng.choice(NOISE_TICKERS, size=10, replace=False):
             tickers[str(ticker)] = float(rng.uniform(0.5, 3))
         rows.append({
+            "ticker": f"SYN{i}",
             "name": f"ETF {i}",
             "description": " ".join(rng.permutation(words)),
             "composition": tickers,

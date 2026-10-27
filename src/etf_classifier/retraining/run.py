@@ -80,8 +80,8 @@ def _compare_with_current(trained, prepared, current_bundle, settings: dict, emb
     shared, new_categories, _ = shared_categories(current_bundle, candidate_bundle)
     n = len(comparison.data)
     if n and shared:
-        current_scores = score(current_bundle, comparison.data, shared, settings)
-        candidate_scores = score(candidate_bundle, comparison.data, shared, settings)
+        current_scores = score(current_bundle, comparison.data, shared)
+        candidate_scores = score(candidate_bundle, comparison.data, shared)
     else:
         current_scores, candidate_scores = _empty_scores(), _empty_scores()
     decision = decide(current_scores, candidate_scores, trained.outcome.metrics.f1_macro,

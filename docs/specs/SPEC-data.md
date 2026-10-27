@@ -2,6 +2,8 @@
 
 Status: **approved** (2026-10-25)
 
+> **Amended on 2026-10-27** by [CHANGE-input-format](CHANGE-input-format.md): input CSV `Ticker;Nom;Description;Classification;Composition`, one category per ETF, ticker as the ETF identifier. Where this spec and the change spec differ, the change spec prevails.
+
 ## Objective
 
 Provide the other modules with a **reliable, clean and reproducible** dataset from the ETF CSV:
@@ -17,9 +19,11 @@ Users of the module: the `features`, `model`, `similarity`, `feedback` and `retr
 
 1. CSV encoded in **UTF-8**, **semicolon** separator (`;`). These settings remain editable in `settings.yaml`.
    Cells that themselves contain a `;`, for example in a description, must be quoted; otherwise the row is reported as malformed.
-2. Columns: `Name`, `Description`, `Composition`, `Category`.
+2. Columns: `Ticker`, `Nom`, `Description`, `Classification`, `Composition`, in any order (names set in `settings.yaml`).
+   `Ticker`, `Nom` and `Classification` are always filled; `Description` may be empty when a composition is given.
+   The ticker (trimmed, upper-cased) identifies the ETF; two ETFs may share a name.
 3. Composition: `[{'AAPL': 6.5}, {'MSFT': 6.1}]`. Holdings are **tickers**, with weights in percent and a decimal point.
-4. Category: `['Global Equity', 'ESG']`, from 1 to N categories of different kinds per ETF.
+4. Classification: **one** category per ETF, as plain text (`Global Equity`).
 5. **Variable coverage**: the composition is complete for ETFs with few holdings, and limited to the top holdings for the others. The sum of the weights can therefore range from about 10 to 100.
 
 ## Features
@@ -67,7 +71,7 @@ Every invalid row is **excluded from the usable dataset and listed in a report**
 ### 6. Quality report
 `python -m etf_classifier.data.report` displays:
 - the number of valid rows, rows with warnings and excluded rows, with the reason;
-- the number of categories, the count per category and the average number of categories per ETF;
+- the number of categories and the count per category;
 - the number of near-duplicate groups and the size of the largest one;
 - the most frequent holdings before and after normalisation.
 
@@ -149,7 +153,7 @@ def parse_composition(raw: str) -> dict[str, float]:
 4. Downstream modules can call `load_dataset()` and `make_split()` without any further processing.
 
 ## Decisions made
-- Columns `Name;Description;Composition;Category`, `;` separator, UTF-8 encoding.
+- Columns `Ticker;Nom;Description;Classification;Composition` (amended on 2026-10-27), `;` separator, UTF-8 encoding.
 - Near-duplicates grouped by weighted overlap, threshold 0.80, relative to the smallest coverage.
 - Holdings identified by ticker; exchange suffixes kept by default.
 - Variable composition coverage, measured in the `coverage` column.

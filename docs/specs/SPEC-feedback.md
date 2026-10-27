@@ -2,6 +2,8 @@
 
 Status: **approved** (2026-10-25)
 
+> **Amended on 2026-10-27** by [CHANGE-input-format](CHANGE-input-format.md): input CSV `Ticker;Nom;Description;Classification;Composition`, one category per ETF, ticker as the ETF identifier. Where this spec and the change spec differ, the change spec prevails.
+
 ## Objective
 
 Record the team's validations **safely and traceably**, so that every validated ETF enriches
@@ -28,11 +30,11 @@ Journal columns:
 | Column | Content |
 |---|---|
 | `ValidationId` | Unique identifier of the validation |
-| `Name`, `Description`, `Composition`, `Category` | The ETF, in the reference CSV format; `Category` = validated categories |
+| `Ticker`, `Name`, `Description`, `Composition`, `Category` | The ETF; `Category` = the validated category (one; amended on 2026-10-27). The latest active validation of a ticker replaces its reference row |
 | `ValidatedBy` | Validator's name or e-mail |
 | `ValidatedAt` | UTC date and time |
 | `ModelVersion` | Version of the model that made the proposal |
-| `PredictedCategories` | Categories proposed by the model |
+| `PredictedCategory` | Category proposed by the model |
 | `Decision` | `accepted` (proposal unchanged), `corrected` (categories added or removed), `cancellation` |
 | `CancelsId` | For a cancellation, the cancelled validation |
 | `Comment` | Optional free comment |
@@ -65,7 +67,7 @@ Journal columns:
 
 ### 5. Batch import (before the interface)
 `python -m etf_classifier.feedback.importer --csv validated.csv --by "First Last" [--create-categories]`
-- Input format: the one produced by `model.predict`, completed by the team with a `Category` column (validated categories).
+- Input format: the input CSV format, `Classification` = the validated category; the output of `model.predict` can be imported as it is once `Classification` is completed or corrected (amended on 2026-10-27).
 - Every line goes through the same checks. The import report shows the accepted and refused lines, with the reason.
 
 ### 6. Monitoring report

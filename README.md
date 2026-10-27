@@ -1,11 +1,11 @@
 # ETF Classifier
 
-Proposes one or more categories for every new ETF, learned from 5,000 to 10,000 ETFs the team has already
-categorised. A team member validates or corrects each proposal in a web interface; validated ETFs enrich the
-dataset, and the model is retrained every day.
+Proposes a category for every new ETF, learned from 5,000 to 10,000 ETFs the team has already categorised, and
+checks classifications already established. A team member validates or corrects each proposal in a web interface;
+validated ETFs enrich the dataset, and the model is retrained every day.
 
 ```
- new ETFs ──► model proposes categories ──► team validates in the app ──► journal of validations
+ new ETFs ──► model proposes a category ──► team validates in the app ──► journal of validations
                   ▲          + closest ETFs       (+ optional GPT-6.1 Sol          │
                   │          + near-duplicates      second opinion)               │
                   └──────────── daily retraining, promoted only if not worse ◄─────┘
@@ -37,7 +37,7 @@ Python 3.11 or later, from the project folder.
    ```bash
    python -m etf_classifier.model.train --csv data/raw/etfs.csv --no-azure
    ```
-   Macro F1 against the trivial baseline → `reports/model_<version>.md`.
+   Macro F1 and accuracy against the trivial baseline → `reports/model_<version>.md`.
 5. **Open the interface**
    ```bash
    streamlit run src/etf_classifier/app/Home.py      # http://localhost:8501
@@ -53,21 +53,24 @@ Choose your name in the sidebar, then:
 
 | Screen | What you do |
 |---|---|
-| **Single ETF** | Enter the name, the description and the composition (editable table; two columns can be pasted from Excel), then *Propose categories*. Review the proposed categories (pre-ticked), the scores, the closest ETFs and any near-duplicate alert, adjust, then *Validate*. |
-| **Batch** | Upload a CSV `Name;Description;Composition`. Refused rows are listed with their reason; the others are validated one by one (*Next ETF*, *Skip*), uncertain ones first if you wish. |
-| **History** | Recent validations, with filters. Cancel a mistake (a comment is required: nothing is ever deleted). Read the LLM justification of a validation. |
+| **Single ETF** | Enter the ticker, the name, the description (optional when a composition is given) and the composition (editable table; two columns can be pasted from Excel), then *Propose a category*. Review the proposed category (pre-selected), the scores, the closest ETFs and any near-duplicate alert; pick another category in one click if needed, then *Validate*. |
+| **Batch** | Upload a CSV in the [input format](#data-format), `Classification` optional. Refused rows are listed with their reason. When a classification is given, the model checks it: disagreements and unknown categories come first, then uncertain proposals; the established category can be picked in one click. ETFs are validated one by one (*Next ETF*, *Skip*). |
+| **History** | Recent validations, with filters (validator, decision, name or ticker). Cancel a mistake (a comment is required: nothing is ever deleted). Read the LLM justification of a validation. |
 | **Monitoring** | Acceptance rates and bias alerts, current model and its last retraining runs, Azure costs. |
 
-**Second opinion with GPT-6.1 Sol.** Under a proposal, *Explain with GPT-6.1 Sol* gives a verdict for each
-proposed category, categories to add or remove, a possible new category, and an alert when the description and
-the holdings contradict each other. The estimated cost is shown and must be confirmed; the same request is never
-paid twice. *Apply the suggestions* updates your selection, and you still decide.
+**Second opinion with GPT-6.1 Sol.** Under a proposal, *Explain with GPT-6.1 Sol* gives a verdict on the proposed
+category (taking the established classification into account, if any), a better category among the known ones, a
+possible new category, and an alert when the description and the holdings contradict each other. The estimated cost
+is shown and must be confirmed; the same request is never paid twice. *Apply the suggestion* updates your selection,
+and you still decide.
 
 **Good habits**
 - A proposal flagged **uncertain** deserves a careful look: it may need a new category.
 - If you always accept proposals unchanged, the Monitoring page raises a **bias alert**: the model would end up
   learning its own mistakes.
 - A new category is proposed by the model only after the next retraining, once it has enough examples.
+- Validating a ticker that is already known replaces its classification (the latest validation wins; cancelling it
+  restores the previous one).
 - Do not open `data/validations.csv` in Excel while the team validates (Windows locks the file).
 
 Each validation is saved immediately. The next daily retraining learns from it; the app picks up the new
@@ -127,26 +130,31 @@ favour: retrain it once with `python -m etf_classifier.model.train --csv data/ra
 
 ### Data format
 
-UTF-8 CSV, `;` separator (cells containing a `;` must be quoted):
+UTF-8 CSV, `;` separator (cells containing a `;` must be quoted), columns in any order:
 
-| Column | Example |
-|---|---|
-| `Name` | `iShares Core MSCI World` |
-| `Description` | `Tracks the MSCI World index…` (English) |
-| `Composition` | `[{'AAPL': 5.1}, {'MSFT': 4.6}, {'NVDA': 4.2}]`: tickers and weights in %, top holdings only is fine |
-| `Category` | `['Global Equity', 'ESG']`: one or more categories (omitted for new ETFs) |
+| Column | Example | Rule |
+|---|---|---|
+| `Ticker` | `IWDA` | Required; identifies the ETF (spaces trimmed, upper-cased). A ticker on several rows excludes all of them |
+| `Nom` | `iShares Core MSCI World` | Required; two ETFs may share a name |
+| `Description` | `Tracks the MSCI World index…` (English) | Optional when a composition is given |
+| `Classification` | `Global Equity` | One category. Required for the reference CSV; optional for ETFs to classify, where it is checked by the model |
+| `Composition` | `[{'AAPL': 5.1}, {'MSFT': 4.6}, {'NVDA': 4.2}]` | Tickers and weights in %, top holdings only is fine; optional when a description is given |
+
+A row with neither description nor composition is excluded. The header names can be changed in
+`config/settings.yaml` (`csv.columns`).
 
 ### Modules
 
 Each module has its specification in [`docs/specs/`](docs/specs/); the architecture and the build order are in
-[`docs/CAPABILITY-MAP.md`](docs/CAPABILITY-MAP.md).
+[`docs/CAPABILITY-MAP.md`](docs/CAPABILITY-MAP.md). The change to the current input format (ticker, one category per
+ETF) is described in [`docs/specs/CHANGE-input-format.md`](docs/specs/CHANGE-input-format.md).
 
 | Module | Role | Spec |
 |---|---|---|
 | `data` | Loading, quality checks, ticker normalisation, near-duplicates, train/test split | [SPEC-data](docs/specs/SPEC-data.md) |
 | `costs` | Azure OpenAI cost estimate before a call, actual cost after it, report in USD | [SPEC-costs](docs/specs/SPEC-costs.md) |
 | `features` | Text (TF-IDF), holdings and composition statistics, cached Azure embeddings | [SPEC-features](docs/specs/SPEC-features.md) |
-| `model` | One logistic regression per category, thresholds, evaluation, versioned registry | [SPEC-model](docs/specs/SPEC-model.md) |
+| `model` | Single-category logistic regression, evaluation, established classification check, versioned registry | [SPEC-model](docs/specs/SPEC-model.md) |
 | `similarity` | Closest ETFs (composition + text), near-duplicate alert, neighbour vote | [SPEC-similarity](docs/specs/SPEC-similarity.md) |
 | `feedback` | Validation journal under lock, category registry, batch import, bias monitoring | [SPEC-feedback](docs/specs/SPEC-feedback.md) |
 | `app` | Streamlit interface | [SPEC-app](docs/specs/SPEC-app.md) |
@@ -164,10 +172,10 @@ estimated cost and ask for confirmation, unless `--yes` is given (the daily retr
 | `python -m etf_classifier.features.build --csv … [--estimate-only] [--no-azure]` | Build and save the features | `artifacts/features/<version>/` |
 | `python -m etf_classifier.model.train --csv … [--no-azure] [--promote]` | Train, evaluate once, save | `artifacts/models/<version>/`, `reports/model_<version>.md` |
 | `python -m etf_classifier.model.compare --csv … --experiments local,local+embeddings` | Compare feature sets on the same split | `reports/model_comparison.md` |
-| `python -m etf_classifier.model.predict --csv new.csv [--output …]` | Proposals for new ETFs | CSV of proposals |
+| `python -m etf_classifier.model.predict --csv new.csv [--output …]` | Proposals for ETFs; check of the classifications already established (agreement, disagreement, unknown) | CSV of proposals, importable once `Classification` is completed |
 | `python -m etf_classifier.similarity.search --csv new.csv [--k 5]` | Closest ETFs, explained | CSV + Markdown summary |
 | `python -m etf_classifier.similarity.evaluate --csv …` | Neighbour vote vs model vs baseline | `reports/similarity_evaluation.md` |
-| `python -m etf_classifier.feedback.importer --csv validated.csv --by "First Last"` | Import validations made outside the app | journal |
+| `python -m etf_classifier.feedback.importer --csv validated.csv --by "First Last"` | Import validations made outside the app (input format, `Classification` = validated category) | journal |
 | `python -m etf_classifier.feedback.report [--since …]` | Acceptance rates, bias alert | `reports/feedback.md` |
 | `python -m etf_classifier.costs.report [--since …]` | Azure costs per day, module, operation | `reports/azure_costs.md` |
 | `python -m etf_classifier.retraining.run [--force] [--dry-run]` | Daily retraining (what the scheduler runs) | history + `reports/retraining_<version>.md` |

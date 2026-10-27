@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class Neighbor:
     row_id: int
+    ticker: str
     name: str
     categories: list[str]
     score: float
@@ -45,6 +46,7 @@ class SimilarityIndex:
 
     def __init__(self):
         self.row_ids: np.ndarray = np.array([], dtype=int)
+        self.tickers: list[str] = []
         self.names: list[str] = []
         self.categories: list[list[str]] = []
         self.compositions: list[dict[str, float]] = []
@@ -64,6 +66,7 @@ class SimilarityIndex:
         index = cls()
         index.row_ids = (reference["row_id"].to_numpy(dtype=int) if "row_id" in reference
                          else np.arange(len(reference)))
+        index.tickers = list(reference["ticker"])
         index.names = list(reference["name"])
         index.categories = [list(c) for c in reference["categories"]]
         index.compositions = [dict(c) for c in reference["composition"]]
@@ -169,7 +172,8 @@ class SimilarityIndex:
         shared = sorted(((t, min(composition[t], reference[t])) for t in set(composition) & set(reference)),
                         key=lambda item: (-item[1], item[0]))
         return Neighbor(
-            row_id=int(self.row_ids[j]), name=self.names[j], categories=self.categories[j], score=float(score),
+            row_id=int(self.row_ids[j]), ticker=self.tickers[j], name=self.names[j], categories=self.categories[j],
+            score=float(score),
             composition_similarity=float(comp_sim), text_similarity=float(text_sim),
             overlap_pct=100 * weighted_overlap(composition, reference) if composition and reference else 0.0,
             shared_holdings=shared[: self.n_shared], text_only=bool(text_only),
