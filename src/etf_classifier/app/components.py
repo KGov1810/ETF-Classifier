@@ -61,6 +61,13 @@ def sidebar(settings: dict):
             error = str(exc)
     if bundle is not None:
         st.sidebar.caption(f"Model {bundle.version}")
+        if missing := services.reference_mismatch(settings):
+            reference = settings["feedback"]["reference_csv"]
+            st.sidebar.warning(
+                f"The current model knows {len(missing)} category(ies) missing from {reference} "
+                f"(e.g. {md_escape(missing[0])}): it was trained on another CSV. Validations still work, but the "
+                f"daily retraining learns from {reference}: set feedback.reference_csv in config/settings.yaml "
+                "to the CSV the model was trained on.")
     if st.sidebar.button("Reload the model", help="After the daily retraining"):
         _cached_model.clear()
         st.rerun()

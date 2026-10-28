@@ -156,3 +156,27 @@ def test_retraining_runs_newest_first(isolated_settings):
 
 def test_no_retraining_run_yet(isolated_settings):
     assert services.retraining_runs(isolated_settings).empty
+
+
+def test_a_category_learned_by_the_model_can_always_be_validated(trained_settings, tmp_path):
+    """Bug of 2026-10-28: model trained on another CSV than feedback.reference_csv → 'Unknown category'."""
+    trained_settings["feedback"]["reference_csv"] = str(tmp_path / "absent.csv")
+    proposal = _proposal(trained_settings)
+    record = services.validate(proposal, proposal.category, "Alice Martin", trained_settings)
+    assert record["Category"] == proposal.category
+    assert proposal.category in services.known_categories(trained_settings)
+
+
+def test_new_category_without_a_name_gives_a_clear_message(trained_settings):
+    proposal = _proposal(trained_settings)
+    with pytest.raises(services.AppError, match="name of the new category"):
+        services.validate(proposal, "", "Alice Martin", trained_settings, create_category=True)
+
+
+def test_reference_mismatch_lists_the_model_categories_missing_from_the_reference_csv(trained_settings, tmp_path):
+    assert services.reference_mismatch(trained_settings) == []
+    other = tmp_path / "other.csv"
+    other.write_text("Ticker;Nom;Description;Classification;Composition\nX;X;d;Gold;[]\n", encoding="utf-8")
+    trained_settings["feedback"]["reference_csv"] = str(other)
+    missing = services.reference_mismatch(trained_settings)
+    assert "Gold" not in missing and "Global Equity" in missing

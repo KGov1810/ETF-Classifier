@@ -67,6 +67,16 @@ def current_version(settings: dict) -> str | None:
     return _read_registry(settings)["current"]
 
 
+def learned_categories(settings: dict) -> set[str]:
+    """Categories the current model was trained on (read from its metrics, without loading the model)."""
+    version = current_version(settings)
+    metrics_path = _root(settings) / version / "metrics.json" if version else None
+    if metrics_path is None or not metrics_path.exists():
+        return set()
+    metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+    return {row["category"] for row in metrics.get("per_category", [])}
+
+
 def save_bundle(model, pipeline, metrics: dict, settings: dict, model_card: str,
                 version: str | None = None, similarity=None, make_current_if_first: bool = True) -> Path:
     """Writes model + pipeline + metrics.json + MODEL_CARD.md; the first model becomes current

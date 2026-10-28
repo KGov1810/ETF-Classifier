@@ -293,3 +293,29 @@ def test_an_alternative_category_is_selected_in_one_click(trained_settings, use_
     at.run()
     assert not at.exception
     assert at.selectbox(key="single_category").value == second
+
+
+def test_sidebar_warns_when_the_model_was_trained_on_another_csv(trained_settings, use_settings, tmp_path):
+    other = tmp_path / "other.csv"
+    other.write_text("Ticker;Nom;Description;Classification;Composition\nX;X;d;Gold;[]\n", encoding="utf-8")
+    trained_settings["feedback"]["reference_csv"] = str(other)
+    use_settings(trained_settings)
+    at = _app("Home.py").run()
+    assert not at.exception
+    assert "reference_csv" in " ".join(w.value for w in at.sidebar.warning)
+
+
+def test_an_unknown_established_category_prefills_the_new_category(trained_settings, use_settings, sample_csv):
+    frame = pd.read_csv(sample_csv, sep=";", dtype=str, keep_default_na=False)
+    frame = frame[frame["Nom"] == "Gold Miners"].assign(Ticker="GDXN", Classification="Precious Metals")
+    use_settings(trained_settings)
+    at = _app("pages/2_Batch.py").run()
+    at.file_uploader(key="batch_file").upload("new.csv", frame.to_csv(sep=";", index=False).encode(), "text/csv")
+    at.run()
+    at.button(key="batch_propose").click()
+    at.run()
+    at.button(key="batch_use_established").click()
+    at.run()
+    assert not at.exception
+    assert at.checkbox(key="batch_create").value is True
+    assert at.text_input(key="batch_new_name").value == "Precious Metals"

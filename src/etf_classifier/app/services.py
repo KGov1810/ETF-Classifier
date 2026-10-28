@@ -27,7 +27,7 @@ from etf_classifier.llm.justify import Justifier, LLMUnavailable
 from etf_classifier.llm.prompts import AnswerError, Justification
 from etf_classifier.llm.store import JustificationStore
 from etf_classifier.model.check import AGREEMENT, DISAGREEMENT, UNKNOWN, check_established
-from etf_classifier.model.registry import NoModelError, load_bundle
+from etf_classifier.model.registry import NoModelError, learned_categories, load_bundle
 from etf_classifier.retraining.history import read_history
 
 TICKER_COLUMN, WEIGHT_COLUMN = "Ticker", "Weight (%)"
@@ -231,8 +231,23 @@ def _feedback_call(action):
 
 
 def known_categories(settings: dict) -> list[str]:
-    """Categories that can be selected in the validation form, sorted."""
-    return sorted(_feedback_call(lambda: FeedbackStore(settings).known_categories()))
+    """Categories that can be selected in the validation form, sorted: those of the reference CSV, the created
+    ones and those the current model learned."""
+    learned = learned_categories(settings)
+    return sorted(_feedback_call(lambda: FeedbackStore(settings).known_categories(learned)))
+
+
+def reference_mismatch(settings: dict) -> list[str]:
+    """Categories of the current model missing from the reference CSV (feedback.reference_csv), sorted.
+
+    Not empty when the model was trained on another CSV: the daily retraining would then learn from a different
+    dataset than the current model.
+    """
+    learned = learned_categories(settings)
+    if not learned:
+        return []
+    store = FeedbackStore(settings)
+    return sorted(learned - _feedback_call(store.reference_categories))
 
 
 def validate(proposal: Proposal, category: str, validator: str, settings: dict, comment: str = "",
@@ -244,11 +259,14 @@ def validate(proposal: Proposal, category: str, validator: str, settings: dict, 
     """
     if not str(validator or "").strip():
         raise AppError("Choose a validator before validating.")
+    if create_category and not str(category or "").strip():
+        raise AppError("Enter the name of the new category, or untick “Create a new category”.")
     etf = {"ticker": proposal.ticker, "name": proposal.name, "description": proposal.description,
            "composition": proposal.composition}
     record = _feedback_call(lambda: FeedbackStore(settings).record_validation(
         etf, category, validator, predicted_category=proposal.category, model_version=proposal.model_version,
-        comment=comment, create_category=create_category, category_description=category_description))
+        comment=comment, create_category=create_category, category_description=category_description,
+        learned_categories=learned_categories(settings)))
     if justification_id:
         try:
             JustificationStore(settings).link(justification_id, record["ValidationId"])

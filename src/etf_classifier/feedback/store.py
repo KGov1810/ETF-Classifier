@@ -89,17 +89,18 @@ class FeedbackStore:
         keep = (journal["Decision"] != CANCELLATION) & ~journal["ValidationId"].isin(cancelled)
         return journal[keep]  # the index stays the position in the journal (for line numbers)
 
-    def known_categories(self) -> set[str]:
-        """Historical and created categories (the registry is initialised from the original CSV if needed)."""
+    def known_categories(self, learned_categories=()) -> set[str]:
+        """Historical and created categories. The registry is completed with the categories of the original CSV
+        and with `learned_categories` (those of the current model, which may come from another training CSV)."""
         with self.locked():
-            self.registry.ensure_initialized(self._reference_categories())
+            self.registry.ensure_initialized(self.reference_categories() | set(learned_categories))
             return self.registry.known()
 
     def active_validations(self) -> pd.DataFrame:
         """Validations that have not been cancelled: they are the ones enriching the reference dataset."""
         return self._active(self.read_journal())
 
-    def _reference_categories(self) -> frozenset[str]:
+    def reference_categories(self) -> frozenset[str]:
         """Categories of the original CSV (read again only when the file changes)."""
         if not self.reference_csv.exists():
             logger.warning("Reference CSV not found (%s): registry initialised empty", self.reference_csv)
@@ -131,11 +132,12 @@ class FeedbackStore:
 
     def record_validation(self, etf: dict, category: str, validated_by: str, predicted_category: str | None = None,
                           model_version: str | None = None, comment: str = "", create_category: bool = False,
-                          category_description: str = "") -> dict:
+                          category_description: str = "", learned_categories=()) -> dict:
         """Checks then records a validation (one category); raises ValidationError or FeedbackError otherwise.
 
         A ticker already known (reference CSV or earlier validation) is accepted: the latest active validation
         replaces it when the dataset is loaded. category_description: description of a category created here.
+        learned_categories: categories of the current model, valid like the historical ones.
         """
         category = parse_category(category)
         ticker = normalize_etf_ticker(etf.get("ticker"))
@@ -143,7 +145,7 @@ class FeedbackStore:
         description = str(etf.get("description") or "").strip()
         composition = format_composition(etf.get("composition") or {})
         with self.locked():
-            self.registry.ensure_initialized(self._reference_categories())
+            self.registry.ensure_initialized(self.reference_categories() | set(learned_categories))
             errors = check_validation(ticker, name, description, composition, category, validated_by or "",
                                       self.registry.known(), create_category)
             if errors:
